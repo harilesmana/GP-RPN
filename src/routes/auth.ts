@@ -53,7 +53,7 @@ export const authRoutes = new Elysia()
       nama,
       email,
       password_hash: await hashPassword(password),
-      role: "siswa", // otomatis siswa
+      role: "siswa", 
     };
 
     users.push(newUser);
