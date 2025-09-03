@@ -1,20 +1,12 @@
 import { Elysia } from 'elysia';
-import { staticPlugin } from '@elysiajs/static';
 import { authMiddleware } from '../middleware/auth';
-import { securityHeaders } from '../middleware/security';
 import * as ejs from 'ejs';
 import { readFile } from 'fs/promises';
 import path from 'path';
 
 export const dashboardRoutes = new Elysia()
-  .use(staticPlugin({
-    assets: 'public',
-    prefix: '/public'
-  }))
   .use(authMiddleware)
-  .use(securityHeaders)
   
-
   .onBeforeHandle(({ user, set }) => {
     if (!user) {
       set.redirect = '/login';
