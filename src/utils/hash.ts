@@ -1,10 +1,18 @@
-import bcrypt from 'bcryptjs';
+import bcrypt from "bcryptjs";
 
-export const hashPassword = async (password: string): Promise<string> => {
-  const saltRounds = 10;
-  return await bcrypt.hash(password, saltRounds);
-};
 
-export const comparePassword = async (password: string, hash: string): Promise<boolean> => {
-  return await bcrypt.compare(password, hash);
-};
+export async function hashPassword(plain: string, saltRounds = 10) {
+  const salt = await bcrypt.genSalt(saltRounds);
+  return bcrypt.hash(plain, salt);
+}
+
+
+export async function verifyPassword(plain: string, hash: string) {
+  return bcrypt.compare(plain, hash);
+}
+
+
+export function validatePasswordStrength(pw: string) {
+  
+  return pw.length >= 6;
+}
