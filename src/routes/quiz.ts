@@ -11,13 +11,13 @@ export const quizRoutes = new Elysia()
   .use(inputValidation)
   .derive(authMiddleware as any)
 
-  
+
   .get("/quiz", ({ user, set }: any) => {
     if (!user) {
       set.status = 401;
       return { error: "Unauthorized" };
     }
-    
+
     const quizDenganMateri = quiz.map(q => {
       const materiQuiz = materi.find(m => m.id === q.materi_id);
       const userQuiz = users.find(u => u.id === q.created_by);
@@ -27,18 +27,18 @@ export const quizRoutes = new Elysia()
         created_by_user: userQuiz ? { id: userQuiz.id, nama: userQuiz.nama } : null
       };
     });
-    
+
     return { data: quizDenganMateri };
   })
 
-  
-  .get("/materi/:materi_id/quiz", ({ params, user, set }: any) => {
+
+  .get("/materi/:id/quiz", ({ params, user, set }: any) => {
     if (!user) {
       set.status = 401;
       return { error: "Unauthorized" };
     }
 
-    const materiId = Number(params.materi_id);
+    const materiId = Number(params.id);
     if (isNaN(materiId)) {
       set.status = 400;
       return { error: "ID materi tidak valid" };
@@ -54,11 +54,11 @@ export const quizRoutes = new Elysia()
         created_by_user: userQuiz ? { id: userQuiz.id, nama: userQuiz.nama } : null
       };
     });
-    
+
     return { data: quizDenganMateri };
   })
 
-  
+
   .get("/quiz/:id", ({ params, user, set }: any) => {
     if (!user) {
       set.status = 401;
@@ -81,18 +81,18 @@ export const quizRoutes = new Elysia()
     const materiQuiz = materi.find(m => m.id === quizDetail.materi_id);
     const userQuiz = users.find(u => u.id === quizDetail.created_by);
 
-    
-    const pertanyaanUntukUser = user.role === "siswa" 
+
+    const pertanyaanUntukUser = user.role === "siswa"
       ? pertanyaanQuiz.map(p => ({
-          id: p.id,
-          quiz_id: p.quiz_id,
-          teks: p.teks,
-          opsi_a: p.opsi_a,
-          opsi_b: p.opsi_b,
-          opsi_c: p.opsi_c,
-          opsi_d: p.opsi_d,
-          created_at: p.created_at
-        }))
+        id: p.id,
+        quiz_id: p.quiz_id,
+        teks: p.teks,
+        opsi_a: p.opsi_a,
+        opsi_b: p.opsi_b,
+        opsi_c: p.opsi_c,
+        opsi_d: p.opsi_d,
+        created_at: p.created_at
+      }))
       : pertanyaanQuiz;
 
     return {
@@ -106,13 +106,13 @@ export const quizRoutes = new Elysia()
     };
   })
 
-  
+
   .post("/quiz", async ({ sanitizedBody, user, set }: any) => {
     if (!user) {
       set.status = 401;
       return { error: "Unauthorized" };
     }
-    
+
     if (user.role !== "kepsek" && user.role !== "guru") {
       set.status = 403;
       return { error: "Forbidden: hanya kepsek dan guru yang boleh membuat quiz" };
@@ -127,7 +127,7 @@ export const quizRoutes = new Elysia()
       return { error: error.errors[0].message };
     }
 
-    
+
     const materiExists = materi.find(m => m.id === materi_id);
     if (!materiExists) {
       set.status = 404;
@@ -147,13 +147,13 @@ export const quizRoutes = new Elysia()
     return { data: newQuiz, message: "Quiz berhasil dibuat" };
   })
 
-  
+
   .post("/quiz/:id/pertanyaan", async ({ params, sanitizedBody, user, set }: any) => {
     if (!user) {
       set.status = 401;
       return { error: "Unauthorized" };
     }
-    
+
     if (user.role !== "kepsek" && user.role !== "guru") {
       set.status = 403;
       return { error: "Forbidden: hanya kepsek dan guru yang boleh menambah pertanyaan" };
@@ -182,7 +182,7 @@ export const quizRoutes = new Elysia()
       return { error: error.errors[0].message };
     }
 
-    
+
     const quizExists = quiz.find(q => q.id === quizId);
     if (!quizExists) {
       set.status = 404;
@@ -211,7 +211,7 @@ export const quizRoutes = new Elysia()
     return { data: newPertanyaan, message: "Pertanyaan berhasil ditambahkan" };
   })
 
-  
+
   .post("/quiz/:id/submit", async ({ params, sanitizedBody, user, set }: any) => {
     if (!user) {
       set.status = 401;
@@ -238,28 +238,28 @@ export const quizRoutes = new Elysia()
       return { error: error.errors[0].message };
     }
 
-    
+
     const quizExists = quiz.find(q => q.id === quizId);
     if (!quizExists) {
       set.status = 404;
       return { error: "Quiz tidak ditemukan" };
     }
 
-    
+
     const pertanyaanQuiz = pertanyaan.filter(p => p.quiz_id === quizId);
     if (pertanyaanQuiz.length === 0) {
       set.status = 400;
       return { error: "Quiz tidak memiliki pertanyaan" };
     }
 
-    
+
     let skor = 0;
     const hasilPertanyaan: any[] = [];
 
     pertanyaanQuiz.forEach(pertanyaan => {
       const jawabanUser = jawaban[pertanyaan.id];
       const benar = jawabanUser === pertanyaan.jawaban_benar;
-      
+
       if (benar) {
         skor++;
       }
@@ -275,7 +275,7 @@ export const quizRoutes = new Elysia()
 
     const nilaiPersen = (skor / pertanyaanQuiz.length) * 100;
 
-    
+
     const newNilai = {
       id: ++lastNilaiId,
       quiz_id: quizId,
@@ -302,7 +302,7 @@ export const quizRoutes = new Elysia()
     };
   })
 
-  
+
   .get("/quiz/:id/nilai", ({ params, user, set }: any) => {
     if (!user) {
       set.status = 401;
@@ -316,11 +316,11 @@ export const quizRoutes = new Elysia()
     }
 
     const nilaiUser = nilai.filter(n => n.quiz_id === quizId && n.user_id === user.id);
-    
+
     return { data: nilaiUser };
   })
 
-  
+
   .get("/quiz/:id/nilai/all", ({ params, user, set }: any) => {
     if (!user) {
       set.status = 401;
@@ -346,11 +346,11 @@ export const quizRoutes = new Elysia()
         user: userNilai ? { id: userNilai.id, nama: userNilai.nama } : null
       };
     });
-    
+
     return { data: nilaiDenganUser };
   })
 
-  
+
   .delete("/quiz/:id", ({ params, user, set }: any) => {
     if (!user) {
       set.status = 401;
@@ -375,14 +375,14 @@ export const quizRoutes = new Elysia()
     }
 
     const quizToDelete = quiz[quizIndex];
-    
-    
+
+
     if (quizToDelete.created_by !== user.id && user.role !== "kepsek") {
       set.status = 403;
       return { error: "Forbidden: hanya pembuat quiz atau kepsek yang boleh menghapus" };
     }
 
-    
+
     const pertanyaanIndexes: number[] = [];
     pertanyaan.forEach((p, index) => {
       if (p.quiz_id === quizId) {
@@ -390,7 +390,7 @@ export const quizRoutes = new Elysia()
       }
     });
 
-    
+
     const nilaiIndexes: number[] = [];
     nilai.forEach((n, index) => {
       if (n.quiz_id === quizId) {
@@ -398,7 +398,7 @@ export const quizRoutes = new Elysia()
       }
     });
 
-    
+
     pertanyaanIndexes.reverse().forEach(index => {
       pertanyaan.splice(index, 1);
     });
