@@ -21,80 +21,82 @@ export const authRoutes = new Elysia()
       message: query.message ?? ""
     });
   })
-  .post("/login", async ({ request, set, cookie, parseFormData }) => {
-    const body = await parseFormData();
-    const parsed = loginSchema.safeParse(body);
+  .post("/login", async ({ request, set, cookie }) => {
+  const formData = await request.formData();
+  const body: Record<string, string> = {};
 
-    if (!parsed.success) {
-      set.status = 400;
-      return parsed.error.issues.map((i) => i.message).join(", ");
-    }
+  for (const [key, value] of formData.entries()) {
+    body[key] = String(value);
+  }
 
-    const email = String(parsed.data.email).toLowerCase().trim();
-    const password = String(parsed.data.password);
+  const parsed = loginSchema.safeParse(body);
+  if (!parsed.success) {
+    set.status = 400;
+    return parsed.error.issues.map((i) => i.message).join(", ");
+  }
 
-    
-    const key = `login:${email}`;
-    const now = Date.now();
-    const bucket = loginAttempts.get(key);
-    if (bucket && now < bucket.unlockTime) {
-      set.status = 429;
-      const sisa = Math.ceil((bucket.unlockTime - now) / 1000);
-      return `Akun dikunci sementara. Coba lagi dalam ${sisa} detik.`;
-    }
-
-    const user = users.find(
-      (u) => u.email.toLowerCase() === email && u.status === "active"
-    );
-    if (!user) {
-      hit();
-      set.status = 401;
-      return "Email atau password salah.";
-    }
-
-    const ok = await verifyPassword(password, user.password_hash);
-    if (!ok) {
-      hit();
-      set.status = 401;
-      return "Email atau password salah.";
-    }
-
-    
-    loginAttempts.delete(key);
-
+  const email = String(parsed.data.email).toLowerCase().trim();
+  const password = String(parsed.data.password);
   
-    const secret = process.env.SESSION_SECRET || "dev_secret_change_me";
-    const token = signSession(
-      { userId: user.id, role: user.role, issuedAt: Math.floor(now / 1000) },
-      secret
-    );
+  const key = `login:${email}`;
+  const now = Date.now();
+  const bucket = loginAttempts.get(key);
 
-    cookie.session.set({
-      value: token,
-      httpOnly: true,
-      sameSite: "Lax",
-      secure: false,
-      maxAge: 60 * 60 * 8 
-    });
+  if (bucket && now < bucket.unlockTime) {
+    set.status = 429;
+    const sisa = Math.ceil((bucket.unlockTime - now) / 1000);
+    return `Akun dikunci sementara. Coba lagi dalam ${sisa} detik.`;
+  }
 
-    
-    set.status = 302;
-    set.headers.Location = "/dashboard";
-    return;
+  const user = users.find(
+    (u) => u.email.toLowerCase() === email && u.status === "active"
+  );
+  if (!user) {
+    hit();
+    set.status = 401;
+    return "Email atau password salah.";
+  }
 
-    function hit() {
-      if (!bucket || now > bucket.unlockTime) {
-        loginAttempts.set(key, { count: 1, unlockTime: 0 });
-      } else {
-        bucket.count++;
-        if (bucket.count >= MAX_ATTEMPTS) {
-          bucket.unlockTime = now + LOCK_MINUTES * 60_000;
-          bucket.count = 0;
-        }
-        loginAttempts.set(key, bucket);
+  const ok = await verifyPassword(password, user.password_hash);
+  if (!ok) {
+    hit();
+    set.status = 401;
+    return "Email atau password salah.";
+  }
+
+  loginAttempts.delete(key);
+
+  const secret = process.env.SESSION_SECRET || "dev_secret_change_me";
+  const token = signSession(
+    { userId: user.id, role: user.role, issuedAt: Math.floor(now / 1000) },
+    secret
+  );
+
+  cookie.session.set({
+    value: token,
+    httpOnly: true,
+    sameSite: "Lax",
+    secure: false,
+    maxAge: 60 * 60 * 8
+  });
+
+  set.status = 302;
+  set.headers.Location = "/dashboard";
+  return;
+
+  function hit() {
+    if (!bucket || now > bucket.unlockTime) {
+      loginAttempts.set(key, { count: 1, unlockTime: 0 });
+    } else {
+      bucket.count++;
+      if (bucket.count >= MAX_ATTEMPTS) {
+        bucket.unlockTime = now + LOCK_MINUTES * 60_000;
+        bucket.count = 0;
       }
+      loginAttempts.set(key, bucket);
     }
-  })
+  }
+})
   .post("/logout", ({ set, cookie }) => {
     if (cookie.session) cookie.session.set({ value: "", maxAge: 0 });
     set.status = 302;

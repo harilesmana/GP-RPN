@@ -7,7 +7,7 @@ import { rateLimit } from "./middleware/rateLimit";
 import { authRoutes } from "./routes/auth";
 import { dashboardRoutes } from "./routes/dashboard";
 
-// App
+
 const app = new Elysia()
   .use(cors()) 
   .use(cookie())
