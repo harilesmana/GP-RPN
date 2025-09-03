@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { Elysia } from "elysia";
 import { authRoutes } from "./routes/auth";
+import { dashboardRoutes } from "./routes/dashboard";
 import { materiRoutes } from "./routes/materi";
 import { komentarRoutes } from "./routes/komentar";
 import { quizRoutes } from "./routes/quiz";
@@ -8,35 +9,48 @@ import { adminRoutes } from "./routes/admin";
 import { rateLimit } from "./middleware/rateLimit";
 import { securityHeaders } from "./middleware/securityHeaders";
 import { inputValidation } from "./middleware/inputValidation";
+import ejs from "ejs";
+import { readFileSync } from "fs";
+import { join } from "path";
+
+
+function render(view: string, data: any = {}) {
+  const file = readFileSync(join(import.meta.dir, "../../views", view), "utf8");
+  return ejs.render(file, data);
+}
 
 const app = new Elysia()
-
+  
   .use(securityHeaders)
   .use(rateLimit)
   .use(inputValidation)
-
-
+  
+  
   .use(authRoutes)
+  .use(dashboardRoutes)
   .use(materiRoutes)
   .use(komentarRoutes)
   .use(quizRoutes)
   .use(adminRoutes)
-
-
+  
+  
   .get("/health", () => ({ status: "OK", timestamp: new Date().toISOString() }))
-
-
-  .get("/", () =>
-    new Response("Selamat datang! <a href='/login'>Login</a>", {
+  
+  
+  .get("/", () => {
+    return new Response(render("home.ejs"), {
       headers: { "Content-Type": "text/html" },
-    })
-  )
-
-
-  .onError(({ code }) => {
-    if (code === 'NOT_FOUND') return new Response('Halaman tidak ditemukan', { status: 404 })
+    });
   })
-
+  
+  
+  .onError(({ code }) => {
+    if (code === 'NOT_FOUND') return new Response(render("404.ejs"), { 
+      headers: { "Content-Type": "text/html" },
+      status: 404 
+    });
+  })
+  
   .listen(3000);
 
 console.log("🛡️  Server aman berjalan di http://localhost:3000");
