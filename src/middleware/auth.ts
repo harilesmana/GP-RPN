@@ -1,37 +1,38 @@
 import { verifyAccessToken, isTokenBlacklisted } from "../utils/jwt";
 import { users } from "../db";
 
-export async function authMiddleware(ctx: any, next: any) {
+export async function authMiddleware({ request }: any) {
   try {
-    const authHeader = ctx.request.headers.get("authorization");
+    const authHeader = request.headers.get("authorization");
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return new Response("Token tidak valid", { status: 401 });
+      return { user: null, error: "Token tidak valid" };
     }
 
-    const token = authHeader.substring(7);
-
+    const token = authHeader.substring(7); 
+    
+    
     if (isTokenBlacklisted(token)) {
-      return new Response("Token telah direvoke", { status: 401 });
+      return { user: null, error: "Token telah direvoke" };
     }
 
     const payload = verifyAccessToken(token);
     if (!payload) {
-      return new Response("Token invalid atau expired", { status: 401 });
+      return { user: null, error: "Token invalid atau expired" };
     }
 
-    const user = users.find(u => u.id === (payload as any).id);
+    const user = users.find((u) => u.id === (payload as any).id);
     if (!user) {
-      return new Response("User tidak ditemukan", { status: 401 });
+      return { user: null, error: "User tidak ditemukan" };
     }
 
+    
     if (user.status !== "active") {
-      return new Response("Akun tidak aktif. Silakan hubungi administrator.", { status: 403 });
+      return { user: null, error: "Akun tidak aktif. Silakan hubungi administrator." };
     }
 
-    ctx.user = user; // simpan user ke context Elysia
-    await next();     // lanjut ke route handler
+    return { user, error: null };
   } catch (error) {
     console.error("Auth middleware error:", error);
-    return new Response("Error authentication", { status: 500 });
+    return { user: null, error: "Error authentication" };
   }
 }
