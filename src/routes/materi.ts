@@ -5,6 +5,53 @@ import { materiSchema, inputValidation } from "../middleware/inputValidation";
 
 let lastMateriId = materi.length > 0 ? Math.max(...materi.map(m => m.id)) : 0;
 
+
+function buildKomentarTree(komentarList: any[]): any[] {
+  const komentarMap = new Map<number, any>();
+  const rootKomentar: any[] = [];
+
+  
+  komentarList.forEach(k => {
+    const userKomentar = users.find(u => u.id === k.user_id);
+    komentarMap.set(k.id, {
+      ...k,
+      user: userKomentar ? { 
+        id: userKomentar.id, 
+        nama: userKomentar.nama, 
+        role: userKomentar.role 
+      } : null,
+      replies: []
+    });
+  });
+
+  
+  komentarList.forEach(k => {
+    const komentarNode = komentarMap.get(k.id);
+    if (komentarNode && k.parent_id) {
+      const parent = komentarMap.get(k.parent_id);
+      if (parent) {
+        parent.replies.push(komentarNode);
+      }
+    } else if (komentarNode) {
+      rootKomentar.push(komentarNode);
+    }
+  });
+
+  
+  rootKomentar.sort((a, b) => 
+    new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
+
+  
+  rootKomentar.forEach(k => {
+    k.replies.sort((a, b) => 
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
+  });
+
+  return rootKomentar;
+}
+
 export const materiRoutes = new Elysia()
   .use(inputValidation)
   .derive(authMiddleware as any)
@@ -18,9 +65,12 @@ export const materiRoutes = new Elysia()
     
     const materiDenganUser = materi.map(m => {
       const userMateri = users.find(u => u.id === m.created_by);
+      const komentarMateri = komentar.filter(k => k.materi_id === m.id);
+      
       return {
         ...m,
-        created_by_user: userMateri ? { id: userMateri.id, nama: userMateri.nama } : null
+        created_by_user: userMateri ? { id: userMateri.id, nama: userMateri.nama } : null,
+        total_komentar: komentarMateri.length
       };
     });
     
@@ -52,20 +102,13 @@ export const materiRoutes = new Elysia()
     
     
     const komentarMateri = komentar.filter(k => k.materi_id === materiId);
-    
-    
-    const komentarDenganUser = komentarMateri.map(k => {
-      const userKomentar = users.find(u => u.id === k.user_id);
-      return {
-        ...k,
-        user: userKomentar ? { id: userKomentar.id, nama: userKomentar.nama, role: userKomentar.role } : null
-      };
-    });
+    const komentarTree = buildKomentarTree(komentarMateri);
     
     const responseData = {
       ...materiDetail,
       created_by_user: userMateri ? { id: userMateri.id, nama: userMateri.nama } : null,
-      komentar: komentarDenganUser
+      komentar: komentarTree,
+      total_komentar: komentarMateri.length
     };
 
     return { data: responseData };
@@ -147,4 +190,31 @@ export const materiRoutes = new Elysia()
 
     materi.splice(idx, 1);
     return { message: "Materi dan komentar terkait berhasil dihapus" };
+  })
+
+  
+  .get("/materi/populer", ({ user, set }: any) => {
+    if (!user) {
+      set.status = 401;
+      return { error: "Unauthorized" };
+    }
+
+    const materiDenganKomentar = materi.map(m => {
+      const userMateri = users.find(u => u.id === m.created_by);
+      const komentarMateri = komentar.filter(k => k.materi_id === m.id);
+      
+      return {
+        ...m,
+        created_by_user: userMateri ? { id: userMateri.id, nama: userMateri.nama } : null,
+        total_komentar: komentarMateri.length
+      };
+    });
+
+    
+    materiDenganKomentar.sort((a, b) => b.total_komentar - a.total_komentar);
+
+    return { 
+      data: materiDenganKomentar.slice(0, 5), 
+      total: materiDenganKomentar.length
+    };
   });
