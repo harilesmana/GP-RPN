@@ -6,6 +6,7 @@ import { materiRoutes } from "./routes/materi";
 import { komentarRoutes } from "./routes/komentar";
 import { quizRoutes } from "./routes/quiz";
 import { adminRoutes } from "./routes/admin";
+import { kepsekRoutes } from "./routes/kepsek"; 
 import { rateLimit } from "./middleware/rateLimit";
 import { securityHeaders } from "./middleware/securityHeaders";
 import { inputValidation } from "./middleware/inputValidation";
@@ -15,6 +16,7 @@ import { join } from "path";
 
 
 function render(view: string, data: any = {}) {
+  
   const file = readFileSync(join(import.meta.dir, "../../views", view), "utf8");
   return ejs.render(file, data);
 }
@@ -25,6 +27,7 @@ const app = new Elysia()
   .use(rateLimit)
   .use(inputValidation)
   
+
   
   .use(authRoutes)
   .use(dashboardRoutes)
@@ -32,25 +35,29 @@ const app = new Elysia()
   .use(komentarRoutes)
   .use(quizRoutes)
   .use(adminRoutes)
-  
+  .use(kepsekRoutes) 
+
   
   .get("/health", () => ({ status: "OK", timestamp: new Date().toISOString() }))
-  
+
   
   .get("/", () => {
-    return new Response(render("home.ejs"), {
+    return new Response(render("login.ejs"), {
       headers: { "Content-Type": "text/html" },
     });
   })
-  
+
   
   .onError(({ code }) => {
-    if (code === 'NOT_FOUND') return new Response(render("404.ejs"), { 
-      headers: { "Content-Type": "text/html" },
-      status: 404 
-    });
+    if (code === "NOT_FOUND") {
+      return new Response(render("404.ejs"), {
+        headers: { "Content-Type": "text/html" },
+        status: 404
+      });
+    }
   })
   
-  .listen(3000);
+  
+  .listen(process.env.PORT || 3000);
 
-console.log("🛡️  Server aman berjalan di http://localhost:3000");
+console.log(`🛡️  Server aman berjalan di http://localhost:${process.env.PORT || 3000}`);
