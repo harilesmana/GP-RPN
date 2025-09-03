@@ -33,7 +33,8 @@ export const komentarSchema = z.object({
   isi: z.string()
     .min(1, "Komentar tidak boleh kosong")
     .max(500, "Komentar maksimal 500 karakter")
-    .regex(/^[a-zA-Z0-9\s.,!?-]+$/, "Komentar mengandung karakter tidak valid")
+    .regex(/^[a-zA-Z0-9\s.,!?-]+$/, "Komentar mengandung karakter tidak valid"),
+  parent_id: z.number().optional().nullable()
 });
 
 export const quizSchema = z.object({
@@ -59,7 +60,7 @@ export const pertanyaanSchema = z.object({
 
 export const jawabanSchema = z.object({
   jawaban: z.record(
-    z.string(),
+    z.string(), 
     z.enum(['a', 'b', 'c', 'd'])
   )
 });
@@ -84,7 +85,7 @@ export const updateUserStatusSchema = z.object({
 
 export function sanitizeInput(input: string): string {
   if (typeof input !== 'string') return input;
-
+  
   return input
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -98,7 +99,7 @@ export function sanitizeInput(input: string): string {
 
 export const inputValidation = new Elysia()
   .derive(({ body }) => {
-
+    
     if (body && typeof body === 'object') {
       const sanitizedBody: any = {};
       for (const [key, value] of Object.entries(body)) {
