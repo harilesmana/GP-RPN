@@ -119,6 +119,7 @@ async function seed() {
       last_login: now
     });
     
+    // Tambahkan contoh materi
     materi.push({
       id: 1,
       judul: "Matematika Dasar",
@@ -135,6 +136,7 @@ async function seed() {
       created_at: now
     });
     
+    // Tambahkan contoh komentar
     komentar.push({
       id: 1,
       materi_id: 1,
