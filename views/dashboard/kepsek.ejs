@@ -1,14 +1,599 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 
 <head>
    <meta charset="UTF-8">
    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-   <title>Dashboard Kepala Sekolah</title>
+   <title>Dashboard Kepala Sekolah - E-Learning</title>
+   <style>
+      * {
+         margin: 0;
+         padding: 0;
+         box-sizing: border-box;
+      }
+
+      body {
+         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+         background: #f5f7fa;
+         min-height: 100vh;
+      }
+
+      .header {
+         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+         color: white;
+         padding: 1rem 2rem;
+         display: flex;
+         justify-content: space-between;
+         align-items: center;
+         box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .user-info {
+         display: flex;
+         align-items: center;
+         gap: 1rem;
+      }
+
+      .logout-btn {
+         background: rgba(255, 255, 255, 0.2);
+         border: 1px solid rgba(255, 255, 255, 0.3);
+         color: white;
+         padding: 0.5rem 1rem;
+         border-radius: 5px;
+         cursor: pointer;
+         transition: background 0.3s;
+      }
+
+      .logout-btn:hover {
+         background: rgba(255, 255, 255, 0.3);
+      }
+
+      .main-content {
+         display: grid;
+         grid-template-columns: 250px 1fr;
+         min-height: calc(100vh - 80px);
+      }
+
+      .sidebar {
+         background: white;
+         box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+         padding: 2rem 0;
+      }
+
+      .nav-item {
+         padding: 1rem 2rem;
+         cursor: pointer;
+         transition: all 0.3s;
+         border-left: 3px solid transparent;
+      }
+
+      .nav-item:hover,
+      .nav-item.active {
+         background: #f8f9ff;
+         border-left-color: #667eea;
+         color: #667eea;
+      }
+
+      .content-area {
+         padding: 2rem;
+      }
+
+      .page-section {
+         display: none;
+      }
+
+      .page-section.active {
+         display: block;
+      }
+
+      .stats-grid {
+         display: grid;
+         grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+         gap: 1.5rem;
+         margin-bottom: 2rem;
+      }
+
+      .stat-card {
+         background: white;
+         padding: 2rem;
+         border-radius: 10px;
+         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+         text-align: center;
+      }
+
+      .stat-value {
+         font-size: 2.5rem;
+         font-weight: bold;
+         color: #667eea;
+         margin-bottom: 0.5rem;
+      }
+
+      .stat-label {
+         color: #666;
+         font-size: 0.9rem;
+      }
+
+      .card {
+         background: white;
+         border-radius: 10px;
+         padding: 2rem;
+         margin-bottom: 1.5rem;
+         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      }
+
+      .card-title {
+         font-size: 1.2rem;
+         font-weight: 600;
+         color: #333;
+         margin-bottom: 1rem;
+      }
+
+      .form-group {
+         margin-bottom: 1rem;
+      }
+
+      .form-group label {
+         display: block;
+         margin-bottom: 0.5rem;
+         color: #333;
+         font-weight: 500;
+      }
+
+      .form-group input,
+      .form-group select,
+      .form-group textarea {
+         width: 100%;
+         padding: 0.75rem;
+         border: 2px solid #e1e5e9;
+         border-radius: 5px;
+         font-size: 1rem;
+      }
+
+      .btn {
+         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+         color: white;
+         border: none;
+         padding: 0.75rem 1.5rem;
+         border-radius: 5px;
+         cursor: pointer;
+         font-weight: 600;
+         transition: transform 0.2s;
+      }
+
+      .btn:hover {
+         transform: translateY(-2px);
+      }
+
+      .btn-danger {
+         background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+      }
+
+      .table {
+         width: 100%;
+         border-collapse: collapse;
+         margin-top: 1rem;
+      }
+
+      .table th,
+      .table td {
+         padding: 1rem;
+         text-align: left;
+         border-bottom: 1px solid #e1e5e9;
+      }
+
+      .table th {
+         background: #f8f9ff;
+         color: #667eea;
+         font-weight: 600;
+      }
+
+      .status-active {
+         background: #27ae60;
+         color: white;
+         padding: 0.25rem 0.5rem;
+         border-radius: 15px;
+         font-size: 0.8rem;
+      }
+
+      .status-inactive {
+         background: #e74c3c;
+         color: white;
+         padding: 0.25rem 0.5rem;
+         border-radius: 15px;
+         font-size: 0.8rem;
+      }
+
+      .chart-container {
+         width: 100%;
+         height: 300px;
+         background: white;
+         border-radius: 10px;
+         padding: 1rem;
+         display: flex;
+         align-items: center;
+         justify-content: center;
+         color: #666;
+      }
+   </style>
 </head>
 
 <body>
+   <!-- Header dengan info user dan logout -->
+   <div class="header">
+      <div>
+         <h1>Dashboard Kepala Sekolah</h1>
+         <p>Sistem Manajemen E-Learning</p>
+      </div>
+      <div class="user-info">
+         <span>Selamat datang, <%= user.nama %></span>
+         <button class="logout-btn" onclick="logout()">Logout</button>
+      </div>
+   </div>
 
+   <div class="main-content">
+      <!-- Sidebar Navigation -->
+      <div class="sidebar">
+         <div class="nav-item active" onclick="showSection('dashboard')">📊 Dashboard</div>
+         <div class="nav-item" onclick="showSection('guru-management')">👨‍🏫 Manajemen Guru</div>
+         <div class="nav-item" onclick="showSection('evaluasi')">📈 Evaluasi Pembelajaran</div>
+         <div class="nav-item" onclick="showSection('laporan')">📋 Laporan</div>
+         <div class="nav-item" onclick="showSection('komunikasi')">💬 Komunikasi</div>
+      </div>
+
+      <div class="content-area">
+         <!-- Dashboard Overview Section -->
+         <div id="dashboard" class="page-section active">
+            <h2>Ringkasan Sistem</h2>
+
+            <!-- Statistics Cards -->
+            <div class="stats-grid">
+               <div class="stat-card">
+                  <div class="stat-value" id="totalGuru">0</div>
+                  <div class="stat-label">Total Guru</div>
+               </div>
+               <div class="stat-card">
+                  <div class="stat-value" id="totalSiswa">0</div>
+                  <div class="stat-label">Total Siswa</div>
+               </div>
+               <div class="stat-card">
+                  <div class="stat-value" id="totalMateri">0</div>
+                  <div class="stat-label">Materi Pembelajaran</div>
+               </div>
+               <div class="stat-card">
+                  <div class="stat-value" id="totalQuiz">0</div>
+                  <div class="stat-label">Quiz Aktif</div>
+               </div>
+            </div>
+
+            <!-- Chart untuk aktivitas sistem -->
+            <div class="card">
+               <div class="card-title">Aktivitas Pembelajaran Mingguan</div>
+               <div class="chart-container">
+                  <p>Grafik aktivitas pembelajaran akan ditampilkan di sini</p>
+               </div>
+            </div>
+         </div>
+
+         <!-- Guru Management Section -->
+         <div id="guru-management" class="page-section">
+            <h2>Manajemen Guru</h2>
+
+            <!-- Form tambah guru -->
+            <div class="card">
+               <div class="card-title">Tambah Guru Baru</div>
+               <form id="addGuruForm">
+                  <div class="form-group">
+                     <label for="guruNama">Nama Lengkap</label>
+                     <input type="text" id="guruNama" name="nama" required>
+                  </div>
+                  <div class="form-group">
+                     <label for="guruEmail">Email</label>
+                     <input type="email" id="guruEmail" name="email" required>
+                  </div>
+                  <div class="form-group">
+                     <label for="guruPassword">Password</label>
+                     <input type="password" id="guruPassword" name="password" required>
+                  </div>
+                  <button type="submit" class="btn">Tambah Guru</button>
+               </form>
+            </div>
+
+            <!-- Daftar guru -->
+            <div class="card">
+               <div class="card-title">Daftar Guru</div>
+               <table class="table" id="guruTable">
+                  <thead>
+                     <tr>
+                        <th>Nama</th>
+                        <th>Email</th>
+                        <th>Status</th>
+                        <th>Terakhir Login</th>
+                        <th>Aksi</th>
+                     </tr>
+                  </thead>
+                  <tbody id="guruTableBody">
+                     <!-- Data guru akan dimuat di sini -->
+                  </tbody>
+               </table>
+            </div>
+         </div>
+
+         <!-- Evaluasi Section -->
+         <div id="evaluasi" class="page-section">
+            <h2>Evaluasi Pembelajaran</h2>
+
+            <!-- Performance guru -->
+            <div class="card">
+               <div class="card-title">Kinerja Guru</div>
+               <div id="performanceGuru">
+                  <!-- Data kinerja guru akan ditampilkan di sini -->
+               </div>
+            </div>
+
+            <!-- Leaderboard siswa -->
+            <div class="card">
+               <div class="card-title">Leaderboard Siswa</div>
+               <table class="table">
+                  <thead>
+                     <tr>
+                        <th>Peringkat</th>
+                        <th>Nama Siswa</th>
+                        <th>Total Nilai</th>
+                        <th>Quiz Diselesaikan</th>
+                        <th>Rata-rata</th>
+                     </tr>
+                  </thead>
+                  <tbody id="leaderboardBody">
+                     <!-- Leaderboard akan dimuat di sini -->
+                  </tbody>
+               </table>
+            </div>
+         </div>
+
+         <!-- Laporan Section -->
+         <div id="laporan" class="page-section">
+            <h2>Laporan Sistem</h2>
+
+            <div class="card">
+               <div class="card-title">Generate Laporan</div>
+               <div class="form-group">
+                  <label for="reportType">Jenis Laporan</label>
+                  <select id="reportType">
+                     <option value="activity">Laporan Aktivitas</option>
+                     <option value="performance">Laporan Kinerja</option>
+                     <option value="student">Laporan Siswa</option>
+                  </select>
+               </div>
+               <div class="form-group">
+                  <label for="reportPeriod">Periode</label>
+                  <select id="reportPeriod">
+                     <option value="week">Minggu Ini</option>
+                     <option value="month">Bulan Ini</option>
+                     <option value="semester">Semester Ini</option>
+                  </select>
+               </div>
+               <button class="btn" onclick="generateReport()">Generate Laporan</button>
+            </div>
+         </div>
+
+         <!-- Komunikasi Section -->
+         <div id="komunikasi" class="page-section">
+            <h2>Komunikasi & Pengumuman</h2>
+
+            <div class="card">
+               <div class="card-title">Kirim Pengumuman</div>
+               <form id="announcementForm">
+                  <div class="form-group">
+                     <label for="announcementTitle">Judul</label>
+                     <input type="text" id="announcementTitle" name="title" required>
+                  </div>
+                  <div class="form-group">
+                     <label for="announcementContent">Isi Pengumuman</label>
+                     <textarea id="announcementContent" name="content" rows="4" required></textarea>
+                  </div>
+                  <div class="form-group">
+                     <label for="announcementTarget">Target</label>
+                     <select id="announcementTarget">
+                        <option value="all">Semua</option>
+                        <option value="guru">Guru Saja</option>
+                        <option value="siswa">Siswa Saja</option>
+                     </select>
+                  </div>
+                  <button type="submit" class="btn">Kirim Pengumuman</button>
+               </form>
+            </div>
+         </div>
+      </div>
+   </div>
+
+   <script>
+      // Simulasi data dari backend
+      let dashboardData = null;
+
+      // Function untuk menampilkan section
+      function showSection(sectionId) {
+         document.querySelectorAll('.page-section').forEach(section => {
+            section.classList.remove('active');
+         });
+         document.querySelectorAll('.nav-item').forEach(item => {
+            item.classList.remove('active');
+         });
+
+         document.getElementById(sectionId).classList.add('active');
+         event.target.classList.add('active');
+      }
+
+      // Load dashboard data saat halaman dimuat
+      async function loadDashboardData() {
+         try {
+            const response = await fetch('/admin/dashboard', {
+               headers: {
+                  'Authorization': 'Bearer <%= accessToken %>'
+               }
+            });
+
+            if (response.ok) {
+               dashboardData = await response.json();
+               updateStatistics();
+            } else {
+               console.error('Failed to load dashboard data');
+            }
+         } catch (error) {
+            console.error('Error loading dashboard:', error);
+         }
+      }
+
+      // Update statistics cards
+      function updateStatistics() {
+         if (dashboardData && dashboardData.data) {
+            document.getElementById('totalGuru').textContent = dashboardData.data.total_guru;
+            document.getElementById('totalSiswa').textContent = dashboardData.data.total_siswa;
+            // Tambahan untuk materi dan quiz akan ditambah setelah endpoint tersedia
+         }
+      }
+
+      // Load daftar guru
+      async function loadGuruList() {
+         try {
+            const response = await fetch('/admin/users', {
+               headers: {
+                  'Authorization': 'Bearer <%= accessToken %>'
+               }
+            });
+
+            if (response.ok) {
+               const result = await response.json();
+               const guruList = result.data.filter(user => user.role === 'guru');
+               updateGuruTable(guruList);
+            }
+         } catch (error) {
+            console.error('Error loading guru list:', error);
+         }
+      }
+
+      // Update tabel guru
+      function updateGuruTable(guruList) {
+         const tbody = document.getElementById('guruTableBody');
+         tbody.innerHTML = '';
+
+         guruList.forEach(guru => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                    <td>${guru.nama}</td>
+                    <td>${guru.email}</td>
+                    <td><span class="status-${guru.status}">${guru.status}</span></td>
+                    <td>${guru.last_login ? new Date(guru.last_login).toLocaleDateString() : 'Belum pernah login'}</td>
+                    <td>
+                        <button class="btn ${guru.status === 'active' ? 'btn-danger' : 'btn'}" 
+                                onclick="toggleUserStatus(${guru.id}, '${guru.status === 'active' ? 'inactive' : 'active'}')">
+                            ${guru.status === 'active' ? 'Nonaktifkan' : 'Aktifkan'}
+                        </button>
+                    </td>
+                `;
+            tbody.appendChild(row);
+         });
+      }
+
+      // Form submit handler untuk tambah guru
+      document.getElementById('addGuruForm').addEventListener('submit', async function (e) {
+         e.preventDefault();
+
+         const formData = new FormData(this);
+         const guruData = {
+            nama: formData.get('nama'),
+            email: formData.get('email'),
+            password: formData.get('password')
+         };
+         console.log('form: ', formData)
+         console.log('data: ', guruData)
+
+         try {
+            const response = await fetch('/admin/guru', {
+               method: 'POST',
+               headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': 'Bearer <%= accessToken %>'
+               },
+               body: formData
+            });
+
+            if (response.ok) {
+               alert('Guru berhasil ditambahkan!');
+               this.reset();
+               loadGuruList(); // Reload daftar guru
+            } else {
+               const error = await response.json();
+               alert('Error: ' + error.error);
+            }
+         } catch (error) {
+            console.error('Error adding guru:', error);
+            alert('Terjadi kesalahan saat menambah guru');
+         }
+      });
+
+      // Toggle status user (aktif/nonaktif)
+      async function toggleUserStatus(userId, newStatus) {
+         try {
+            const response = await fetch('/admin/users/status', {
+               method: 'PATCH',
+               headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': 'Bearer <%= accessToken %>'
+               },
+               body: JSON.stringify({
+                  user_id: userId,
+                  status: newStatus
+               })
+            });
+
+            if (response.ok) {
+               alert('Status user berhasil diubah!');
+               loadGuruList(); // Reload daftar guru
+            } else {
+               const error = await response.json();
+               alert('Error: ' + error.error);
+            }
+         } catch (error) {
+            console.error('Error updating user status:', error);
+            alert('Terjadi kesalahan saat mengubah status user');
+         }
+      }
+
+      // Generate laporan
+      function generateReport() {
+         const reportType = document.getElementById('reportType').value;
+         const reportPeriod = document.getElementById('reportPeriod').value;
+
+         // Placeholder untuk generate laporan
+         alert(`Generating ${reportType} report for ${reportPeriod}...`);
+      }
+
+      // Logout function
+      async function logout() {
+         try {
+            await fetch('/logout', {
+               method: 'POST',
+               headers: {
+                  'Content-Type': 'application/json'
+               },
+               body: JSON.stringify({
+                  accessToken: '<%= accessToken %>'
+               })
+            });
+
+            window.location.href = '/login';
+         } catch (error) {
+            console.error('Logout error:', error);
+            window.location.href = '/login';
+         }
+      }
+
+      // Load data saat halaman dimuat
+      document.addEventListener('DOMContentLoaded', function () {
+         loadDashboardData();
+         loadGuruList();
+      });
+   </script>
 </body>
 
 </html>
