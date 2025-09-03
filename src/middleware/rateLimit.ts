@@ -1,46 +1,34 @@
-import { Elysia } from "elysia";
+import type { Context } from "elysia";
 
-const RATE_LIMIT_WINDOW_MS = parseInt(process.env.RATE_LIMIT_WINDOW_MS || "900000"); // 15 menit default
-const MAX_REQUESTS = parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || "100"); // 100 requests per window
+interface Bucket {
+  count: number;
+  reset: number;
+}
 
-const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
+const buckets = new Map<string, Bucket>();
 
-export const rateLimit = new Elysia()
-  .derive(({ request, set }) => {
-    const ip = request.headers.get('x-forwarded-for') || 
-               request.headers.get('cf-connecting-ip') || 
-               'unknown';
-    
+export function rateLimit(limit = 60, windowMs = 60_000) {
+  return async ({ request, set }: Context) => {
+    const ip =
+      (request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()) ||
+      (request as any).ip ||
+      "unknown";
+    const key = `${ip}:${new URL(request.url).pathname}`;
     const now = Date.now();
-    
-    // Clean up old entries
-    if (rateLimitStore.size > 10000) { // Prevent memory leaks
-      for (const [key, value] of rateLimitStore.entries()) {
-        if (value.resetTime < now) {
-          rateLimitStore.delete(key);
-        }
-      }
+    const b = buckets.get(key);
+
+    if (!b || now > b.reset) {
+      buckets.set(key, { count: 1, reset: now + windowMs });
+      return;
     }
-    
-    let clientData = rateLimitStore.get(ip);
-    
-    if (!clientData || clientData.resetTime < now) {
-      clientData = { count: 0, resetTime: now + RATE_LIMIT_WINDOW_MS };
-      rateLimitStore.set(ip, clientData);
-    }
-    
-    clientData.count++;
-    
-    // Set headers untuk informasi rate limit
-    set.headers['X-RateLimit-Limit'] = MAX_REQUESTS.toString();
-    set.headers['X-RateLimit-Remaining'] = Math.max(0, MAX_REQUESTS - clientData.count).toString();
-    set.headers['X-RateLimit-Reset'] = Math.ceil(clientData.resetTime / 1000).toString();
-    
-    if (clientData.count > MAX_REQUESTS) {
+
+    if (b.count >= limit) {
+      const retry = Math.max(0, b.reset - now);
       set.status = 429;
-      set.headers['Retry-After'] = Math.ceil((clientData.resetTime - now) / 1000).toString();
-      return { error: 'Terlalu banyak requests. Silakan coba lagi nanti.' };
+      set.headers["Retry-After"] = Math.ceil(retry / 1000).toString();
+      return "Terlalu banyak permintaan. Coba lagi nanti.";
     }
-    
-    return {};
-  });
+
+    b.count++;
+  };
+}
