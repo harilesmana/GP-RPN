@@ -28,8 +28,18 @@ export interface Komentar {
   materi_id: number;
   user_id: number;
   isi: string;
+  parent_id?: number;
   created_at: Date;
   updated_at?: Date;
+}
+
+export interface KomentarWithUserAndReplies extends Komentar {
+  user: {
+    id: number;
+    nama: string;
+    role: Role;
+  };
+  replies: KomentarWithUserAndReplies[];
 }
 
 export interface Quiz {
@@ -68,7 +78,6 @@ export const komentar: Komentar[] = [];
 export const quiz: Quiz[] = [];
 export const pertanyaan: Pertanyaan[] = [];
 export const nilai: Nilai[] = [];
-
 
 export const loginAttempts = new Map<string, { count: number; unlockTime: number }>();
 
@@ -110,7 +119,6 @@ async function seed() {
       last_login: now
     });
     
-    
     materi.push({
       id: 1,
       judul: "Matematika Dasar",
@@ -127,7 +135,6 @@ async function seed() {
       created_at: now
     });
     
-    
     komentar.push({
       id: 1,
       materi_id: 1,
@@ -141,7 +148,7 @@ async function seed() {
       materi_id: 1,
       user_id: 2,
       isi: "Silakan bertanya jika ada bagian yang tidak dimengerti",
-      created_at: now
+      created_at: new Date(now.getTime() + 1000 * 60 * 5)
     });
     
     komentar.push({
@@ -149,10 +156,27 @@ async function seed() {
       materi_id: 2,
       user_id: 3,
       isi: "Terima kasih untuk materinya, sangat bermanfaat!",
-      created_at: now
+      created_at: new Date(now.getTime() + 1000 * 60 * 10)
     });
 
-    
+    komentar.push({
+      id: 4,
+      materi_id: 1,
+      user_id: 3,
+      parent_id: 2,
+      isi: "Terima kasih Bu, saya akan bertanya jika ada kesulitan",
+      created_at: new Date(now.getTime() + 1000 * 60 * 30)
+    });
+
+    komentar.push({
+      id: 5,
+      materi_id: 1,
+      user_id: 2,
+      parent_id: 4,
+      isi: "Sama-sama, jangan ragu untuk bertanya ya!",
+      created_at: new Date(now.getTime() + 1000 * 60 * 45)
+    });
+
     quiz.push({
       id: 1,
       materi_id: 1,
@@ -169,7 +193,6 @@ async function seed() {
       created_at: now
     });
 
-    
     pertanyaan.push({
       id: 1,
       quiz_id: 1,
@@ -206,7 +229,6 @@ async function seed() {
       created_at: now
     });
 
-    
     nilai.push({
       id: 1,
       quiz_id: 1,
