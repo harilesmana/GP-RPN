@@ -1,203 +1,252 @@
-import { Elysia } from "elysia";
-import { users, loginAttempts } from "../db";
-import { verifyPassword, hashPassword, validatePasswordStrength } from "../utils/hash";
-import { generateAccessToken, generateRefreshToken, verifyRefreshToken, addToBlacklist } from "../utils/jwt";
+import { Elysia, t } from "elysia";
 import { loginSchema, registerSchema, inputValidation } from "../middleware/inputValidation";
-import ejs from "ejs";
-import { readFileSync } from "fs";
-import { join } from "path";
+import { rateLimit } from "../middleware/rateLimit";
+import { securityHeaders } from "../middleware/securityHeaders";
+import { hashPassword, verifyPassword } from "../utils/hash";
+import { generateAccessToken, generateRefreshToken, addToBlacklist, verifyRefreshToken } from "../utils/jwt";
+import { users, loginAttempts, type Role, type User } from "../db";
+import { render } from "../utils/ejsRenderer"; // Anda perlu membuat utility ini
 
-let lastId = users.length;
+// Constants
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 menit dalam milidetik
 
-
-function render(view: string, data: any = {}) {
-  try {
-    const file = readFileSync(join(import.meta.dir, "../../views", view), "utf8");
-    
-    
-    const sanitizedData: any = {};
-    for (const [key, value] of Object.entries(data)) {
-      if (typeof value === 'string') {
-        sanitizedData[key] = value
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;')
-          .replace(/"/g, '&quot;')
-          .replace(/'/g, '&#x27;');
-      } else {
-        sanitizedData[key] = value;
-      }
-    }
-    
-    return ejs.render(file, sanitizedData);
-  } catch (error) {
-    console.error("Error rendering view:", error);
-    return "<h1>Error loading page</h1>";
-  }
-}
-
-const LOGIN_ATTEMPTS_LIMIT = parseInt(process.env.LOGIN_ATTEMPTS_LIMIT || "5");
-const LOGIN_LOCKOUT_TIME = parseInt(process.env.LOGIN_LOCKOUT_TIME || "900000"); 
-
-export const authRoutes = new Elysia()
+export const authRoutes = new Elysia({ prefix: "/auth" })
+  .use(securityHeaders)
+  .use(rateLimit)
   .use(inputValidation)
   
-  
-  .get("/login", () => new Response(render("login.ejs"), { headers: { "Content-Type": "text/html" } }))
-
-  .post("/login", async ({ sanitizedBody, set, request }: any) => {
-  const { email, password } = sanitizedBody as { email: string; password: string };
-    
-    
+  // Halaman Login (GET) - Render login.ejs
+  .get("/login", async ({ set, query }) => {
     try {
-      loginSchema.parse({ email, password });
-    } catch (error: any) {
-      set.status = 400;
-      return { error: error.errors[0].message };
-    }
-    
-    
-    const ip = request.headers.get('x-forwarded-for') || 
-               request.headers.get('cf-connecting-ip') || 
-               'unknown';
-    const now = Date.now();
-    const attemptData = loginAttempts.get(ip) || { count: 0, unlockTime: 0 };
-    
-    if (now < attemptData.unlockTime) {
-      set.status = 429;
-      const waitTime = Math.ceil((attemptData.unlockTime - now) / 1000);
-      return new Response(`Terlalu banyak percobaan login. Coba lagi dalam ${waitTime} detik.`, { status: 429 });
-    }
-    
-    const user = users.find((u) => u.email === email);  
-    if (!user) {
+      set.headers['Content-Type'] = 'text/html';
       
-      attemptData.count++;
-      if (attemptData.count >= LOGIN_ATTEMPTS_LIMIT) {
-        attemptData.unlockTime = now + LOGIN_LOCKOUT_TIME;
-        attemptData.count = 0;
+      // Data yang akan dikirim ke template EJS
+      const templateData = {
+        error: query.error || null,
+        message: query.message || null,
+        email: query.email || ''
+      };
+      
+      // Render template EJS
+      return await render('login', templateData);
+    } catch (error) {
+      console.error("Error rendering login page:", error);
+      set.status = 500;
+      return "Terjadi kesalahan server";
+    }
+  })
+  
+  // Endpoint Login (POST) - Memproses form login
+  .post("/login", 
+    async ({ body, set, cookie, redirect }) => {
+      try {
+        const { email, password } = body;
+        
+        // Validasi input
+        try {
+          loginSchema.parse({ email, password });
+        } catch (validationError: any) {
+          return redirect(`/auth/login?error=Validasi gagal&email=${encodeURIComponent(email)}`);
+        }
+        
+        // Cek apakah email sudah terkunci
+        const attemptData = loginAttempts.get(email);
+        const now = Date.now();
+        
+        if (attemptData && attemptData.unlockTime > now) {
+          const remainingTime = Math.ceil((attemptData.unlockTime - now) / 1000 / 60);
+          return redirect(`/auth/login?error=Akun terkunci. Coba lagi dalam ${remainingTime} menit.&email=${encodeURIComponent(email)}`);
+        }
+        
+        // Cari user berdasarkan email
+        const user = users.find(u => u.email === email && u.status === 'active');
+        
+        if (!user) {
+          // Update attempt counter
+          const currentAttempts = (attemptData?.count || 0) + 1;
+          loginAttempts.set(email, {
+            count: currentAttempts,
+            unlockTime: now
+          });
+          
+          return redirect(`/auth/login?error=Email atau password salah&email=${encodeURIComponent(email)}`);
+        }
+        
+        // Verifikasi password
+        const isPasswordValid = await verifyPassword(password, user.password_hash);
+        
+        if (!isPasswordValid) {
+          // Tambah attempt counter
+          const currentAttempts = (attemptData?.count || 0) + 1;
+          
+          if (currentAttempts >= MAX_LOGIN_ATTEMPTS) {
+            // Kunci akun
+            loginAttempts.set(email, {
+              count: currentAttempts,
+              unlockTime: now + LOCKOUT_DURATION
+            });
+            
+            return redirect(`/auth/login?error=Terlalu banyak percobaan login. Akun terkunci selama 15 menit.&email=${encodeURIComponent(email)}`);
+          } else {
+            // Update attempt counter
+            loginAttempts.set(email, {
+              count: currentAttempts,
+              unlockTime: now
+            });
+            
+            return redirect(`/auth/login?error=Email atau password salah. Percobaan ${currentAttempts} dari ${MAX_LOGIN_ATTEMPTS}.&email=${encodeURIComponent(email)}`);
+          }
+        }
+        
+        // Reset login attempts jika berhasil
+        loginAttempts.delete(email);
+        
+        // Update last login
+        user.last_login = new Date();
+        
+        // Generate tokens
+        const tokenPayload = {
+          id: user.id,
+          email: user.email,
+          role: user.role
+        };
+        
+        const accessToken = generateAccessToken(tokenPayload);
+        const refreshToken = generateRefreshToken(tokenPayload);
+        
+        // Set cookies
+        cookie.accessToken.set({
+          value: accessToken,
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          maxAge: 15 * 60, // 15 menit
+          path: '/'
+        });
+        
+        cookie.refreshToken.set({
+          value: refreshToken,
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          maxAge: 7 * 24 * 60 * 60, // 7 hari
+          path: '/'
+        });
+        
+        // Redirect ke dashboard berdasarkan role
+        switch(user.role) {
+          case "siswa":
+            return redirect("/dashboard/siswa");
+          case "guru":
+            return redirect("/dashboard/guru");
+          case "kepsek":
+            return redirect("/dashboard/kepsek");
+          default:
+            return redirect("/dashboard");
+        }
+        
+      } catch (error) {
+        console.error("Login error:", error);
+        return redirect("/auth/login?error=Terjadi kesalahan server");
       }
-      loginAttempts.set(ip, attemptData);
-      
-      return new Response("Email atau password salah", { status: 401 });
-    }  
-
-    
-    if (user.status !== "active") {
-      set.status = 403;
-      return new Response("Akun tidak aktif. Silakan hubungi administrator.", { status: 403 });
+    },
+    {
+      body: t.Object({
+        email: t.String(),
+        password: t.String()
+      })
     }
-
-    const valid = await verifyPassword(password, user.password_hash);  
-    if (!valid) {
-      
-      attemptData.count++;
-      if (attemptData.count >= LOGIN_ATTEMPTS_LIMIT) {
-        attemptData.unlockTime = now + LOGIN_LOCKOUT_TIME;
-        attemptData.count = 0;
+  )
+  
+  // Logout
+  .post("/logout", 
+    async ({ cookie, redirect }) => {
+      try {
+        const token = cookie.accessToken.value;
+        if (token) {
+          addToBlacklist(token);
+        }
+        
+        // Hapus cookies
+        cookie.accessToken.remove();
+        cookie.refreshToken.remove();
+        
+        return redirect("/auth/login?message=Logout berhasil");
+      } catch (error) {
+        console.error("Logout error:", error);
+        return redirect("/auth/login?error=Terjadi kesalahan saat logout");
       }
-      loginAttempts.set(ip, attemptData);
-      
-      return new Response("Email atau password salah", { status: 401 });
-    }  
-
-    
-    loginAttempts.delete(ip);
-    
-    
-    user.last_login = new Date();
-    
-    const accessToken = generateAccessToken({ id: user.id, role: user.role });
-    const refreshToken = generateRefreshToken({ id: user.id });
-
-    switch (user.role) {  
-      case "kepsek":  
-        return new Response(render("dashboard/kepsek.ejs", { user, accessToken, refreshToken }), { 
-          headers: { "Content-Type": "text/html" } 
-        });  
-      case "guru":  
-        return new Response(render("dashboard/guru.ejs", { user, accessToken, refreshToken }), { 
-          headers: { "Content-Type": "text/html" } 
-        });  
-      case "siswa":  
-        return new Response(render("dashboard/siswa.ejs", { user, accessToken, refreshToken }), { 
-          headers: { "Content-Type": "text/html" } 
-        });  
-      default:
-        return new Response("Role tidak valid", { status: 401 });
     }
-  })
+  )
   
-  
-  .post("/refresh", async ({ body, set }: any) => {
-    const { refreshToken } = body;
-    
-    if (!refreshToken) {
-      set.status = 401;
-      return { error: "Refresh token required" };
-    }
-    
-    const payload = verifyRefreshToken(refreshToken);
-    if (!payload) {
-      set.status = 401;
-      return { error: "Invalid refresh token" };
-    }
-    
-    const user = users.find(u => u.id === (payload as any).id);
-    if (!user) {
-      set.status = 401;
-      return { error: "User not found" };
-    }
-    
-    const newAccessToken = generateAccessToken({ id: user.id, role: user.role });
-    return { accessToken: newAccessToken };
-  })
-  
-  
-  .post("/logout", async ({ body, set }: any) => {
-    const { accessToken } = body;
-    
-    if (accessToken) {
-      addToBlacklist(accessToken);
-    }
-    
-    return { message: "Logged out successfully" };
-  })
-  
-  
-  .get("/register", () => new Response(render("register.ejs"), { headers: { "Content-Type": "text/html" } }))
-
-  .post("/register", async ({ sanitizedBody, set }: any) => {
-    const { nama, email, password } = sanitizedBody as any;
-
-    
+  // Halaman Register (GET) - Render register.ejs
+  .get("/register", async ({ set, query }) => {
     try {
-      registerSchema.parse({ nama, email, password });
-    } catch (error: any) {
-      set.status = 400;
-      return { error: error.errors[0].message };
+      set.headers['Content-Type'] = 'text/html';
+      
+      const templateData = {
+        error: query.error || null,
+        message: query.message || null,
+        formData: {
+          nama: query.nama || '',
+          email: query.email || ''
+        }
+      };
+      
+      return await render('register', templateData);
+    } catch (error) {
+      console.error("Error rendering register page:", error);
+      set.status = 500;
+      return "Terjadi kesalahan server";
     }
-
-    
-    if (!validatePasswordStrength(password)) {
-      set.status = 400;
-      return { error: "Password harus mengandung huruf besar, huruf kecil, dan angka" };
+  })
+  
+  // Endpoint Register (POST) - Memproses form register
+  .post("/register", 
+    async ({ body, set, redirect }) => {
+      try {
+        const { nama, email, password } = body;
+        
+        // Validasi input
+        try {
+          registerSchema.parse({ nama, email, password });
+        } catch (validationError: any) {
+          return redirect(`/auth/register?error=Validasi gagal&nama=${encodeURIComponent(nama)}&email=${encodeURIComponent(email)}`);
+        }
+        
+        // Cek apakah email sudah terdaftar
+        const existingUser = users.find(u => u.email === email);
+        if (existingUser) {
+          return redirect(`/auth/register?error=Email sudah terdaftar&nama=${encodeURIComponent(nama)}&email=${encodeURIComponent(email)}`);
+        }
+        
+        // Hash password
+        const passwordHash = await hashPassword(password);
+        
+        // Buat user baru (role siswa)
+        const newUser: User = {
+          id: users.length > 0 ? Math.max(...users.map(u => u.id)) + 1 : 1,
+          nama,
+          email,
+          password_hash: passwordHash,
+          role: "siswa",
+          status: "active",
+          created_at: new Date()
+        };
+        
+        users.push(newUser);
+        
+        return redirect("/auth/login?message=Registrasi berhasil. Silakan login.");
+        
+      } catch (error) {
+        console.error("Register error:", error);
+        return redirect("/auth/register?error=Terjadi kesalahan server");
+      }
+    },
+    {
+      body: t.Object({
+        nama: t.String(),
+        email: t.String(),
+        password: t.String()
+      })
     }
-
-    if (users.find((u) => u.email === email)) {  
-      return new Response("Email sudah terdaftar", { status: 400 });  
-    }  
-
-    const newUser = {  
-      id: ++lastId,  
-      nama,  
-      email,  
-      password_hash: await hashPassword(password),  
-      role: "siswa" as const,  
-      status: "active" as const,
-      created_at: new Date()
-    };  
-
-    users.push(newUser);  
-
-    return new Response("Registrasi berhasil. Silakan login.", { status: 200 });
-  });
+  );
