@@ -14,14 +14,43 @@ export interface User {
   last_login?: Date;
 }
 
-export const users: User[] = [];
+export interface Materi {
+  id: number;
+  judul: string;
+  deskripsi: string;
+  guru_id: number; 
+  created_at: Date;
+}
 
+export type StatusTugas = "belum dikumpulkan" | "terkumpul" | "dinilai";
+
+export interface Tugas {
+  id: number;
+  materi_id: number;
+  siswa_id: number;
+  status: StatusTugas;
+  nilai?: number; 
+  hasil_akhir?: string; 
+  dikumpulkan_at?: Date;
+  dinilai_at?: Date;
+}
+
+export interface GuruInfo {
+  user_id: number;
+  bidang: string; 
+}
+
+export const users: User[] = [];
+export const materiList: Materi[] = [];
+export const tugasList: Tugas[] = [];
+export const guruInfoList: GuruInfo[] = [];
 export const loginAttempts = new Map<string, { count: number; unlockTime: number }>();
 
 async function seed() {
   if (users.length === 0) {
     const now = new Date();
     
+
     users.push({
       id: 1,
       nama: "Prabowo",
@@ -55,8 +84,29 @@ async function seed() {
       created_at: now,
       last_login: now
     });
-    
 
+  
+    guruInfoList.push({
+      user_id: 2,
+      bidang: "IT"
+    });
+
+
+    materiList.push({
+      id: 1,
+      judul: "Pengenalan TypeScript",
+      deskripsi: "Belajar dasar-dasar TypeScript",
+      guru_id: 2,
+      created_at: now
+    });
+
+  
+    tugasList.push({
+      id: 1,
+      materi_id: 1,
+      siswa_id: 3,
+      status: "belum dikumpulkan"
+    });
   }
 }
 
