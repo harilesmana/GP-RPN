@@ -10,4 +10,4 @@ const app = new Elysia()
   })
   .listen(3000);
 
-console.log(` Server berjalan di http://${app.server?.hostname}:${app.server?.port}`);
+console.log(`🦊 Server berjalan di http://${app.server?.hostname}:${app.server?.port}`);
