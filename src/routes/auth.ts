@@ -1,30 +1,39 @@
-import { Elysia, t } from 'elysia';
-import { staticPlugin } from '@elysiajs/static';
-import { rateLimit } from '@elysiajs/rate-limit';
+import { Elysia } from 'elysia';
 import { users, loginAttempts, User } from '../db';
 import { comparePassword, hashPassword } from '../utils/hash';
 import { generateToken } from '../utils/jwt';
 import { authMiddleware } from '../middleware/auth';
-import { securityHeaders } from '../middleware/security';
-import { loginValidation, registerValidation, sanitizeInput } from '../utils/validation';
 import * as ejs from 'ejs';
 import { readFile } from 'fs/promises';
 import path from 'path';
 
 export const authRoutes = new Elysia()
-  .use(staticPlugin({
-    assets: 'public',
-    prefix: '/public'
-  }))
   .use(authMiddleware)
-  .use(securityHeaders)
-  .use(
-    rateLimit({
-      duration: 60000, 
-      max: 5, 
-      errorResponse: 'Terlalu banyak percobaan login'
-    })
-  )
+  
+  
+  .get('/public/*', async ({ params, set }) => {
+    try {
+      const filePath = path.join(process.cwd(), 'public', params['*']);
+      const file = await Bun.file(filePath);
+      
+      if (await file.exists()) {
+      
+        if (filePath.endsWith('.css')) {
+          set.headers['Content-Type'] = 'text/css';
+        } else if (filePath.endsWith('.js')) {
+          set.headers['Content-Type'] = 'application/javascript';
+        }
+        
+        return file;
+      } else {
+        set.status = 404;
+        return 'File not found';
+      }
+    } catch (error) {
+      set.status = 500;
+      return 'Error serving file';
+    }
+  })
   
   
   .get('/login', async ({ query, set }) => {
@@ -45,7 +54,7 @@ export const authRoutes = new Elysia()
   
   
   .post('/login', async ({ body, set, cookie }) => {
-    const { email, password } = body;
+    const { email, password } = body as { email: string; password: string };
 
     
     const attempt = loginAttempts.get(email);
@@ -86,11 +95,11 @@ export const authRoutes = new Elysia()
       role: user.role
     });
 
-    
+  
     cookie.auth.set({
       value: token,
       httpOnly: true,
-      maxAge: 24 * 60 * 60, 
+      maxAge: 24 * 60 * 60,
       path: '/',
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict'
@@ -98,8 +107,6 @@ export const authRoutes = new Elysia()
 
     
     set.redirect = `/dashboard/${user.role}`;
-  }, {
-    body: loginValidation.body
   })
   
   
@@ -121,23 +128,35 @@ export const authRoutes = new Elysia()
   
   
   .post('/register', async ({ body, set }) => {
-    const { nama, email, password } = body;
+    const { nama, email, password } = body as { nama: string; email: string; password: string };
 
-    
-    const sanitizedNama = sanitizeInput(nama);
-    const sanitizedEmail = sanitizeInput(email);
-
-    
-    if (users.some(u => u.email === sanitizedEmail)) {
+  
+    if (users.some(u => u.email === email)) {
       set.redirect = '/register?error=Email sudah terdaftar';
       return;
     }
 
-    
+
+    if (nama.length < 3) {
+      set.redirect = '/register?error=Nama minimal 3 karakter';
+      return;
+    }
+
+    if (password.length < 6) {
+      set.redirect = '/register?error=Password minimal 6 karakter';
+      return;
+    }
+
+    if (!email.includes('@')) {
+      set.redirect = '/register?error=Email tidak valid';
+      return;
+    }
+
+  
     const newUser: User = {
       id: users.length + 1,
-      nama: sanitizedNama,
-      email: sanitizedEmail,
+      nama: nama.trim(),
+      email: email.toLowerCase().trim(),
       password_hash: await hashPassword(password),
       role: "siswa", 
       status: 'active',
@@ -148,8 +167,6 @@ export const authRoutes = new Elysia()
 
     set.status = 201;
     set.redirect = '/login?message=Registrasi berhasil. Silakan login.';
-  }, {
-    body: registerValidation.body
   })
   
   
