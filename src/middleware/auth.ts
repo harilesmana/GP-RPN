@@ -8,9 +8,9 @@ export async function authMiddleware({ request }: any) {
       return { user: null, error: "Token tidak valid" };
     }
 
-    const token = authHeader.substring(7);
-
-
+    const token = authHeader.substring(7); 
+    
+    
     if (isTokenBlacklisted(token)) {
       return { user: null, error: "Token telah direvoke" };
     }
@@ -25,7 +25,7 @@ export async function authMiddleware({ request }: any) {
       return { user: null, error: "User tidak ditemukan" };
     }
 
-
+    
     if (user.status !== "active") {
       return { user: null, error: "Akun tidak aktif. Silakan hubungi administrator." };
     }
