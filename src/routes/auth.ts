@@ -1,252 +1,159 @@
-import { Elysia, t } from "elysia";
-import { loginSchema, registerSchema, inputValidation } from "../middleware/inputValidation";
-import { rateLimit } from "../middleware/rateLimit";
-import { securityHeaders } from "../middleware/securityHeaders";
-import { hashPassword, verifyPassword } from "../utils/hash";
-import { generateAccessToken, generateRefreshToken, addToBlacklist, verifyRefreshToken } from "../utils/jwt";
-import { users, loginAttempts, type Role, type User } from "../db";
-import { render } from "../utils/ejsRenderer"; // Anda perlu membuat utility ini
+import { Elysia, t } from 'elysia';
+import { staticPlugin } from '@elysiajs/static';
+import { rateLimit } from '@elysiajs/rate-limit';
+import { users, loginAttempts, User } from '../db';
+import { comparePassword, hashPassword } from '../utils/hash';
+import { generateToken } from '../utils/jwt';
+import { authMiddleware } from '../middleware/auth';
+import { securityHeaders } from '../middleware/security';
+import { loginValidation, registerValidation, sanitizeInput } from '../utils/validation';
+import * as ejs from 'ejs';
+import { readFile } from 'fs/promises';
+import path from 'path';
 
-// Constants
-const MAX_LOGIN_ATTEMPTS = 5;
-const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 menit dalam milidetik
-
-export const authRoutes = new Elysia({ prefix: "/auth" })
+export const authRoutes = new Elysia()
+  .use(staticPlugin({
+    assets: 'public',
+    prefix: '/public'
+  }))
+  .use(authMiddleware)
   .use(securityHeaders)
-  .use(rateLimit)
-  .use(inputValidation)
+  .use(
+    rateLimit({
+      duration: 60000, 
+      max: 5, 
+      errorResponse: 'Terlalu banyak percobaan login'
+    })
+  )
   
-  // Halaman Login (GET) - Render login.ejs
-  .get("/login", async ({ set, query }) => {
+  
+  .get('/login', async ({ query, set }) => {
     try {
-      set.headers['Content-Type'] = 'text/html';
-      
-      // Data yang akan dikirim ke template EJS
-      const templateData = {
+      const template = await readFile(path.join(process.cwd(), 'views', 'login.ejs'), 'utf-8');
+      const html = ejs.render(template, { 
         error: query.error || null,
-        message: query.message || null,
-        email: query.email || ''
-      };
+        message: query.message || null
+      });
       
-      // Render template EJS
-      return await render('login', templateData);
+      set.headers['Content-Type'] = 'text/html';
+      return html;
     } catch (error) {
-      console.error("Error rendering login page:", error);
       set.status = 500;
-      return "Terjadi kesalahan server";
+      return 'Error loading login page';
     }
   })
   
-  // Endpoint Login (POST) - Memproses form login
-  .post("/login", 
-    async ({ body, set, cookie, redirect }) => {
-      try {
-        const { email, password } = body;
-        
-        // Validasi input
-        try {
-          loginSchema.parse({ email, password });
-        } catch (validationError: any) {
-          return redirect(`/auth/login?error=Validasi gagal&email=${encodeURIComponent(email)}`);
-        }
-        
-        // Cek apakah email sudah terkunci
-        const attemptData = loginAttempts.get(email);
-        const now = Date.now();
-        
-        if (attemptData && attemptData.unlockTime > now) {
-          const remainingTime = Math.ceil((attemptData.unlockTime - now) / 1000 / 60);
-          return redirect(`/auth/login?error=Akun terkunci. Coba lagi dalam ${remainingTime} menit.&email=${encodeURIComponent(email)}`);
-        }
-        
-        // Cari user berdasarkan email
-        const user = users.find(u => u.email === email && u.status === 'active');
-        
-        if (!user) {
-          // Update attempt counter
-          const currentAttempts = (attemptData?.count || 0) + 1;
-          loginAttempts.set(email, {
-            count: currentAttempts,
-            unlockTime: now
-          });
-          
-          return redirect(`/auth/login?error=Email atau password salah&email=${encodeURIComponent(email)}`);
-        }
-        
-        // Verifikasi password
-        const isPasswordValid = await verifyPassword(password, user.password_hash);
-        
-        if (!isPasswordValid) {
-          // Tambah attempt counter
-          const currentAttempts = (attemptData?.count || 0) + 1;
-          
-          if (currentAttempts >= MAX_LOGIN_ATTEMPTS) {
-            // Kunci akun
-            loginAttempts.set(email, {
-              count: currentAttempts,
-              unlockTime: now + LOCKOUT_DURATION
-            });
-            
-            return redirect(`/auth/login?error=Terlalu banyak percobaan login. Akun terkunci selama 15 menit.&email=${encodeURIComponent(email)}`);
-          } else {
-            // Update attempt counter
-            loginAttempts.set(email, {
-              count: currentAttempts,
-              unlockTime: now
-            });
-            
-            return redirect(`/auth/login?error=Email atau password salah. Percobaan ${currentAttempts} dari ${MAX_LOGIN_ATTEMPTS}.&email=${encodeURIComponent(email)}`);
-          }
-        }
-        
-        // Reset login attempts jika berhasil
-        loginAttempts.delete(email);
-        
-        // Update last login
-        user.last_login = new Date();
-        
-        // Generate tokens
-        const tokenPayload = {
-          id: user.id,
-          email: user.email,
-          role: user.role
-        };
-        
-        const accessToken = generateAccessToken(tokenPayload);
-        const refreshToken = generateRefreshToken(tokenPayload);
-        
-        // Set cookies
-        cookie.accessToken.set({
-          value: accessToken,
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          maxAge: 15 * 60, // 15 menit
-          path: '/'
-        });
-        
-        cookie.refreshToken.set({
-          value: refreshToken,
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          maxAge: 7 * 24 * 60 * 60, // 7 hari
-          path: '/'
-        });
-        
-        // Redirect ke dashboard berdasarkan role
-        switch(user.role) {
-          case "siswa":
-            return redirect("/dashboard/siswa");
-          case "guru":
-            return redirect("/dashboard/guru");
-          case "kepsek":
-            return redirect("/dashboard/kepsek");
-          default:
-            return redirect("/dashboard");
-        }
-        
-      } catch (error) {
-        console.error("Login error:", error);
-        return redirect("/auth/login?error=Terjadi kesalahan server");
-      }
-    },
-    {
-      body: t.Object({
-        email: t.String(),
-        password: t.String()
-      })
-    }
-  )
   
-  // Logout
-  .post("/logout", 
-    async ({ cookie, redirect }) => {
-      try {
-        const token = cookie.accessToken.value;
-        if (token) {
-          addToBlacklist(token);
-        }
-        
-        // Hapus cookies
-        cookie.accessToken.remove();
-        cookie.refreshToken.remove();
-        
-        return redirect("/auth/login?message=Logout berhasil");
-      } catch (error) {
-        console.error("Logout error:", error);
-        return redirect("/auth/login?error=Terjadi kesalahan saat logout");
-      }
+  .post('/login', async ({ body, set, cookie }) => {
+    const { email, password } = body;
+
+    
+    const attempt = loginAttempts.get(email);
+    if (attempt && attempt.unlockTime > Date.now()) {
+      const remainingTime = Math.ceil((attempt.unlockTime - Date.now()) / 1000 / 60);
+      set.redirect = `/login?error=Akun terkunci. Coba lagi dalam ${remainingTime} menit`;
+      return;
     }
-  )
+
+    
+    const user = users.find(u => u.email === email && u.status === 'active');
+    
+    if (!user || !(await comparePassword(password, user.password_hash))) {
+      
+      const attemptCount = attempt ? attempt.count + 1 : 1;
+      let unlockTime = 0;
+      
+      if (attemptCount >= 5) {
+        unlockTime = Date.now() + 30 * 60 * 1000; 
+      }
+      
+      loginAttempts.set(email, { count: attemptCount, unlockTime });
+      
+      set.redirect = '/login?error=Email atau password salah';
+      return;
+    }
+
+    
+    loginAttempts.delete(email);
+
+    
+    user.last_login = new Date();
+
+    
+    const token = generateToken({
+      userId: user.id,
+      email: user.email,
+      role: user.role
+    });
+
+    
+    cookie.auth.set({
+      value: token,
+      httpOnly: true,
+      maxAge: 24 * 60 * 60, 
+      path: '/',
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict'
+    });
+
+    
+    set.redirect = `/dashboard/${user.role}`;
+  }, {
+    body: loginValidation.body
+  })
   
-  // Halaman Register (GET) - Render register.ejs
-  .get("/register", async ({ set, query }) => {
+  
+  .get('/register', async ({ query, set }) => {
     try {
-      set.headers['Content-Type'] = 'text/html';
-      
-      const templateData = {
+      const template = await readFile(path.join(process.cwd(), 'views', 'register.ejs'), 'utf-8');
+      const html = ejs.render(template, { 
         error: query.error || null,
-        message: query.message || null,
-        formData: {
-          nama: query.nama || '',
-          email: query.email || ''
-        }
-      };
+        message: query.message || null
+      });
       
-      return await render('register', templateData);
+      set.headers['Content-Type'] = 'text/html';
+      return html;
     } catch (error) {
-      console.error("Error rendering register page:", error);
       set.status = 500;
-      return "Terjadi kesalahan server";
+      return 'Error loading registration page';
     }
   })
   
-  // Endpoint Register (POST) - Memproses form register
-  .post("/register", 
-    async ({ body, set, redirect }) => {
-      try {
-        const { nama, email, password } = body;
-        
-        // Validasi input
-        try {
-          registerSchema.parse({ nama, email, password });
-        } catch (validationError: any) {
-          return redirect(`/auth/register?error=Validasi gagal&nama=${encodeURIComponent(nama)}&email=${encodeURIComponent(email)}`);
-        }
-        
-        // Cek apakah email sudah terdaftar
-        const existingUser = users.find(u => u.email === email);
-        if (existingUser) {
-          return redirect(`/auth/register?error=Email sudah terdaftar&nama=${encodeURIComponent(nama)}&email=${encodeURIComponent(email)}`);
-        }
-        
-        // Hash password
-        const passwordHash = await hashPassword(password);
-        
-        // Buat user baru (role siswa)
-        const newUser: User = {
-          id: users.length > 0 ? Math.max(...users.map(u => u.id)) + 1 : 1,
-          nama,
-          email,
-          password_hash: passwordHash,
-          role: "siswa",
-          status: "active",
-          created_at: new Date()
-        };
-        
-        users.push(newUser);
-        
-        return redirect("/auth/login?message=Registrasi berhasil. Silakan login.");
-        
-      } catch (error) {
-        console.error("Register error:", error);
-        return redirect("/auth/register?error=Terjadi kesalahan server");
-      }
-    },
-    {
-      body: t.Object({
-        nama: t.String(),
-        email: t.String(),
-        password: t.String()
-      })
+  
+  .post('/register', async ({ body, set }) => {
+    const { nama, email, password } = body;
+
+    
+    const sanitizedNama = sanitizeInput(nama);
+    const sanitizedEmail = sanitizeInput(email);
+
+    
+    if (users.some(u => u.email === sanitizedEmail)) {
+      set.redirect = '/register?error=Email sudah terdaftar';
+      return;
     }
-  );
+
+    
+    const newUser: User = {
+      id: users.length + 1,
+      nama: sanitizedNama,
+      email: sanitizedEmail,
+      password_hash: await hashPassword(password),
+      role: "siswa", 
+      status: 'active',
+      created_at: new Date()
+    };
+
+    users.push(newUser);
+
+    set.status = 201;
+    set.redirect = '/login?message=Registrasi berhasil. Silakan login.';
+  }, {
+    body: registerValidation.body
+  })
+  
+  
+  .get('/logout', ({ set, cookie }) => {
+    cookie.auth.remove();
+    set.redirect = '/login';
+  });
