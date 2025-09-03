@@ -1,7 +1,7 @@
 import { Elysia } from "elysia";
 
-const RATE_LIMIT_WINDOW_MS = parseInt(process.env.RATE_LIMIT_WINDOW_MS || "900000"); 
-const MAX_REQUESTS = parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || "100"); 
+const RATE_LIMIT_WINDOW_MS = parseInt(process.env.RATE_LIMIT_WINDOW_MS || "900000"); // 15 menit default
+const MAX_REQUESTS = parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || "100"); // 100 requests per window
 
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
 
@@ -13,8 +13,8 @@ export const rateLimit = new Elysia()
     
     const now = Date.now();
     
-    
-    if (rateLimitStore.size > 10000) { 
+    // Clean up old entries
+    if (rateLimitStore.size > 10000) { // Prevent memory leaks
       for (const [key, value] of rateLimitStore.entries()) {
         if (value.resetTime < now) {
           rateLimitStore.delete(key);
@@ -31,7 +31,7 @@ export const rateLimit = new Elysia()
     
     clientData.count++;
     
-    
+    // Set headers untuk informasi rate limit
     set.headers['X-RateLimit-Limit'] = MAX_REQUESTS.toString();
     set.headers['X-RateLimit-Remaining'] = Math.max(0, MAX_REQUESTS - clientData.count).toString();
     set.headers['X-RateLimit-Reset'] = Math.ceil(clientData.resetTime / 1000).toString();
