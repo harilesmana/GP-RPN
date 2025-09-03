@@ -1,18 +1,16 @@
-import { Elysia } from 'elysia';
-import { verifyToken } from '../utils/jwt';
+import type { Context } from "elysia";
+import { verifySession } from "../utils/session";
 
-export const authMiddleware = new Elysia()
-  .derive({ as: 'global' }, async ({ request, cookie: { auth }, set }: any) => {
-    const token = auth?.value || request.headers.get('authorization')?.split(' ')[1];
-    
-    if (!token) {
-      return { user: null };
-    }
+export async function authMiddleware({ cookie, set }: Context) {
+  const token = cookie?.session?.value;
+  if (!token) return { user: null };
 
-    try {
-      const decoded = verifyToken(token);
-      return { user: decoded };
-    } catch (error) {
-      return { user: null };
-    }
-  });
+  const secret = process.env.SESSION_SECRET || "dev_secret_change_me";
+  const data = verifySession(token, secret);
+  if (!data) {
+  
+    if (cookie?.session) cookie.session.set({ value: "", maxAge: 0 });
+    return { user: null };
+  }
+  return { user: data };
+}
