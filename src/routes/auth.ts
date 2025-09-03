@@ -8,11 +8,13 @@ import { readFileSync } from "fs";
 import { join } from "path";
 
 let lastId = users.length;
+
+
 function render(view: string, data: any = {}) {
   try {
     const file = readFileSync(join(import.meta.dir, "../../views", view), "utf8");
     
-  
+    
     const sanitizedData: any = {};
     for (const [key, value] of Object.entries(data)) {
       if (typeof value === 'string') {
@@ -34,17 +36,18 @@ function render(view: string, data: any = {}) {
 }
 
 const LOGIN_ATTEMPTS_LIMIT = parseInt(process.env.LOGIN_ATTEMPTS_LIMIT || "5");
-const LOGIN_LOCKOUT_TIME = parseInt(process.env.LOGIN_LOCKOUT_TIME || "900000"); // 15 menit
+const LOGIN_LOCKOUT_TIME = parseInt(process.env.LOGIN_LOCKOUT_TIME || "900000"); 
 
 export const authRoutes = new Elysia()
   .use(inputValidation)
   
+  
   .get("/login", () => new Response(render("login.ejs"), { headers: { "Content-Type": "text/html" } }))
 
   .post("/login", async ({ sanitizedBody, set, request }: any) => {
-    const { email, password } = sanitizedBody as { email: string; password: string };
+  const { email, password } = sanitizedBody as { email: string; password: string };
     
-  
+    
     try {
       loginSchema.parse({ email, password });
     } catch (error: any) {
@@ -78,7 +81,7 @@ export const authRoutes = new Elysia()
       return new Response("Email atau password salah", { status: 401 });
     }  
 
-  
+    
     if (user.status !== "active") {
       set.status = 403;
       return new Response("Akun tidak aktif. Silakan hubungi administrator.", { status: 403 });
@@ -86,7 +89,7 @@ export const authRoutes = new Elysia()
 
     const valid = await verifyPassword(password, user.password_hash);  
     if (!valid) {
-    
+      
       attemptData.count++;
       if (attemptData.count >= LOGIN_ATTEMPTS_LIMIT) {
         attemptData.unlockTime = now + LOGIN_LOCKOUT_TIME;
@@ -100,7 +103,7 @@ export const authRoutes = new Elysia()
     
     loginAttempts.delete(ip);
     
-  
+    
     user.last_login = new Date();
     
     const accessToken = generateAccessToken({ id: user.id, role: user.role });
@@ -160,13 +163,13 @@ export const authRoutes = new Elysia()
     return { message: "Logged out successfully" };
   })
   
-  // registrasi
+  
   .get("/register", () => new Response(render("register.ejs"), { headers: { "Content-Type": "text/html" } }))
 
   .post("/register", async ({ sanitizedBody, set }: any) => {
     const { nama, email, password } = sanitizedBody as any;
 
-    // Validasi input
+    
     try {
       registerSchema.parse({ nama, email, password });
     } catch (error: any) {
@@ -174,7 +177,7 @@ export const authRoutes = new Elysia()
       return { error: error.errors[0].message };
     }
 
-    // Validasi kekuatan password
+    
     if (!validatePasswordStrength(password)) {
       set.status = 400;
       return { error: "Password harus mengandung huruf besar, huruf kecil, dan angka" };
