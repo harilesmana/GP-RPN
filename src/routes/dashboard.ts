@@ -1,80 +1,25 @@
-import { Elysia } from 'elysia';
-import { authMiddleware } from '../middleware/auth';
-import * as ejs from 'ejs';
-import { readFile } from 'fs/promises';
-import path from 'path';
+import { Elysia } from "elysia";
+import ejs from "ejs";
+import { authMiddleware } from "../middleware/auth";
+
+const render = async (file: string, data: Record<string, any> = {}) => {
+  const tpl = await Bun.file(file).text();
+  return ejs.render(tpl, data);
+};
 
 export const dashboardRoutes = new Elysia()
-  .use(authMiddleware)
-  
-  .onBeforeHandle(({ user, set }) => {
+  .derive(authMiddleware as any)
+  .get("/dashboard", async ({ set, user }) => {
     if (!user) {
-      set.redirect = '/login';
+      set.status = 302;
+      set.headers.Location = "/login?error=Silakan login terlebih dahulu";
       return;
     }
-  })
-  
-  
-  .get('/dashboard/:role', async ({ params, user, set }) => {
-    if (user.role !== params.role) {
-      set.status = 403;
-      return "Akses ditolak";
-    }
 
-    try {
-      const templatePath = path.join(process.cwd(), 'views', 'dashboard', `${params.role}.ejs`);
-      const template = await readFile(templatePath, 'utf-8');
-      
-      let dashboardData = {};
-      
-      switch (params.role) {
-        case 'kepsek':
-          dashboardData = {
-            title: 'Dashboard Kepala Sekolah',
-            welcomeMessage: `Selamat datang, ${user.role}!`,
-            menu: [
-              { name: 'Manajemen Guru', url: '/manajemen/guru' },
-              { name: 'Laporan Akademik', url: '/laporan/akademik' },
-              { name: 'Pengaturan Sekolah', url: '/pengaturan/sekolah' }
-            ]
-          };
-          break;
-        case 'guru':
-          dashboardData = {
-            title: 'Dashboard Guru',
-            welcomeMessage: `Selamat datang, ${user.role}!`,
-            menu: [
-              { name: 'Kelola Nilai', url: '/kelola/nilai' },
-              { name: 'Jadwal Mengajar', url: '/jadwal/mengajar' },
-              { name: 'Absensi Siswa', url: '/absensi/siswa' }
-            ]
-          };
-          break;
-        case 'siswa':
-          dashboardData = {
-            title: 'Dashboard Siswa',
-            welcomeMessage: `Selamat datang, ${user.role}!`,
-            menu: [
-              { name: 'Lihat Nilai', url: '/lihat/nilai' },
-              { name: 'Jadwal Pelajaran', url: '/jadwal/pelajaran' },
-              { name: 'Tugas Sekolah', url: '/tugas/sekolah' }
-            ]
-          };
-          break;
-        default:
-          set.status = 404;
-          return "Halaman tidak ditemukan";
-      }
-
-      const html = ejs.render(template, { 
-        ...dashboardData,
-        user
-      });
-      
-      set.headers['Content-Type'] = 'text/html';
-      return html;
-    } catch (error) {
-      set.status = 500;
-      return 'Error loading dashboard page';
-    }
+    set.headers["Content-Type"] = "text/html; charset=utf-8";
+    if (user.role === "kepsek")
+      return render("views/dashboard/kepsek.ejs", { user });
+    if (user.role === "guru")
+      return render("views/dashboard/guru.ejs", { user });
+    return render("views/dashboard/siswa.ejs", { user });
   });
