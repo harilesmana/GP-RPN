@@ -198,113 +198,123 @@
          <p>Belum punya akun? <a href="/register">Daftar di sini</a></p>
       </div>
    </div>
+<script>
+   document.getElementById('loginForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
 
-   <script>
-      document.getElementById('loginForm').addEventListener('submit', async function (e) {
-         e.preventDefault();
+      const submitBtn = document.getElementById('submitBtn');
+      const loading = document.getElementById('loading');
+      const generalError = document.getElementById('generalError');
+      const generalSuccess = document.getElementById('generalSuccess');
 
-         const submitBtn = document.getElementById('submitBtn');
-         const loading = document.getElementById('loading');
+      // Reset error messages
+      document.querySelectorAll('.error').forEach(el => {
+         el.style.display = 'none';
+         el.textContent = '';
+      });
+      generalError.style.display = 'none';
+      generalSuccess.style.display = 'none';
 
-         // Reset error messages
-         document.querySelectorAll('.error').forEach(el => {
-            el.style.display = 'none';
-            el.textContent = '';
+      // Show loading state
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Memproses...';
+      loading.style.display = 'block';
+
+      const formData = new FormData(this);
+
+      try {
+         const response = await fetch('/login', {
+            method: 'POST',
+            body: formData
          });
-         document.querySelectorAll('.success').forEach(el => {
-            el.style.display = 'none';
-            el.textContent = '';
-         });
 
-         // Show loading state
-         submitBtn.disabled = true;
-         submitBtn.textContent = 'Memproses...';
-         loading.style.display = 'block';
+         const responseText = await response.text();
+         console.log('Response:', response.status, responseText);
 
-         const formData = new FormData(this);
-
-         // Debug: Log form data
-         console.log('Form data being sent:');
-         for (let [key, value] of formData.entries()) {
-            console.log(key, value);
+         if (response.redirected) {
+            // Jika ada redirect, ikuti redirect
+            window.location.href = response.url;
+            return;
          }
 
-         try {
-            const response = await fetch('/login', {
-               method: 'POST',
-               body: formData // Kirim sebagai FormData, bukan JSON
-            });
-
-            console.log('Response status:', response.status);
-            console.log('Response headers:', response.headers.get('content-type'));
-
-            if (response.ok) {
-               const result = await response.text();
-
-               if (result) {
-                  document.open()
-                  document.write(result)
-                  document.close()
-               } else {
-                  throw new Error('Dashboard gagal dimuat');
-               }
+         if (response.ok) {
+            // Jika response adalah HTML (dashboard)
+            if (responseText.includes('<!DOCTYPE html>') || responseText.includes('<html')) {
+               document.open();
+               document.write(responseText);
+               document.close();
             } else {
-               const errorText = await response.text();
-               document.getElementById('generalError').textContent = errorText;
-               document.getElementById('generalError').style.display = 'block';
+               // Jika response adalah pesan sukses
+               generalSuccess.textContent = responseText;
+               generalSuccess.style.display = 'block';
             }
-         } catch (error) {
-            const contentType = response.headers.get('content-type');
-            let errorMessage = 'Login gagal';
-
-            if (contentType && contentType.includes('application/json')) {
-               const errorData = await response.json();
-               errorMessage = errorData.error || errorMessage;
-            } else {
-               errorMessage = await response.text() || errorMessage;
-            }
-
-            console.error('Login failed:', response.status, errorMessage);
-            generalError.textContent = errorMessage;
+         } else {
+            // Jika error
+            generalError.textContent = responseText;
             generalError.style.display = 'block';
-         } finally {
-            // Reset loading state
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Masuk';
-            loading.style.display = 'none';
          }
-      });
-
-      // Add input validation
-      document.getElementById('email').addEventListener('blur', function () {
-         const email = this.value.trim();
-         const emailError = document.getElementById('emailError');
-
-         if (email && !isValidEmail(email)) {
-            emailError.textContent = 'Format email tidak valid';
-            emailError.style.display = 'block';
-         } else {
-            emailError.style.display = 'none';
-         }
-      });
-
-      document.getElementById('password').addEventListener('blur', function () {
-         const password = this.value;
-         const passwordError = document.getElementById('passwordError');
-
-         if (password && password.length < 6) {
-            passwordError.textContent = 'Password minimal 6 karakter';
-            passwordError.style.display = 'block';
-         } else {
-            passwordError.style.display = 'none';
-         }
-      });
-
-      function isValidEmail(email) {
-         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-         return emailRegex.test(email);
+      } catch (error) {
+         console.error('Login error:', error);
+         generalError.textContent = 'Terjadi kesalahan jaringan';
+         generalError.style.display = 'block';
+      } finally {
+         // Reset loading state
+         submitBtn.disabled = false;
+         submitBtn.textContent = 'Masuk';
+         loading.style.display = 'none';
       }
-   </script>
+   });
+
+   // Add input validation
+   document.getElementById('email').addEventListener('blur', function () {
+      const email = this.value.trim();
+      const emailError = document.getElementById('emailError');
+
+      if (email && !isValidEmail(email)) {
+         emailError.textContent = 'Format email tidak valid';
+         emailError.style.display = 'block';
+      } else {
+         emailError.style.display = 'none';
+      }
+   });
+
+   document.getElementById('password').addEventListener('blur', function () {
+      const password = this.value;
+      const passwordError = document.getElementById('passwordError');
+
+      if (password && password.length < 6) {
+         passwordError.textContent = 'Password minimal 6 karakter';
+         passwordError.style.display = 'block';
+      } else {
+         passwordError.style.display = 'none';
+      }
+   });
+
+   function isValidEmail(email) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      return emailRegex.test(email);
+   }
+
+   // Check for error/success messages in URL parameters
+   window.addEventListener('DOMContentLoaded', function () {
+      const urlParams = new URLSearchParams(window.location.search);
+      const error = urlParams.get('error');
+      const message = urlParams.get('message');
+
+      const generalError = document.getElementById('generalError');
+      const generalSuccess = document.getElementById('generalSuccess');
+
+      if (error) {
+         generalError.textContent = error;
+         generalError.style.display = 'block';
+      }
+
+      if (message) {
+         generalSuccess.textContent = message;
+         generalSuccess.style.display = 'block';
+      }
+   });
+</script>
 </body>
 
 </html>
