@@ -1,38 +1,18 @@
-import { verifyAccessToken, isTokenBlacklisted } from "../utils/jwt";
-import { users } from "../db";
+import { Elysia } from 'elysia';
+import { verifyToken } from '../utils/jwt';
 
-export async function authMiddleware({ request }: any) {
-  try {
-    const authHeader = request.headers.get("authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return { user: null, error: "Token tidak valid" };
-    }
-
-    const token = authHeader.substring(7); 
+export const authMiddleware = new Elysia()
+  .derive({ as: 'global' }, async ({ request, cookie: { auth }, set }: any) => {
+    const token = auth?.value || request.headers.get('authorization')?.split(' ')[1];
     
-    
-    if (isTokenBlacklisted(token)) {
-      return { user: null, error: "Token telah direvoke" };
+    if (!token) {
+      return { user: null };
     }
 
-    const payload = verifyAccessToken(token);
-    if (!payload) {
-      return { user: null, error: "Token invalid atau expired" };
+    try {
+      const decoded = verifyToken(token);
+      return { user: decoded };
+    } catch (error) {
+      return { user: null };
     }
-
-    const user = users.find((u) => u.id === (payload as any).id);
-    if (!user) {
-      return { user: null, error: "User tidak ditemukan" };
-    }
-
-    
-    if (user.status !== "active") {
-      return { user: null, error: "Akun tidak aktif. Silakan hubungi administrator." };
-    }
-
-    return { user, error: null };
-  } catch (error) {
-    console.error("Auth middleware error:", error);
-    return { user: null, error: "Error authentication" };
-  }
-}
+  });
