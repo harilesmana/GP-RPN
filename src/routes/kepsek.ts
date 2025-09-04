@@ -1,303 +1,304 @@
 import { Elysia } from "elysia";
-import ejs from "ejs";
 import { authMiddleware } from "../middleware/auth";
 import { 
-  users, classes, mataPelajaran, guruMengajar, tasks, 
-  tugasSiswa, diskusi, User
+  users, kelas, materi, diskusi, tugas, 
+  User, Kelas, Materi, Diskusi, Tugas 
 } from "../db";
-import { hashPassword } from "../utils/hash";
 import { addGuruSchema, updateUserStatusSchema } from "../middleware/inputValidation";
-
-const render = async (file: string, data: Record<string, any> = {}) => {
-  const tpl = await Bun.file(file).text();
-  return ejs.render(tpl, data);
-};
+import { hashPassword } from "../utils/hash";
 
 export const kepsekRoutes = new Elysia({ prefix: "/kepsek" })
   .derive(authMiddleware as any)
+  
+  
   .onBeforeHandle(({ user, set }) => {
     if (!user || user.role !== "kepsek") {
-      set.status = 302;
-      set.headers.Location = "/dashboard";
-      return "Unauthorized";
+      set.status = 403;
+      return "Akses ditolak. Hanya kepala sekolah yang dapat mengakses endpoint ini.";
     }
   })
+
   
-  .get("/guru", async ({ set, user }) => {
-    const daftarGuru = users.filter(u => u.role === "guru");
+  .get("/info-dasar", () => {
+    const jumlahGuru = users.filter(u => u.role === "guru").length;
+    const jumlahSiswa = users.filter(u => u.role === "siswa").length;
+    const jumlahKelas = kelas.length;
+    const jumlahMateri = materi.length;
+
+    return {
+      jumlah_guru: jumlahGuru,
+      jumlah_siswa: jumlahSiswa,
+      jumlah_kelas: jumlahKelas,
+      jumlah_materi: jumlahMateri
+    };
+  })
+
+  
+  .get("/guru/daftar", () => {
+    const daftarGuru = users
+      .filter(u => u.role === "guru")
+      .map(guru => ({
+        id: guru.id,
+        nama: guru.nama,
+        email: guru.email,
+        bidang: guru.bidang || "-",
+        status: guru.status,
+        last_login: guru.last_login,
+        login_count: guru.login_count
+      }));
+
+    return daftarGuru;
+  })
+
+  
+  .post("/guru/tambah", async ({ body, set }) => {
+    const parsed = addGuruSchema.safeParse(body);
+    if (!parsed.success) {
+      set.status = 400;
+      return { error: "Data tidak valid", details: parsed.error.issues };
+    }
+
+    const { nama, email, password } = parsed.data;
+    const bidang = (body as any).bidang || "";
+
     
-    set.headers["Content-Type"] = "text/html; charset=utf-8";
-    return render("views/kepsek/guru.ejs", { 
-      user, 
-      daftarGuru 
-    });
-  })
-  
-  .get("/guru/tambah", async ({ set, user }) => {
-    set.headers["Content-Type"] = "text/html; charset=utf-8";
-    return render("views/kepsek/tambah-guru.ejs", { 
-      user, 
-      error: "", 
-      values: {} 
-    });
-  })
-  
-.get("/siswa", async ({ set, user }) => {
-  set.headers["Content-Type"] = "text/html; charset=utf-8";
-  const daftarSiswa = users.filter(u => u.role === "siswa");
-  return render("views/kepsek/siswa.ejs", { user, daftarSiswa });
-})
+    const existingUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+    if (existingUser) {
+      set.status = 400;
+      return { error: "Email sudah terdaftar" };
+    }
 
-
-.get("/siswa/tambah", async ({ set, user }) => {
-  set.headers["Content-Type"] = "text/html; charset=utf-8";
-  return render("views/kepsek/tambah-siswa.ejs", { user, error: "", values: {} });
-})
-.post("/siswa/tambah", async ({ set, user, parseFormData }) => {
-  const body = await parseFormData();
-  const { nama, email, password, kelas_id } = body;
-  
-  if (users.some(u => u.email === email)) {
-    set.headers["Content-Type"] = "text/html; charset=utf-8";
-    return render("views/kepsek/tambah-siswa.ejs", { user, error: "Email sudah terdaftar", values: body });
-  }
-
-  const newSiswa: User = {
-    id: users.length > 0 ? Math.max(...users.map(u => u.id)) + 1 : 1,
-    nama,
-    email,
-    password_hash: await hashPassword(password),
-    role: "siswa",
-    status: "active",
-    created_by: user.userId,
-    created_at: new Date(),
-  };
-  users.push(newSiswa);
-
-  siswaKelas.push({ id: siswaKelas.length + 1, siswa_id: newSiswa.id, kelas_id: Number(kelas_id), created_at: new Date() });
-
-  set.status = 302;
-  set.headers.Location = "/kepsek/siswa?message=Siswa berhasil ditambahkan";
-});
-
-.get("/kelas", async ({ set, user }) => {
-  set.headers["Content-Type"] = "text/html; charset=utf-8";
-  return render("views/kepsek/kelas.ejs", { user, classes });
-})
-
-
-.get("/kelas/tambah", async ({ set, user }) => {
-  set.headers["Content-Type"] = "text/html; charset=utf-8";
-  return render("views/kepsek/tambah-kelas.ejs", { user, error: "", values: {} });
-})
-.post("/kelas/tambah", async ({ set, user, parseFormData }) => {
-  const body = await parseFormData();
-  const { nama, wali_kelas_id } = body;
-
-  if (classes.some(c => c.nama === nama)) {
-    set.headers["Content-Type"] = "text/html; charset=utf-8";
-    return render("views/kepsek/tambah-kelas.ejs", { user, error: "Nama kelas sudah ada", values: body });
-  }
-
-  classes.push({
-    id: classes.length > 0 ? Math.max(...classes.map(c => c.id)) + 1 : 1,
-    nama,
-    wali_kelas_id: Number(wali_kelas_id),
-    created_at: new Date()
-  });
-
-  set.status = 302;
-  set.headers.Location = "/kepsek/kelas?message=Kelas berhasil ditambahkan";
-});
-  .post("/guru/tambah", async ({ set, user, parseFormData }) => {
     try {
-      const body = await parseFormData();
-      const parsed = addGuruSchema.safeParse(body);
-      
-      if (!parsed.success) {
-        set.headers["Content-Type"] = "text/html; charset=utf-8";
-        return render("views/kepsek/tambah-guru.ejs", { 
-          user, 
-          error: parsed.error.issues.map(i => i.message).join(", "),
-          values: body
-        });
-      }
-      
-      const { nama, email, password } = parsed.data;
-      
-      
-      if (users.some(u => u.email === email)) {
-        set.headers["Content-Type"] = "text/html; charset=utf-8";
-        return render("views/kepsek/tambah-guru.ejs", { 
-          user, 
-          error: "Email sudah terdaftar",
-          values: body
-        });
-      }
-      
-      
+      const passwordHash = await hashPassword(password);
+      const now = new Date();
+
       const newGuru: User = {
-        id: users.length > 0 ? Math.max(...users.map(u => u.id)) + 1 : 1,
-        nama,
-        email,
-        password_hash: await hashPassword(password),
+        id: users.length + 1,
+        nama: nama.trim(),
+        email: email.toLowerCase().trim(),
+        password_hash: passwordHash,
         role: "guru",
         status: "active",
-        created_by: user.userId,
-        created_at: new Date(),
-        last_login: new Date()
+        created_by: 1, 
+        created_at: now,
+        last_login: now,
+        login_count: 0,
+        last_activity: now,
+        bidang: bidang.trim() || undefined
       };
-      
+
       users.push(newGuru);
-      
-      set.status = 302;
-      set.headers.Location = "/kepsek/guru?message=Guru berhasil ditambahkan";
+
+      return { 
+        success: true, 
+        message: "Guru berhasil ditambahkan",
+        data: {
+          id: newGuru.id,
+          nama: newGuru.nama,
+          email: newGuru.email,
+          bidang: newGuru.bidang
+        }
+      };
     } catch (error) {
-      set.headers["Content-Type"] = "text/html; charset=utf-8";
-      return render("views/kepsek/tambah-guru.ejs", { 
-        user, 
-        error: "Terjadi kesalahan sistem",
-        values: {}
-      });
+      console.error("Error adding guru:", error);
+      set.status = 500;
+      return { error: "Terjadi kesalahan server" };
     }
   })
-  .post("/guru/status", async ({ set, parseFormData }) => {
-    const body = await parseFormData();
-    const parsed = updateUserStatusSchema.safeParse(body);
+
+  
+  .patch("/guru/status/:id", async ({ params, body, set }) => {
+    const parsed = updateUserStatusSchema.safeParse({ 
+      id: params.id, 
+      ...body 
+    });
     
     if (!parsed.success) {
       set.status = 400;
-      return parsed.error.issues.map(i => i.message).join(", ");
+      return { error: "Data tidak valid", details: parsed.error.issues };
     }
-    
+
     const { id, status } = parsed.data;
     const guru = users.find(u => u.id === id && u.role === "guru");
-    
+
     if (!guru) {
       set.status = 404;
-      return "Guru tidak ditemukan";
+      return { error: "Guru tidak ditemukan" };
     }
-    
+
     guru.status = status;
-    
-    set.status = 302;
-    set.headers.Location = "/kepsek/guru?message=Status guru berhasil diubah";
-  })
-  
-  .get("/guru/pengajar", async ({ set, user }) => {
-    const infoPengajar = guruMengajar.map(gm => {
-      const guru = users.find(u => u.id === gm.guru_id);
-      const mapel = mataPelajaran.find(m => m.id === gm.mata_pelajaran_id);
-      const kelas = classes.find(c => c.id === gm.kelas_id);
-      
-      return {
-        id: gm.id,
-        guru: guru?.nama || "Unknown",
-        mataPelajaran: mapel?.nama || "Unknown",
-        kelas: kelas?.nama || "Unknown"
-      };
-    });
-    
-    set.headers["Content-Type"] = "text/html; charset=utf-8";
-    return render("views/kepsek/info-pengajar.ejs", { 
-      user, 
-      infoPengajar 
-    });
+    return { success: true, message: `Status guru berhasil diubah menjadi ${status}` };
   })
 
-  .get("/siswa/tugas", async ({ set, user }) => {
-    const daftarTugas = tasks.map(t => {
-      const mapel = mataPelajaran.find(m => m.id === t.mata_pelajaran_id);
-      const guru = users.find(u => u.id === t.created_by);
-      const tugasSiswaData = tugasSiswa.filter(ts => ts.tugas_id === t.id);
-      
-      const selesai = tugasSiswaData.filter(ts => ts.status === 'selesai').length;
-      const belum = tugasSiswaData.filter(ts => ts.status === 'belum').length;
-      
-      return {
-        id: t.id,
-        judul: t.judul,
-        mataPelajaran: mapel?.nama || "Unknown",
-        pembuat: guru?.nama || "Unknown",
-        selesai,
-        belum,
-        total: selesai + belum
-      };
-    });
+  
+  .delete("/guru/hapus/:id", async ({ params, set }) => {
+    const id = parseInt(params.id);
+    if (isNaN(id)) {
+      set.status = 400;
+      return { error: "ID tidak valid" };
+    }
+
+    const index = users.findIndex(u => u.id === id && u.role === "guru");
+    if (index === -1) {
+      set.status = 404;
+      return { error: "Guru tidak ditemukan" };
+    }
+
     
-    set.headers["Content-Type"] = "text/html; charset=utf-8";
-    return render("views/kepsek/tugas-siswa.ejs", { 
-      user, 
-      daftarTugas 
-    });
+    users.splice(index, 1);
+    return { success: true, message: "Guru berhasil dihapus" };
   })
 
-  .get("/tugas", async ({ set, user }) => {
-    const daftarTugas = tasks.map(t => {
-      const mapel = mataPelajaran.find(m => m.id === t.mata_pelajaran_id);
-      const guru = users.find(u => u.id === t.created_by);
+  
+  .get("/siswa/daftar", () => {
+    const daftarSiswa = users
+      .filter(u => u.role === "siswa")
+      .map(siswa => {
+        
+        const kelasSiswa = kelas[siswa.id % kelas.length] || kelas[0];
+        
+        return {
+          id: siswa.id,
+          nama: siswa.nama,
+          email: siswa.email,
+          kelas: kelasSiswa?.nama || "Belum ditentukan",
+          status: siswa.status,
+          last_login: siswa.last_login
+        };
+      });
+
+    return daftarSiswa;
+  })
+
+  
+  .get("/siswa/tugas/:id", async ({ params, set }) => {
+    const siswaId = parseInt(params.id);
+    if (isNaN(siswaId)) {
+      set.status = 400;
+      return { error: "ID siswa tidak valid" };
+    }
+
+    const siswa = users.find(u => u.id === siswaId && u.role === "siswa");
+    if (!siswa) {
+      set.status = 404;
+      return { error: "Siswa tidak ditemukan" };
+    }
+
+    const tugasSiswa = tugas
+      .filter(t => t.siswa_id === siswaId)
+      .map(t => {
+        const materiItem = materi.find(m => m.id === t.materi_id);
+        return {
+          id: t.id,
+          materi: materiItem?.judul || "Materi tidak ditemukan",
+          status: t.status,
+          nilai: t.nilai,
+          hasil: t.hasil,
+          updated_at: t.updated_at
+        };
+      });
+
+    return tugasSiswa;
+  })
+
+  
+  .get("/materi/daftar", () => {
+    const daftarMateri = materi.map(m => {
+      const guruPengampu = users.find(u => u.id === m.guru_id);
+      const kelasMateri = kelas.find(k => k.id === m.kelas_id);
       
       return {
-        id: t.id,
-        judul: t.judul,
-        deskripsi: t.deskripsi,
-        mataPelajaran: mapel?.nama || "Unknown",
-        pembuat: guru?.nama || "Unknown",
-        deadline: t.deadline.toLocaleDateString('id-ID')
+        id: m.id,
+        judul: m.judul,
+        deskripsi: m.deskripsi,
+        guru: guruPengampu?.nama || "Tidak diketahui",
+        kelas: kelasMateri?.nama || "Tidak diketahui",
+        created_at: m.created_at
       };
     });
-    
-    set.headers["Content-Type"] = "text/html; charset=utf-8";
-    return render("views/kepsek/daftar-tugas.ejs", { 
-      user, 
-      daftarTugas 
-    });
+
+    return daftarMateri;
   })
+
   
-  .get("/komunikasi/kelas", async ({ set, user }) => {
-    const diskusiKelas = diskusi
-      .filter(d => d.target_type === 'kelas')
-      .map(d => {
-        const pengirim = users.find(u => u.id === d.pengirim_id);
-        const kelas = classes.find(c => c.id === d.target_id);
-        
-        return {
-          id: d.id,
-          topik: d.topik,
-          pesan: d.pesan,
-          pengirim: pengirim?.nama || "Unknown",
-          kelas: kelas?.nama || "Unknown",
-          waktu: d.created_at.toLocaleString('id-ID')
-        };
-      });
+  .get("/kelas/diskusi-materi/:id", async ({ params, set }) => {
+    const materiId = parseInt(params.id);
+    if (isNaN(materiId)) {
+      set.status = 400;
+      return { error: "ID materi tidak valid" };
+    }
+
+    const materiItem = materi.find(m => m.id === materiId);
+    if (!materiItem) {
+      set.status = 404;
+      return { error: "Materi tidak ditemukan" };
+    }
+
     
-    set.headers["Content-Type"] = "text/html; charset=utf-8";
-    return render("views/kepsek/diskusi-kelas.ejs", { 
-      user, 
-      diskusiKelas 
+    
+    const diskusiMateri = diskusi.slice(0, 5).map(d => {
+      const user = users.find(u => u.id === d.user_id);
+      return {
+        id: d.id,
+        user: user?.nama || "Anonim",
+        role: d.user_role,
+        isi: d.isi,
+        created_at: d.created_at
+      };
     });
+
+    return diskusiMateri;
   })
+
   
-  .get("/komunikasi/tugas", async ({ set, user }) => {
-    const diskusiTugas = diskusi
-      .filter(d => d.target_type === 'tugas')
-      .map(d => {
-        const pengirim = users.find(u => u.id === d.pengirim_id);
-        const tugas = tasks.find(t => t.id === d.target_id);
-        
-        return {
-          id: d.id,
-          topik: d.topik,
-          pesan: d.pesan,
-          pengirim: pengirim?.nama || "Unknown",
-          tugas: tugas?.judul || "Unknown",
-          waktu: d.created_at.toLocaleString('id-ID')
-        };
-      });
-    
-    set.headers["Content-Type"] = "text/html; charset=utf-8";
-    return render("views/kepsek/diskusi-tugas.ejs", { 
-      user, 
-      diskusiTugas 
+  .get("/kelas/diskusi", () => {
+    const daftarDiskusi = diskusi.map(d => {
+      const user = users.find(u => u.id === d.user_id);
+      return {
+        id: d.id,
+        kelas: d.kelas,
+        isi: d.isi.length > 100 ? d.isi.substring(0, 100) + "..." : d.isi,
+        user: user?.nama || "Anonim",
+        role: d.user_role,
+        created_at: d.created_at
+      };
     });
+
+    return daftarDiskusi;
+  })
+
+  
+  .post("/kelas/diskusi", async ({ body, user, set }) => {
+    const { kelas, isi } = body as any;
+    
+    if (!kelas || !isi) {
+      set.status = 400;
+      return { error: "Kelas dan isi diskusi harus diisi" };
+    }
+
+    if (isi.length < 5) {
+      set.status = 400;
+      return { error: "Isi diskusi terlalu pendek" };
+    }
+
+    const newDiskusi: Diskusi = {
+      id: diskusi.length + 1,
+      kelas: kelas.trim(),
+      isi: isi.trim(),
+      user_id: user.userId,
+      user_role: user.role,
+      created_at: new Date()
+    };
+
+    diskusi.push(newDiskusi);
+    
+    return { 
+      success: true, 
+      message: "Diskusi berhasil ditambahkan",
+      data: {
+        id: newDiskusi.id,
+        kelas: newDiskusi.kelas,
+        isi: newDiskusi.isi
+      }
+    };
   });
