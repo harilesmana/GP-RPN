@@ -1,6 +1,6 @@
 import { Elysia } from "elysia";
 import ejs from "ejs";
-import { users, loginAttempts, classes } from "../db";
+import { users, loginAttempts } from "../db";
 import { verifyPassword, hashPassword } from "../utils/hash";
 import { signSession } from "../utils/session";
 import { loginSchema, registerSchema, inputValidation } from "../middleware/inputValidation";
@@ -30,8 +30,7 @@ export const authRoutes = new Elysia()
     return view(fs, {
       error: query.error ?? "",
       message: query.message ?? "",
-      formData: query.formData ? JSON.parse(query.formData) : {},
-      classes: classes
+      formData: query.formData ? JSON.parse(query.formData) : {}
     });
   })
 
@@ -53,7 +52,7 @@ export const authRoutes = new Elysia()
       return;
     }
 
-    const { email, password, nama, confirmPassword, kelas_id } = parsed.data;
+    const { email, password, nama, confirmPassword } = parsed.data;
 
     if (password !== confirmPassword) {
       set.status = 302;
@@ -68,15 +67,6 @@ export const authRoutes = new Elysia()
       return;
     }
 
-    if (kelas_id) {
-      const kelasExists = classes.find(k => k.id === parseInt(kelas_id));
-      if (!kelasExists) {
-        set.status = 302;
-        set.headers.Location = `/register?error=${encodeURIComponent("Kelas tidak valid")}&formData=${encodeURIComponent(JSON.stringify(body))}`;
-        return;
-      }
-    }
-
     try {
       const passwordHash = await hashPassword(password);
       const now = new Date();
@@ -89,8 +79,7 @@ export const authRoutes = new Elysia()
         role: "siswa" as Role,
         status: "active" as const,
         created_at: now,
-        last_login: now,
-        kelas_id: kelas_id ? parseInt(kelas_id) : undefined
+        last_login: now
       };
 
       users.push(newUser);
