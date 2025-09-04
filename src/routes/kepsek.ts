@@ -42,6 +42,73 @@ export const kepsekRoutes = new Elysia({ prefix: "/kepsek" })
     });
   })
   
+.get("/siswa", async ({ set, user }) => {
+  set.headers["Content-Type"] = "text/html; charset=utf-8";
+  const daftarSiswa = users.filter(u => u.role === "siswa");
+  return render("views/kepsek/siswa.ejs", { user, daftarSiswa });
+})
+
+
+.get("/siswa/tambah", async ({ set, user }) => {
+  set.headers["Content-Type"] = "text/html; charset=utf-8";
+  return render("views/kepsek/tambah-siswa.ejs", { user, error: "", values: {} });
+})
+.post("/siswa/tambah", async ({ set, user, parseFormData }) => {
+  const body = await parseFormData();
+  const { nama, email, password, kelas_id } = body;
+  
+  if (users.some(u => u.email === email)) {
+    set.headers["Content-Type"] = "text/html; charset=utf-8";
+    return render("views/kepsek/tambah-siswa.ejs", { user, error: "Email sudah terdaftar", values: body });
+  }
+
+  const newSiswa: User = {
+    id: users.length > 0 ? Math.max(...users.map(u => u.id)) + 1 : 1,
+    nama,
+    email,
+    password_hash: await hashPassword(password),
+    role: "siswa",
+    status: "active",
+    created_by: user.userId,
+    created_at: new Date(),
+  };
+  users.push(newSiswa);
+
+  siswaKelas.push({ id: siswaKelas.length + 1, siswa_id: newSiswa.id, kelas_id: Number(kelas_id), created_at: new Date() });
+
+  set.status = 302;
+  set.headers.Location = "/kepsek/siswa?message=Siswa berhasil ditambahkan";
+});
+
+.get("/kelas", async ({ set, user }) => {
+  set.headers["Content-Type"] = "text/html; charset=utf-8";
+  return render("views/kepsek/kelas.ejs", { user, classes });
+})
+
+
+.get("/kelas/tambah", async ({ set, user }) => {
+  set.headers["Content-Type"] = "text/html; charset=utf-8";
+  return render("views/kepsek/tambah-kelas.ejs", { user, error: "", values: {} });
+})
+.post("/kelas/tambah", async ({ set, user, parseFormData }) => {
+  const body = await parseFormData();
+  const { nama, wali_kelas_id } = body;
+
+  if (classes.some(c => c.nama === nama)) {
+    set.headers["Content-Type"] = "text/html; charset=utf-8";
+    return render("views/kepsek/tambah-kelas.ejs", { user, error: "Nama kelas sudah ada", values: body });
+  }
+
+  classes.push({
+    id: classes.length > 0 ? Math.max(...classes.map(c => c.id)) + 1 : 1,
+    nama,
+    wali_kelas_id: Number(wali_kelas_id),
+    created_at: new Date()
+  });
+
+  set.status = 302;
+  set.headers.Location = "/kepsek/kelas?message=Kelas berhasil ditambahkan";
+});
   .post("/guru/tambah", async ({ set, user, parseFormData }) => {
     try {
       const body = await parseFormData();
