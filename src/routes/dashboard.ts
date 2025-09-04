@@ -32,7 +32,12 @@ export const dashboardRoutes = new Elysia()
       const jumlahKelas = classes.length;
       const jumlahGuru = users.filter(u => u.role === "guru" && u.status === "active").length;
       const jumlahSiswa = users.filter(u => u.role === "siswa" && u.status === "active").length;
-      
+      const tugasDeadline = tasks.filter(t => {
+  const now = new Date();
+  return t.deadline.getTime() - now.getTime() <= 2 * 24 * 60 * 60 * 1000; 
+});
+
+const tugasBelumDikumpulkan = tugasSiswa.filter(ts => ts.status === 'belum');
       return render("views/dashboard/kepsek.ejs", { 
         user, 
         jumlahKelas, 
