@@ -1,167 +1,236 @@
 import { Elysia } from "elysia";
-import { users, guruInfoList, tugasList, materiList } from "../db";
-import { authMiddleware } from "./auth";
+import ejs from "ejs";
+import { authMiddleware } from "../middleware/auth";
+import { 
+  users, classes, mataPelajaran, guruMengajar, tasks, 
+  tugasSiswa, diskusi, User
+} from "../db";
+import { hashPassword } from "../utils/hash";
+import { addGuruSchema, updateUserStatusSchema } from "../middleware/inputValidation";
 
+const render = async (file: string, data: Record<string, any> = {}) => {
+  const tpl = await Bun.file(file).text();
+  return ejs.render(tpl, data);
+};
 
-export interface DiskusiKelas {
-  id: number;
-  kelas: string;
-  user_id: number;
-  isi: string;
-  created_at: Date;
-}
-
-export interface DiskusiMateri {
-  id: number;
-  materi_id: number;
-  user_id: number;
-  isi: string;
-  created_at: Date;
-}
-
-
-export const diskusiKelas: DiskusiKelas[] = [];
-export const diskusiMateri: DiskusiMateri[] = [];
-
-
-const countByRole = (role: "guru" | "siswa") =>
-  users.filter(u => u.role === role).length;
-
-export const kepsekRoutes = new Elysia()
+export const kepsekRoutes = new Elysia({ prefix: "/kepsek" })
   .derive(authMiddleware as any)
-
-  /** ================= INFO DASAR ================= **/
-  .get("/info-dasar", ({ user }) => {
-    if (user.role !== "kepsek") return { error: "Akses ditolak" };
+  .onBeforeHandle(({ user, set }) => {
+    if (!user || user.role !== "kepsek") {
+      set.status = 302;
+      set.headers.Location = "/dashboard";
+      return "Unauthorized";
+    }
+  })
+  
+  .get("/guru", async ({ set, user }) => {
+    const daftarGuru = users.filter(u => u.role === "guru");
     
-    return {
-      jumlah_siswa: countByRole("siswa"),
-      jumlah_guru: countByRole("guru"),
-      jumlah_kelas: 10 
-    };
-  })
-
-  /** ================= MANAGEMENT GURU ================= **/
-  .post("/guru/tambah", async ({ body, user }) => {
-    if (user.role !== "kepsek") return { error: "Akses ditolak" };
-    const { nama, email, password, bidang } = body as any;
-
-    const id = users.length + 1;
-    const now = new Date();
-    const password_hash = await import("../utils/hash").then(m => m.hashPassword(password));
-
-    users.push({
-      id,
-      nama,
-      email,
-      password_hash,
-      role: "guru",
-      status: "active",
-      created_by: user.id,
-      created_at: now
+    set.headers["Content-Type"] = "text/html; charset=utf-8";
+    return render("views/kepsek/guru.ejs", { 
+      user, 
+      daftarGuru 
     });
-
-    guruInfoList.push({ user_id: id, bidang });
-
-    return { success: true, guru_id: id };
   })
-  .delete("/guru/hapus/:id", ({ params, user }) => {
-    if (user.role !== "kepsek") return { error: "Akses ditolak" };
-    const guruId = parseInt(params.id);
-
-    const index = users.findIndex(u => u.id === guruId && u.role === "guru");
-    if (index === -1) return { error: "Guru tidak ditemukan" };
-
-    users.splice(index, 1);
-    const infoIndex = guruInfoList.findIndex(g => g.user_id === guruId);
-    if (infoIndex !== -1) guruInfoList.splice(infoIndex, 1);
-
-    return { success: true };
-  })
-  .get("/guru/daftar", ({ user }) => {
-    if (user.role !== "kepsek") return { error: "Akses ditolak" };
-    return users
-      .filter(u => u.role === "guru")
-      .map(g => ({
-        id: g.id,
-        nama: g.nama,
-        email: g.email,
-        status: g.status,
-        bidang: guruInfoList.find(info => info.user_id === g.id)?.bidang
-      }));
-  })
-  .patch("/guru/status/:id", ({ params, user }) => {
-    if (user.role !== "kepsek") return { error: "Akses ditolak" };
-    const guruId = parseInt(params.id);
-    const guru = users.find(u => u.id === guruId && u.role === "guru");
-    if (!guru) return { error: "Guru tidak ditemukan" };
-
-    guru.status = guru.status === "active" ? "inactive" : "active";
-    return { success: true, status: guru.status };
-  })
-
-  /** ================= MANAGEMENT SISWA ================= **/
-  .get("/siswa/daftar", ({ user }) => {
-    if (user.role !== "kepsek") return { error: "Akses ditolak" };
-    return users
-      .filter(u => u.role === "siswa")
-      .map(s => ({
-        id: s.id,
-        nama: s.nama,
-        email: s.email,
-        kelas: "Kelas 1" 
-      }));
-  })
-  .get("/siswa/tugas/:id", ({ params, user }) => {
-    if (user.role !== "kepsek") return { error: "Akses ditolak" };
-    const siswaId = parseInt(params.id);
-
-    const tugasSiswa = tugasList.filter(t => t.siswa_id === siswaId)
-      .map(t => ({
-        materi_id: t.materi_id,
-        materi: materiList.find(m => m.id === t.materi_id)?.judul,
-        status: t.status,
-        nilai: t.nilai ?? null,
-        hasil_akhir: t.hasil_akhir ?? null
-      }));
-
-    return tugasSiswa;
-  })
-
-  /** ================= MANAGE TUGAS/MATERI ================= **/
-  .get("/materi/daftar", ({ user }) => {
-    if (user.role !== "kepsek") return { error: "Akses ditolak" };
-    return materiList.map(m => ({
-      id: m.id,
-      judul: m.judul,
-      guru: users.find(u => u.id === m.guru_id)?.nama
-    }));
-  })
-
-  /** ================= MANAGEMENT KELAS ================= **/
   
-  .get("/kelas/diskusi", ({ user }) => {
-    if (user.role !== "kepsek") return { error: "Akses ditolak" };
-    return diskusiKelas;
+  .get("/guru/tambah", async ({ set, user }) => {
+    set.headers["Content-Type"] = "text/html; charset=utf-8";
+    return render("views/kepsek/tambah-guru.ejs", { 
+      user, 
+      error: "", 
+      values: {} 
+    });
   })
-  .post("/kelas/diskusi", ({ body, user }) => {
-    if (user.role !== "kepsek") return { error: "Akses ditolak" };
-    const { kelas, isi } = body as any;
-    const id = diskusiKelas.length + 1;
-    diskusiKelas.push({ id, kelas, isi, user_id: user.id, created_at: new Date() });
-    return { success: true, id };
+  
+  .post("/guru/tambah", async ({ set, user, parseFormData }) => {
+    try {
+      const body = await parseFormData();
+      const parsed = addGuruSchema.safeParse(body);
+      
+      if (!parsed.success) {
+        set.headers["Content-Type"] = "text/html; charset=utf-8";
+        return render("views/kepsek/tambah-guru.ejs", { 
+          user, 
+          error: parsed.error.issues.map(i => i.message).join(", "),
+          values: body
+        });
+      }
+      
+      const { nama, email, password } = parsed.data;
+      
+      
+      if (users.some(u => u.email === email)) {
+        set.headers["Content-Type"] = "text/html; charset=utf-8";
+        return render("views/kepsek/tambah-guru.ejs", { 
+          user, 
+          error: "Email sudah terdaftar",
+          values: body
+        });
+      }
+      
+      
+      const newGuru: User = {
+        id: users.length > 0 ? Math.max(...users.map(u => u.id)) + 1 : 1,
+        nama,
+        email,
+        password_hash: await hashPassword(password),
+        role: "guru",
+        status: "active",
+        created_by: user.userId,
+        created_at: new Date(),
+        last_login: new Date()
+      };
+      
+      users.push(newGuru);
+      
+      set.status = 302;
+      set.headers.Location = "/kepsek/guru?message=Guru berhasil ditambahkan";
+    } catch (error) {
+      set.headers["Content-Type"] = "text/html; charset=utf-8";
+      return render("views/kepsek/tambah-guru.ejs", { 
+        user, 
+        error: "Terjadi kesalahan sistem",
+        values: {}
+      });
+    }
+  })
+  .post("/guru/status", async ({ set, parseFormData }) => {
+    const body = await parseFormData();
+    const parsed = updateUserStatusSchema.safeParse(body);
+    
+    if (!parsed.success) {
+      set.status = 400;
+      return parsed.error.issues.map(i => i.message).join(", ");
+    }
+    
+    const { id, status } = parsed.data;
+    const guru = users.find(u => u.id === id && u.role === "guru");
+    
+    if (!guru) {
+      set.status = 404;
+      return "Guru tidak ditemukan";
+    }
+    
+    guru.status = status;
+    
+    set.status = 302;
+    set.headers.Location = "/kepsek/guru?message=Status guru berhasil diubah";
+  })
+  
+  .get("/guru/pengajar", async ({ set, user }) => {
+    const infoPengajar = guruMengajar.map(gm => {
+      const guru = users.find(u => u.id === gm.guru_id);
+      const mapel = mataPelajaran.find(m => m.id === gm.mata_pelajaran_id);
+      const kelas = classes.find(c => c.id === gm.kelas_id);
+      
+      return {
+        id: gm.id,
+        guru: guru?.nama || "Unknown",
+        mataPelajaran: mapel?.nama || "Unknown",
+        kelas: kelas?.nama || "Unknown"
+      };
+    });
+    
+    set.headers["Content-Type"] = "text/html; charset=utf-8";
+    return render("views/kepsek/info-pengajar.ejs", { 
+      user, 
+      infoPengajar 
+    });
   })
 
-  
-  .get("/kelas/diskusi-materi/:materi_id", ({ params, user }) => {
-    if (user.role !== "kepsek") return { error: "Akses ditolak" };
-    const materiId = parseInt(params.materi_id);
-    return diskusiMateri.filter(d => d.materi_id === materiId);
+  .get("/siswa/tugas", async ({ set, user }) => {
+    const daftarTugas = tasks.map(t => {
+      const mapel = mataPelajaran.find(m => m.id === t.mata_pelajaran_id);
+      const guru = users.find(u => u.id === t.created_by);
+      const tugasSiswaData = tugasSiswa.filter(ts => ts.tugas_id === t.id);
+      
+      const selesai = tugasSiswaData.filter(ts => ts.status === 'selesai').length;
+      const belum = tugasSiswaData.filter(ts => ts.status === 'belum').length;
+      
+      return {
+        id: t.id,
+        judul: t.judul,
+        mataPelajaran: mapel?.nama || "Unknown",
+        pembuat: guru?.nama || "Unknown",
+        selesai,
+        belum,
+        total: selesai + belum
+      };
+    });
+    
+    set.headers["Content-Type"] = "text/html; charset=utf-8";
+    return render("views/kepsek/tugas-siswa.ejs", { 
+      user, 
+      daftarTugas 
+    });
   })
-  .post("/kelas/diskusi-materi", ({ body, user }) => {
-    if (user.role !== "kepsek") return { error: "Akses ditolak" };
-    const { materi_id, isi } = body as any;
-    const id = diskusiMateri.length + 1;
-    diskusiMateri.push({ id, materi_id, isi, user_id: user.id, created_at: new Date() });
-    return { success: true, id };
+
+  .get("/tugas", async ({ set, user }) => {
+    const daftarTugas = tasks.map(t => {
+      const mapel = mataPelajaran.find(m => m.id === t.mata_pelajaran_id);
+      const guru = users.find(u => u.id === t.created_by);
+      
+      return {
+        id: t.id,
+        judul: t.judul,
+        deskripsi: t.deskripsi,
+        mataPelajaran: mapel?.nama || "Unknown",
+        pembuat: guru?.nama || "Unknown",
+        deadline: t.deadline.toLocaleDateString('id-ID')
+      };
+    });
+    
+    set.headers["Content-Type"] = "text/html; charset=utf-8";
+    return render("views/kepsek/daftar-tugas.ejs", { 
+      user, 
+      daftarTugas 
+    });
+  })
+  
+  .get("/komunikasi/kelas", async ({ set, user }) => {
+    const diskusiKelas = diskusi
+      .filter(d => d.target_type === 'kelas')
+      .map(d => {
+        const pengirim = users.find(u => u.id === d.pengirim_id);
+        const kelas = classes.find(c => c.id === d.target_id);
+        
+        return {
+          id: d.id,
+          topik: d.topik,
+          pesan: d.pesan,
+          pengirim: pengirim?.nama || "Unknown",
+          kelas: kelas?.nama || "Unknown",
+          waktu: d.created_at.toLocaleString('id-ID')
+        };
+      });
+    
+    set.headers["Content-Type"] = "text/html; charset=utf-8";
+    return render("views/kepsek/diskusi-kelas.ejs", { 
+      user, 
+      diskusiKelas 
+    });
+  })
+  
+  .get("/komunikasi/tugas", async ({ set, user }) => {
+    const diskusiTugas = diskusi
+      .filter(d => d.target_type === 'tugas')
+      .map(d => {
+        const pengirim = users.find(u => u.id === d.pengirim_id);
+        const tugas = tasks.find(t => t.id === d.target_id);
+        
+        return {
+          id: d.id,
+          topik: d.topik,
+          pesan: d.pesan,
+          pengirim: pengirim?.nama || "Unknown",
+          tugas: tugas?.judul || "Unknown",
+          waktu: d.created_at.toLocaleString('id-ID')
+        };
+      });
+    
+    set.headers["Content-Type"] = "text/html; charset=utf-8";
+    return render("views/kepsek/diskusi-tugas.ejs", { 
+      user, 
+      diskusiTugas 
+    });
   });
