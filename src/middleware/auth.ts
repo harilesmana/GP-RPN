@@ -12,5 +12,11 @@ export async function authMiddleware({ cookie, set }: Context) {
     if (cookie?.session) cookie.session.set({ value: "", maxAge: 0 });
     return { user: null };
   }
-  return { user: data };
+  return { 
+    user: {
+      userId: data.userId,
+      role: data.role,
+      // Tambahkan properti lain jika diperlukan
+    } 
+  };
 }

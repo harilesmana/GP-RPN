@@ -6,8 +6,7 @@ import { securityHeaders } from "./middleware/security";
 import { rateLimit } from "./middleware/rateLimit";
 import { authRoutes } from "./routes/auth";
 import { dashboardRoutes } from "./routes/dashboard";
-import { guruRoutes } from ".routes/guru";
-import { kepsekRoutes } from ".routes/kepsek";
+import { kepsekRoutes } from "./routes/kepsek";
 
 
 const app = new Elysia()
@@ -24,7 +23,6 @@ const app = new Elysia()
   
   .use(authRoutes)
   .use(dashboardRoutes)
-  .use(guruRoutes)
   .use(kepsekRoutes)
   
   .all("*", () => new Response("Not Found", { status: 404 }));

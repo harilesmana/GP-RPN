@@ -18,8 +18,8 @@ export const kepsekRoutes = new Elysia({ prefix: "/kepsek" })
     }
   })
 
-  
-  .get("/info-dasar", () => {
+
+   .get("/info-dasar", () => {
     const jumlahGuru = users.filter(u => u.role === "guru").length;
     const jumlahSiswa = users.filter(u => u.role === "siswa").length;
     const jumlahKelas = kelas.length;
