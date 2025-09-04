@@ -7,7 +7,7 @@ import { rateLimit } from "./middleware/rateLimit";
 import { authRoutes } from "./routes/auth";
 import { dashboardRoutes } from "./routes/dashboard";
 import { guruRoutes } from ".routes/guru";
-import { kepsepRoutes } from ".routes/kepsek";
+import { kepsekRoutes } from ".routes/kepsek";
 
 
 const app = new Elysia()
