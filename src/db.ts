@@ -8,7 +8,7 @@ export interface User {
   email: string;
   password_hash: string;
   role: Role;
-  kelas_id : number;
+  
   status: 'active' | 'inactive';
   created_by?: number;
   created_at: Date;
