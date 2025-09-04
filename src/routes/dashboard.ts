@@ -39,12 +39,14 @@ export const dashboardRoutes = new Elysia()
 
 const tugasBelumDikumpulkan = tugasSiswa.filter(ts => ts.status === 'belum');
       return render("views/dashboard/kepsek.ejs", { 
-        user, 
-        jumlahKelas, 
-        jumlahGuru, 
-        jumlahSiswa 
-      });
-    }
+  user, 
+  jumlahKelas, 
+  jumlahGuru, 
+  jumlahSiswa,
+  tugasDeadline,
+  tugasBelumDikumpulkan
+});
+  }
     
     if (user.role === "guru") {
       
