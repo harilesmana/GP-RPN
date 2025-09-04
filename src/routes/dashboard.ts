@@ -1,6 +1,7 @@
 import { Elysia } from "elysia";
 import ejs from "ejs";
 import { authMiddleware } from "../middleware/auth";
+import { users, classes } from "../db"; 
 
 const render = async (file: string, data: Record<string, any> = {}) => {
   const tpl = await Bun.file(file).text();
@@ -15,11 +16,23 @@ export const dashboardRoutes = new Elysia()
       set.headers.Location = "/login?error=Silakan login terlebih dahulu";
       return;
     }
-
+    
     set.headers["Content-Type"] = "text/html; charset=utf-8";
-    if (user.role === "kepsek")
-      return render("views/dashboard/kepsek.ejs", { user });
-    if (user.role === "guru")
-      return render("views/dashboard/guru.ejs", { user });
+    
+    
+    if (user.role === "kepsek") {
+      const jumlahKelas = classes.length;
+      const jumlahGuru = users.filter(u => u.role === "guru" && u.status === "active").length;
+      const jumlahSiswa = users.filter(u => u.role === "siswa" && u.status === "active").length;
+      
+      return render("views/dashboard/kepsek.ejs", { 
+        user, 
+        jumlahKelas, 
+        jumlahGuru, 
+        jumlahSiswa 
+      });
+    }
+    
+    if (user.role === "guru") return render("views/dashboard/guru.ejs", { user });
     return render("views/dashboard/siswa.ejs", { user });
   });
