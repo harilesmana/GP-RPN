@@ -6,6 +6,14 @@ export const loginSchema = z.object({
   password: z.string().min(6, "Password minimal 6 karakter").max(100)
 });
 
+export const registerSchema = z.object({
+  nama: z.string().min(2, "Nama minimal 2 karakter").max(100),
+  email: z.string().email("Email tidak valid").min(5).max(100),
+  password: z.string().min(6, "Password minimal 6 karakter").max(100),
+  confirmPassword: z.string().min(6, "Konfirmasi password minimal 6 karakter").max(100),
+  kelas_id: z.string().optional()
+});
+
 export const addGuruSchema = z.object({
   nama: z.string().min(2),
   email: z.string().email(),
