@@ -56,11 +56,47 @@ export interface Tugas {
   updated_at: Date;
 }
 
+export interface TugasDetail {
+  id: number;
+  judul: string;
+  deskripsi: string;
+  materi_id: number;
+  guru_id: number;
+  deadline: Date;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface Submission {
+  id: number;
+  tugas_id: number;
+  siswa_id: number;
+  jawaban: string;
+  nilai?: number;
+  feedback?: string;
+  submitted_at: Date;
+  graded_at?: Date;
+}
+
+export interface DiskusiMateri {
+  id: number;
+  materi_id: number;
+  user_id: number;
+  user_role: Role;
+  isi: string;
+  parent_id?: number;
+  created_at: Date;
+}
+
+
 export const users: User[] = [];
 export const kelas: Kelas[] = [];
 export const materi: Materi[] = [];
 export const diskusi: Diskusi[] = [];
 export const tugas: Tugas[] = [];
+export const tugasDetail: TugasDetail[] = [];
+export const submissions: Submission[] = [];
+export const diskusiMateri: DiskusiMateri[] = [];
 export const loginAttempts = new Map<string, { count: number; unlockTime: number }>();
 
 async function seed() {
@@ -253,6 +289,50 @@ async function seed() {
         updated_at: new Date(Date.now() - i * 24 * 60 * 60 * 1000)
       });
     }
+    
+    for (let i = 1; i <= 5; i++) {
+    tugasDetail.push({
+      id: i,
+      judul: `Tugas ${i}`,
+      deskripsi: `Deskripsi tugas ${i}`,
+      materi_id: Math.floor(Math.random() * 10) + 1,
+      guru_id: Math.floor(Math.random() * 4) + 2, 
+      deadline: new Date(Date.now() + (i * 7 * 24 * 60 * 60 * 1000)), 
+      created_at: new Date(),
+      updated_at: new Date()
+    });
+  }
+  
+    for (let i = 1; i <= 20; i++) {
+    const status = i % 3 === 0 ? 'ungraded' : 'graded';
+    submissions.push({
+      id: i,
+      tugas_id: Math.floor(Math.random() * 5) + 1,
+      siswa_id: Math.floor(Math.random() * 12) + 7, 
+      jawaban: `Jawaban tugas dari siswa ${i}`,
+      nilai: status === 'graded' ? Math.floor(Math.random() * 100) + 1 : undefined,
+      feedback: status === 'graded' ? 'Kerja bagus!' : undefined,
+      submitted_at: new Date(Date.now() - (i * 24 * 60 * 60 * 1000)),
+      graded_at: status === 'graded' ? new Date(Date.now() - (i * 12 * 60 * 60 * 1000)) : undefined
+    });
+  }
+  
+    for (let i = 1; i <= 15; i++) {
+    const userRole = i % 3 === 0 ? "guru" : "siswa";
+    const userId = userRole === "guru" ? 
+                  Math.floor(Math.random() * 4) + 2 : 
+                  Math.floor(Math.random() * 12) + 7; 
+                  
+    diskusiMateri.push({
+      id: i,
+      materi_id: Math.floor(Math.random() * 10) + 1,
+      user_id: userId,
+      user_role: userRole as Role,
+      isi: `Pertanyaan atau komentar tentang materi ${i}`,
+      parent_id: i > 5 ? Math.floor(Math.random() * 5) + 1 : undefined,
+      created_at: new Date(Date.now() - (i * 2 * 60 * 60 * 1000))
+    });
+  }
   }
 }
 
