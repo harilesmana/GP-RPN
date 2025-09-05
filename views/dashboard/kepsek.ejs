@@ -6,6 +6,7 @@
    <meta name="viewport" content="width=device-width, initial-scale=1.0">
    <title>Dashboard Kepala Sekolah - E-Learning</title>
    <style>
+      /* Your existing CSS styles remain the same */
       * {
          margin: 0;
          padding: 0;
@@ -640,7 +641,8 @@
       // Load dashboard data saat halaman dimuat
       async function loadDashboardData() {
          try {
-            const response = await fetch('/info-dasar', {
+            // Menggunakan prefix /kepsek sesuai dengan route yang didefinisikan
+            const response = await fetch('/kepsek/info-dasar', {
                method: 'GET',
                credentials: 'include'
             });
@@ -664,13 +666,14 @@
             document.getElementById('totalGuru').textContent = dashboardData.jumlah_guru || 0;
             document.getElementById('totalSiswa').textContent = dashboardData.jumlah_siswa || 0;
             document.getElementById('totalKelas').textContent = dashboardData.jumlah_kelas || 0;
+            document.getElementById('totalMateri').textContent = dashboardData.jumlah_materi || 0;
          }
       }
 
       // Load daftar guru
       async function loadGuruList() {
          try {
-            const response = await fetch('/guru/daftar', {
+            const response = await fetch('/kepsek/guru/daftar', {
                method: 'GET',
                credentials: 'include'
             });
@@ -717,7 +720,7 @@
       // Load daftar siswa
       async function loadSiswaList() {
          try {
-            const response = await fetch('/siswa/daftar', {
+            const response = await fetch('/kepsek/siswa/daftar', {
                method: 'GET',
                credentials: 'include'
             });
@@ -759,7 +762,7 @@
       // Load daftar materi
       async function loadMateriList() {
          try {
-            const response = await fetch('/materi/daftar', {
+            const response = await fetch('/kepsek/materi/daftar', {
                method: 'GET',
                credentials: 'include'
             });
@@ -788,7 +791,7 @@
             row.innerHTML = `
                 <td>${materi.judul}</td>
                 <td>${materi.guru || '-'}</td>
-                <td>-</td>
+                <td>${new Date(materi.created_at).toLocaleDateString()}</td>
                 <td>
                     <button class="btn" onclick="lihatDiskusiMateri(${materi.id})">
                         Lihat Diskusi
@@ -802,7 +805,7 @@
       // Load daftar diskusi
       async function loadDiskusiList() {
          try {
-            const response = await fetch('/kelas/diskusi', {
+            const response = await fetch('/kepsek/kelas/diskusi', {
                method: 'GET',
                credentials: 'include'
             });
@@ -849,7 +852,7 @@
          };
 
          try {
-            const response = await fetch('/guru/tambah', {
+            const response = await fetch('/kepsek/guru/tambah', {
                method: 'POST',
                headers: {
                   'Content-Type': 'application/json'
@@ -865,8 +868,8 @@
                loadGuruList();
                loadDashboardData(); // Update statistics
             } else {
-               const error = await response.text();
-               showAlert('Error: ' + error, 'error');
+               const error = await response.json();
+               showAlert('Error: ' + error.error, 'error');
             }
          } catch (error) {
             console.error('Error adding guru:', error);
@@ -885,7 +888,7 @@
          };
 
          try {
-            const response = await fetch('/kelas/diskusi', {
+            const response = await fetch('/kepsek/kelas/diskusi', {
                method: 'POST',
                headers: {
                   'Content-Type': 'application/json'
@@ -912,7 +915,7 @@
       // Toggle status user (aktif/nonaktif)
       async function toggleUserStatus(userId, newStatus) {
          try {
-            const response = await fetch(`/guru/status/${userId}`, {
+            const response = await fetch(`/kepsek/guru/status/${userId}`, {
                method: 'PATCH',
                headers: {
                   'Content-Type': 'application/json'
@@ -943,7 +946,7 @@
          }
 
          try {
-            const response = await fetch(`/guru/hapus/${userId}`, {
+            const response = await fetch(`/kepsek/guru/hapus/${userId}`, {
                method: 'DELETE',
                credentials: 'include'
             });
@@ -965,7 +968,7 @@
       // Lihat tugas siswa
       async function lihatTugasSiswa(siswaId) {
          try {
-            const response = await fetch(`/siswa/tugas/${siswaId}`, {
+            const response = await fetch(`/kepsek/siswa/tugas/${siswaId}`, {
                method: 'GET',
                credentials: 'include'
             });
@@ -992,7 +995,7 @@
       // Lihat diskusi materi
       async function lihatDiskusiMateri(materiId) {
          try {
-            const response = await fetch(`/kelas/diskusi-materi/${materiId}`, {
+            const response = await fetch(`/kepsek/kelas/diskusi-materi/${materiId}`, {
                method: 'GET',
                credentials: 'include'
             });
@@ -1001,7 +1004,7 @@
                const diskusiList = await response.json();
                let diskusiHtml = 'Diskusi Materi:\n\n';
                diskusiList.forEach(diskusi => {
-                  diskusiHtml += `${diskusi.isi}\n(${new Date(diskusi.created_at).toLocaleDateString()})\n\n`;
+                  diskusiHtml += `${diskusi.user} (${diskusi.role}): ${diskusi.isi}\n(${new Date(diskusi.created_at).toLocaleDateString()})\n\n`;
                });
                alert(diskusiHtml || 'Belum ada diskusi untuk materi ini.');
             } else {
