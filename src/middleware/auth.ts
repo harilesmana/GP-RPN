@@ -2,8 +2,17 @@ import type { Context } from "elysia";
 import { verifySession } from "../utils/session";
 
 export async function authMiddleware({ cookie, set }: Context) {
+  const isWebSocket = request.headers.get('upgrade') === 'websocket';
+  
   const token = cookie?.session?.value;
-  if (!token) return { user: null };
+  if (!token) {
+    if (isWebSocket) {
+      return { user: null };
+    }
+    return { user: null };
+  }
+  
+  
 
   const secret = process.env.SESSION_SECRET || "dev_secret_change_me";
   const data = verifySession(token, secret);
@@ -16,7 +25,6 @@ export async function authMiddleware({ cookie, set }: Context) {
     user: {
       userId: data.userId,
       role: data.role,
-      // Tambahkan properti lain jika diperlukan
     } 
   };
 }
