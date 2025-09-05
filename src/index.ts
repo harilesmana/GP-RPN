@@ -7,7 +7,7 @@ import { rateLimit } from "./middleware/rateLimit";
 import { authRoutes } from "./routes/auth";
 import { dashboardRoutes } from "./routes/dashboard";
 import { kepsekRoutes } from "./routes/kepsek";
-import { setupChatWebSocket } from "./websocket/chat";
+import { guruRoutes } from "./routes/guru";
 
 const app = new Elysia()
   .use(cors())
@@ -21,21 +21,9 @@ const app = new Elysia()
   .use(authRoutes)
   .use(dashboardRoutes)
   .use(kepsekRoutes)
+  .use(guruRoutes)
   .all("*", () => new Response("Not Found", { status: 404 }));
-
 
 const server = app.listen(process.env.PORT ? Number(process.env.PORT) : 3000);
 
-
-const wss = setupChatWebSocket();
-
 console.log(`HTTP Server jalan di http://localhost:${app.server?.port}`);
-console.log(`WebSocket server running on ws://localhost:3001`);
-
-
-process.on('SIGINT', () => {
-  console.log('Shutting down servers...');
-  server.stop();
-  wss.close();
-  process.exit(0);
-});
