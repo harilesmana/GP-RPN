@@ -399,6 +399,30 @@
          border-radius: 5px;
          border-left: 3px solid #667eea;
       }
+      .connection-status {
+  padding: 0.5rem;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+      
+      .connection-status.connected {
+        background-color: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+      }
+      
+      .connection-status.disconnected {
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+      }
+      
+      .connection-status.connecting {
+        background-color: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeaa7;
+      }
    </style>
 </head>
 
@@ -601,6 +625,17 @@
   <h2>Ruang Diskusi Real-time</h2>
   
   <div class="card">
+   <div class="connection-panel">
+  <div id="connectionStatus" class="connection-status disconnected">
+    <span id="statusText">Status: Tidak terhubung</span>
+    <button id="reconnectButton" class="btn btn-small">Coba Lagi</button>
+  </div>
+  
+  <div class="online-users">
+    <h4>Pengguna Online:</h4>
+    <div id="onlineUsers">Memuat...</div>
+  </div>
+</div>
     <div class="card-title">Pilih Kelas untuk Diskusi</div>
     <div class="form-group">
       <select id="chatKelas" onchange="changeChatRoom()">
@@ -640,49 +675,140 @@
       let dashboardData = null;
       let chatSocket = null;
       let currentChatRoom = 'Kelas 1A';
+      let wsPort = 3001;
+      let reconnectAttempts = 0;
+      let connectionStatus = 'disconnected';
       
-      function connectWebSocket() {
-  if (chatSocket && chatSocket.readyState === WebSocket.OPEN) {
-    return; 
-  }
- const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const wsUrl = `${protocol}//${window.location.host}`;
+      function updateConnectionStatus(status, message = '') {
+  connectionStatus = status;
+  const statusElement = document.getElementById('connectionStatus');
+  const statusText = document.getElementById('statusText');
   
-  chatSocket = new WebSocket(wsUrl);
-
-  chatSocket.onopen = function() {
-    console.log('WebSocket connection established');
-    showAlert('Terhubung ke ruang diskusi', 'success');
-  };
-
-  chatSocket.onmessage = function(event) {
-    const message = JSON.parse(event.data);
+  if (statusElement && statusText) {
+    statusElement.className = `connection-status ${status}`;
     
-    if (message.type === 'history') {
-      
-      displayChatMessages(message.data);
-    } else if (message.type === 'chat') {
-      
-      addChatMessage(message.data);
-    } else if (message.type === 'error') {
-      showAlert('Error: ' + message.message, 'error');
+    switch(status) {
+      case 'connected':
+        statusText.textContent = 'Status: Terhubung';
+        break;
+      case 'connecting':
+        statusText.textContent = 'Status: Menghubungkan...';
+        break;
+      case 'disconnected':
+        statusText.textContent = 'Status: Tidak terhubung' + (message ? ` - ${message}` : '');
+        break;
+      case 'error':
+        statusText.textContent = 'Status: Error' + (message ? ` - ${message}` : '');
+        break;
     }
-  };
-
-  chatSocket.onclose = function() {
-    console.log('WebSocket connection closed');
-    showAlert('Koneksi diskusi terputus', 'error');
-    
-    
-    setTimeout(connectWebSocket, 5000);
-  };
-
-  chatSocket.onerror = function(error) {
-    console.error('WebSocket error:', error);
-    showAlert('Terjadi kesalahan pada koneksi diskusi', 'error');
-  };
+  }
+}
+      function getSessionToken() {
+  const cookies = document.cookie.split(';');
+  const sessionCookie = cookies.find(c => c.trim().startsWith('session='));
+  return sessionCookie ? sessionCookie.split('=')[1].trim() : null;
 }
 
+      function connectWebSocket() {
+  if (chatSocket && chatSocket.readyState === WebSocket.OPEN) {
+    return;
+  }
+  
+  
+  if (chatSocket) {
+    chatSocket.onclose = null;
+    chatSocket.onerror = null;
+    chatSocket.close();
+  }
+  
+  updateConnectionStatus('connecting');
+  
+  const token = getSessionToken();
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const host = window.location.hostname;
+  
+  
+  const wsUrl = `${protocol}//${host}:${wsPort}?token=${token || 'test'}`;
+  
+  console.log('Connecting to WebSocket:', wsUrl);
+  
+  try {
+    chatSocket = new WebSocket(wsUrl);
+    
+    chatSocket.onopen = function(event) {
+      console.log('WebSocket connection established successfully');
+      reconnectAttempts = 0;
+      updateConnectionStatus('connected');
+      showAlert('Berhasil terhubung ke ruang diskusi', 'success');
+      
+      
+      setTimeout(() => {
+        if (chatSocket.readyState === WebSocket.OPEN) {
+          chatSocket.send(JSON.stringify({
+            type: 'history_request',
+            kelas: currentChatRoom
+          }));
+        }
+      }, 1000);
+    };
+    
+    chatSocket.onmessage = function(event) {
+      try {
+        const message = JSON.parse(event.data);
+        console.log('Received message:', message);
+        
+        if (message.type === 'connected') {
+          console.log('Server connection confirmed');
+          updateConnectionStatus('connected');
+        } else if (message.type === 'history') {
+          displayChatMessages(message.data);
+        } else if (message.type === 'chat') {
+          addChatMessage(message.data);
+        } else if (message.type === 'online_users') {
+          updateOnlineUsers(message.data);
+        } else if (message.type === 'pong') {
+          
+          console.log('Pong received');
+        } else if (message.type === 'error') {
+          showAlert('Error: ' + message.message, 'error');
+        }
+      } catch (error) {
+        console.error('Error parsing message:', error, event.data);
+      }
+    };
+    
+    chatSocket.onclose = function(event) {
+      console.log('WebSocket connection closed:', event.code, event.reason);
+      updateConnectionStatus('disconnected', `Kode: ${event.code} - ${event.reason || 'Tidak diketahui'}`);
+      
+      
+      reconnectAttempts++;
+      const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
+      
+      console.log(`Reconnecting in ${delay}ms (attempt ${reconnectAttempts})`);
+      setTimeout(connectWebSocket, delay);
+    };
+    
+    chatSocket.onerror = function(error) {
+      console.error('WebSocket error:', error);
+      updateConnectionStatus('error', 'Kesalahan koneksi');
+    };
+    
+  } catch (error) {
+    console.error('Error creating WebSocket:', error);
+    updateConnectionStatus('error', 'Gagal membuat koneksi');
+    setTimeout(connectWebSocket, 5000);
+  }
+}
+      
+      function checkConnection() {
+  if (!chatSocket || chatSocket.readyState !== WebSocket.OPEN) {
+    console.log('Connection lost, reconnecting...');
+    connectWebSocket();
+    return false;
+  }
+  return true;
+}
       
       function showAlert(message, type = 'success') {
          const alert = document.getElementById('alert');
@@ -773,29 +899,43 @@
 
 
       function sendChatMessage() {
-  if (!chatSocket || chatSocket.readyState !== WebSocket.OPEN) {
-    showAlert('Tidak terhubung ke server chat', 'error');
+  if (!checkConnection()) {
+    showAlert('Sedang mencoba menghubungkan...', 'warning');
     return;
   }
   
   const messageInput = document.getElementById('chatMessage');
-  const message = messageInput.value.trim();
+  const message = messageInput?.value.trim();
   
   if (!message) {
     showAlert('Pesan tidak boleh kosong', 'error');
     return;
   }
   
-  chatSocket.send(JSON.stringify({
-    type: 'chat',
-    kelas: currentChatRoom,
-    isi: message
-  }));
-  
-  
-  messageInput.value = '';
+  try {
+    chatSocket.send(JSON.stringify({
+      type: 'chat',
+      kelas: currentChatRoom,
+      isi: message,
+      timestamp: Date.now()
+    }));
+    
+    messageInput.value = '';
+  } catch (error) {
+    console.error('Error sending message:', error);
+    showAlert('Gagal mengirim pesan', 'error');
+    connectWebSocket();
+  }
 }
 
+      function updateOnlineUsers(users) {
+  const onlineUsersElement = document.getElementById('onlineUsers');
+  if (onlineUsersElement) {
+    onlineUsersElement.innerHTML = users.map(user => 
+      `<div>${user.nama} (${user.role})</div>`
+    ).join('');
+  }
+}
 
       function changeChatRoom() {
   const roomSelect = document.getElementById('chatKelas');
@@ -803,12 +943,14 @@
   
   document.getElementById('currentChatRoom').textContent = `Diskusi: ${currentChatRoom}`;
   
-  
   if (chatSocket && chatSocket.readyState === WebSocket.OPEN) {
-    
-    chatSocket.send(JSON.stringify({ type: 'history_request' }));
+    chatSocket.send(JSON.stringify({ 
+      type: 'history_request', 
+      kelas: currentChatRoom 
+    }));
+  } else {
+    connectWebSocket();
   }
-  
   
   document.getElementById('chatMessages').innerHTML = `
     <div style="text-align: center; color: #666; padding: 2rem;">
@@ -1223,7 +1365,34 @@ document.head.appendChild(style);
       
       document.addEventListener('DOMContentLoaded', function () {
          loadDashboardData();
-      });
+         setTimeout(connectWebSocket, 1000);
+  
+  
+  const messageInput = document.getElementById('chatMessage');
+  if (messageInput) {
+    messageInput.addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        sendChatMessage();
+      }
+    });
+  }
+  
+  
+  const sendButton = document.getElementById('sendButton');
+  if (sendButton) {
+    sendButton.addEventListener('click', sendChatMessage);
+  }
+  
+  
+  const reconnectButton = document.getElementById('reconnectButton');
+  if (reconnectButton) {
+    reconnectButton.addEventListener('click', function() {
+      reconnectAttempts = 0;
+      connectWebSocket();
+    });
+  }
+});
    </script>
 </body>
 

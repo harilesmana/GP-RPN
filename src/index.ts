@@ -10,28 +10,32 @@ import { kepsekRoutes } from "./routes/kepsek";
 import { setupChatWebSocket } from "./websocket/chat";
 
 const app = new Elysia()
-  .use(cors()) 
+  .use(cors())
   .use(cookie())
   .use(securityHeaders(new Elysia()))
-  
   .onBeforeHandle(rateLimit(60, 60_000))
-  
   .get("/", ({ set }) => {
     set.status = 302;
     set.headers.Location = "/login";
   })
-  
   .use(authRoutes)
   .use(dashboardRoutes)
   .use(kepsekRoutes)
-  
   .all("*", () => new Response("Not Found", { status: 404 }));
 
 
 const server = app.listen(process.env.PORT ? Number(process.env.PORT) : 3000);
 
 
-setupChatWebSocket(server);
+const wss = setupChatWebSocket();
 
-console.log(`Server jalan di http://localhost:${app.server?.port}`);
-console.log(`WebSocket server running on ws://localhost:${app.server?.port}`);
+console.log(`HTTP Server jalan di http://localhost:${app.server?.port}`);
+console.log(`WebSocket server running on ws://localhost:3001`);
+
+
+process.on('SIGINT', () => {
+  console.log('Shutting down servers...');
+  server.stop();
+  wss.close();
+  process.exit(0);
+});
