@@ -6,7 +6,7 @@
    <meta name="viewport" content="width=device-width, initial-scale=1.0">
    <title>Dashboard Kepala Sekolah - E-Learning</title>
    <style>
-      /* Your existing CSS styles remain the same */
+
       * {
          margin: 0;
          padding: 0;
@@ -239,7 +239,7 @@
          border: 1px solid #f5c6cb;
       }
 
-      /* Modal Styles */
+      
       .modal-overlay {
          position: fixed;
          top: 0;
@@ -298,7 +298,7 @@
          padding: 1.5rem;
       }
 
-      /* Tugas List Styles */
+      
       .tugas-list {
          display: flex;
          flex-direction: column;
@@ -360,7 +360,7 @@
          margin-top: 0.25rem;
       }
 
-      /* Diskusi List Styles */
+      
       .diskusi-list {
          display: flex;
          flex-direction: column;
@@ -403,7 +403,7 @@
 </head>
 
 <body>
-   <!-- Header dengan info user dan logout -->
+   
    <div class="header">
       <div>
          <h1>Dashboard Kepala Sekolah</h1>
@@ -416,26 +416,27 @@
    </div>
 
    <div class="main-content">
-      <!-- Sidebar Navigation -->
+      
       <div class="sidebar">
          <div class="nav-item active" onclick="showSection('dashboard')">📊 Dashboard</div>
          <div class="nav-item" onclick="showSection('guru-management')">👨‍🏫 Manajemen Guru</div>
          <div class="nav-item" onclick="showSection('siswa-management')">👨‍🎓 Manajemen Siswa</div>
          <div class="nav-item" onclick="showSection('materi-management')">📚 Materi Pembelajaran</div>
          <div class="nav-item" onclick="showSection('diskusi-management')">💬 Diskusi Kelas</div>
+         <div class="nav-item" onclick="showSection('chat-room')">💬 Ruang Diskusi</div>
       </div>
 
       <div class="content-area">
-         <!-- Alert untuk notifikasi -->
+         
          <div id="alert" class="alert">
             <span id="alertMessage"></span>
          </div>
 
-         <!-- Dashboard Overview Section -->
+         
          <div id="dashboard" class="page-section active">
             <h2>Ringkasan Sistem</h2>
 
-            <!-- Statistics Cards -->
+            
             <div class="stats-grid">
                <div class="stat-card">
                   <div class="stat-value" id="totalGuru">-</div>
@@ -455,7 +456,7 @@
                </div>
             </div>
 
-            <!-- Chart untuk aktivitas sistem -->
+            
             <div class="card">
                <div class="card-title">Aktivitas Pembelajaran</div>
                <div class="chart-container">
@@ -464,11 +465,11 @@
             </div>
          </div>
 
-         <!-- Guru Management Section -->
+         
          <div id="guru-management" class="page-section">
             <h2>Manajemen Guru</h2>
 
-            <!-- Form tambah guru -->
+            
             <div class="card">
                <div class="card-title">Tambah Guru Baru</div>
                <form id="addGuruForm">
@@ -492,7 +493,7 @@
                </form>
             </div>
 
-            <!-- Daftar guru -->
+            
             <div class="card">
                <div class="card-title">Daftar Guru</div>
                <table class="table" id="guruTable">
@@ -506,13 +507,13 @@
                      </tr>
                   </thead>
                   <tbody id="guruTableBody">
-                     <!-- Data guru akan dimuat di sini -->
+                     
                   </tbody>
                </table>
             </div>
          </div>
 
-         <!-- Siswa Management Section -->
+         
          <div id="siswa-management" class="page-section">
             <h2>Manajemen Siswa</h2>
 
@@ -528,13 +529,13 @@
                      </tr>
                   </thead>
                   <tbody id="siswaTableBody">
-                     <!-- Data siswa akan dimuat di sini -->
+                     
                   </tbody>
                </table>
             </div>
          </div>
 
-         <!-- Materi Management Section -->
+         
          <div id="materi-management" class="page-section">
             <h2>Manajemen Materi</h2>
 
@@ -550,17 +551,17 @@
                      </tr>
                   </thead>
                   <tbody id="materiTableBody">
-                     <!-- Data materi akan dimuat di sini -->
+                     
                   </tbody>
                </table>
             </div>
          </div>
 
-         <!-- Diskusi Management Section -->
+         
          <div id="diskusi-management" class="page-section">
             <h2>Manajemen Diskusi</h2>
 
-            <!-- Form tambah diskusi -->
+            
             <div class="card">
                <div class="card-title">Tambah Diskusi Kelas</div>
                <form id="addDiskusiForm">
@@ -576,7 +577,7 @@
                </form>
             </div>
 
-            <!-- Daftar diskusi -->
+            
             <div class="card">
                <div class="card-title">Daftar Diskusi Kelas</div>
                <table class="table">
@@ -588,19 +589,101 @@
                      </tr>
                   </thead>
                   <tbody id="diskusiTableBody">
-                     <!-- Data diskusi akan dimuat di sini -->
+                     
                   </tbody>
                </table>
             </div>
          </div>
+         
+
+
+<div id="chat-room" class="page-section">
+  <h2>Ruang Diskusi Real-time</h2>
+  
+  <div class="card">
+    <div class="card-title">Pilih Kelas untuk Diskusi</div>
+    <div class="form-group">
+      <select id="chatKelas" onchange="changeChatRoom()">
+        <option value="Kelas 1A">Kelas 1A</option>
+        <option value="Kelas 2B">Kelas 2B</option>
+        <option value="Kelas 3C">Kelas 3C</option>
+        <option value="Umum">Diskusi Umum</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title" id="currentChatRoom">Diskusi: Kelas 1A</div>
+    
+    <div id="chatContainer" style="height: 400px; overflow-y: auto; border: 1px solid #e1e5e9; border-radius: 5px; padding: 1rem; margin-bottom: 1rem; background: #f8f9ff;">
+      <div id="chatMessages">
+        <div style="text-align: center; color: #666; padding: 2rem;">
+          Memuat pesan...
+        </div>
+      </div>
+    </div>
+    
+    <div class="form-group">
+      <textarea id="chatMessage" placeholder="Ketik pesan Anda di sini..." rows="3" style="width: 100%; padding: 0.75rem; border: 2px solid #e1e5e9; border-radius: 5px;"></textarea>
+    </div>
+    
+    <button class="btn" onclick="sendChatMessage()" style="width: 100%;">
+      Kirim Pesan
+    </button>
+  </div>
+</div>
       </div>
    </div>
 
    <script>
-      // Simulasi data dari backend
+      
       let dashboardData = null;
+      let chatSocket = null;
+      let currentChatRoom = 'Kelas 1A';
+      
+      function connectWebSocket() {
+  if (chatSocket && chatSocket.readyState === WebSocket.OPEN) {
+    return; 
+  }
+ const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const wsUrl = `${protocol}//${window.location.host}`;
+  
+  chatSocket = new WebSocket(wsUrl);
 
-      // Function untuk menampilkan alert
+  chatSocket.onopen = function() {
+    console.log('WebSocket connection established');
+    showAlert('Terhubung ke ruang diskusi', 'success');
+  };
+
+  chatSocket.onmessage = function(event) {
+    const message = JSON.parse(event.data);
+    
+    if (message.type === 'history') {
+      
+      displayChatMessages(message.data);
+    } else if (message.type === 'chat') {
+      
+      addChatMessage(message.data);
+    } else if (message.type === 'error') {
+      showAlert('Error: ' + message.message, 'error');
+    }
+  };
+
+  chatSocket.onclose = function() {
+    console.log('WebSocket connection closed');
+    showAlert('Koneksi diskusi terputus', 'error');
+    
+    
+    setTimeout(connectWebSocket, 5000);
+  };
+
+  chatSocket.onerror = function(error) {
+    console.error('WebSocket error:', error);
+    showAlert('Terjadi kesalahan pada koneksi diskusi', 'error');
+  };
+}
+
+      
       function showAlert(message, type = 'success') {
          const alert = document.getElementById('alert');
          const alertMessage = document.getElementById('alertMessage');
@@ -614,7 +697,7 @@
          }, 5000);
       }
 
-      // Function untuk menampilkan section
+      
       function showSection(sectionId) {
          document.querySelectorAll('.page-section').forEach(section => {
             section.classList.remove('active');
@@ -626,7 +709,7 @@
          document.getElementById(sectionId).classList.add('active');
          event.target.classList.add('active');
 
-         // Load data untuk section tertentu
+         
          if (sectionId === 'guru-management') {
             loadGuruList();
          } else if (sectionId === 'siswa-management') {
@@ -635,13 +718,118 @@
             loadMateriList();
          } else if (sectionId === 'diskusi-management') {
             loadDiskusiList();
-         }
+         }else if (sectionId === 'chat-room') {
+    
+    setTimeout(connectWebSocket, 100);
+  } else if (chatSocket) {
+    
+     chatSocket.close();
+  }
+  
       }
+      function displayChatMessages(messages) {
+  const chatMessages = document.getElementById('chatMessages');
+  chatMessages.innerHTML = '';
+  
+  messages.forEach(message => {
+    addChatMessage(message, false);
+  });
+  
+  
+  scrollChatToBottom();
+}
+      function addChatMessage(message, animate = true) {
+  
+  if (message.kelas !== currentChatRoom) {
+    return;
+  }
+  
+  const chatMessages = document.getElementById('chatMessages');
+  const messageElement = document.createElement('div');
+  
+  messageElement.innerHTML = `
+    <div style="margin-bottom: 1rem; padding: 0.75rem; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); ${animate ? 'animation: fadeIn 0.3s ease;' : ''}">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+        <strong style="color: #667eea;">${message.user_nama}</strong>
+        <span style="font-size: 0.8rem; color: #666;">${new Date(message.created_at).toLocaleTimeString()}</span>
+      </div>
+      <div style="color: #333;">${message.isi}</div>
+      <div style="font-size: 0.7rem; color: #888; margin-top: 0.25rem;">
+        ${message.user_role} • ${message.kelas}
+      </div>
+    </div>
+  `;
+  
+  chatMessages.appendChild(messageElement);
+  
+  if (animate) {
+    scrollChatToBottom();
+  }
+}
+      function scrollChatToBottom() {
+  const chatContainer = document.getElementById('chatContainer');
+  chatContainer.scrollTop = chatContainer.scrollHeight;
+}
 
-      // Load dashboard data saat halaman dimuat
+
+      function sendChatMessage() {
+  if (!chatSocket || chatSocket.readyState !== WebSocket.OPEN) {
+    showAlert('Tidak terhubung ke server chat', 'error');
+    return;
+  }
+  
+  const messageInput = document.getElementById('chatMessage');
+  const message = messageInput.value.trim();
+  
+  if (!message) {
+    showAlert('Pesan tidak boleh kosong', 'error');
+    return;
+  }
+  
+  chatSocket.send(JSON.stringify({
+    type: 'chat',
+    kelas: currentChatRoom,
+    isi: message
+  }));
+  
+  
+  messageInput.value = '';
+}
+
+
+      function changeChatRoom() {
+  const roomSelect = document.getElementById('chatKelas');
+  currentChatRoom = roomSelect.value;
+  
+  document.getElementById('currentChatRoom').textContent = `Diskusi: ${currentChatRoom}`;
+  
+  
+  if (chatSocket && chatSocket.readyState === WebSocket.OPEN) {
+    
+    chatSocket.send(JSON.stringify({ type: 'history_request' }));
+  }
+  
+  
+  document.getElementById('chatMessages').innerHTML = `
+    <div style="text-align: center; color: #666; padding: 2rem;">
+      Memuat pesan untuk ${currentChatRoom}...
+    </div>
+  `;
+}
+
+      const style = document.createElement('style');
+style.textContent = `
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+`;
+document.head.appendChild(style);
+
+      
       async function loadDashboardData() {
          try {
-            // Menggunakan prefix /kepsek sesuai dengan route yang didefinisikan
+            
             const response = await fetch('/kepsek/info-dasar', {
                method: 'GET',
                credentials: 'include'
@@ -660,7 +848,7 @@
          }
       }
 
-      // Update statistics cards
+      
       function updateStatistics() {
          if (dashboardData) {
             document.getElementById('totalGuru').textContent = dashboardData.jumlah_guru || 0;
@@ -670,7 +858,7 @@
          }
       }
 
-      // Load daftar guru
+      
       async function loadGuruList() {
          try {
             const response = await fetch('/kepsek/guru/daftar', {
@@ -691,7 +879,7 @@
          }
       }
 
-      // Update tabel guru
+      
       function updateGuruTable(guruList) {
          const tbody = document.getElementById('guruTableBody');
          tbody.innerHTML = '';
@@ -717,7 +905,7 @@
          });
       }
 
-      // Load daftar siswa
+      
       async function loadSiswaList() {
          try {
             const response = await fetch('/kepsek/siswa/daftar', {
@@ -738,7 +926,7 @@
          }
       }
 
-      // Update tabel siswa
+      
       function updateSiswaTable(siswaList) {
          const tbody = document.getElementById('siswaTableBody');
          tbody.innerHTML = '';
@@ -759,7 +947,7 @@
          });
       }
 
-      // Load daftar materi
+      
       async function loadMateriList() {
          try {
             const response = await fetch('/kepsek/materi/daftar', {
@@ -781,7 +969,7 @@
          }
       }
 
-      // Update tabel materi
+      
       function updateMateriTable(materiList) {
          const tbody = document.getElementById('materiTableBody');
          tbody.innerHTML = '';
@@ -802,7 +990,7 @@
          });
       }
 
-      // Load daftar diskusi
+      
       async function loadDiskusiList() {
          try {
             const response = await fetch('/kepsek/kelas/diskusi', {
@@ -823,7 +1011,7 @@
          }
       }
 
-      // Update tabel diskusi
+      
       function updateDiskusiTable(diskusiList) {
          const tbody = document.getElementById('diskusiTableBody');
          tbody.innerHTML = '';
@@ -839,7 +1027,7 @@
          });
       }
 
-      // Form submit handler untuk tambah guru
+      
       document.getElementById('addGuruForm').addEventListener('submit', async function (e) {
          e.preventDefault();
 
@@ -866,7 +1054,7 @@
                showAlert('Guru berhasil ditambahkan!');
                this.reset();
                loadGuruList();
-               loadDashboardData(); // Update statistics
+               loadDashboardData(); 
             } else {
                const error = await response.json();
                showAlert('Error: ' + error.error, 'error');
@@ -877,7 +1065,7 @@
          }
       });
 
-      // Form submit handler untuk tambah diskusi
+      
       document.getElementById('addDiskusiForm').addEventListener('submit', async function (e) {
          e.preventDefault();
 
@@ -912,7 +1100,7 @@
          }
       });
 
-      // Toggle status user (aktif/nonaktif)
+      
       async function toggleUserStatus(userId, newStatus) {
          try {
             const response = await fetch(`/kepsek/guru/status/${userId}`, {
@@ -939,7 +1127,7 @@
          }
       }
 
-      // Hapus guru
+      
       async function hapusGuru(userId) {
          if (!confirm('Apakah Anda yakin ingin menghapus guru ini?')) {
             return;
@@ -954,7 +1142,7 @@
             if (response.ok) {
                showAlert('Guru berhasil dihapus!');
                loadGuruList();
-               loadDashboardData(); // Update statistics
+               loadDashboardData(); 
             } else {
                const error = await response.text();
                showAlert('Error: ' + error, 'error');
@@ -965,7 +1153,7 @@
          }
       }
 
-      // Lihat tugas siswa
+      
       async function lihatTugasSiswa(siswaId) {
          try {
             const response = await fetch(`/kepsek/siswa/tugas/${siswaId}`, {
@@ -992,7 +1180,7 @@
          }
       }
 
-      // Lihat diskusi materi
+      
       async function lihatDiskusiMateri(materiId) {
          try {
             const response = await fetch(`/kepsek/kelas/diskusi-materi/${materiId}`, {
@@ -1017,7 +1205,7 @@
          }
       }
 
-      // Logout function
+      
       async function logout() {
          try {
             const response = await fetch('/logout', {
@@ -1032,7 +1220,7 @@
          }
       }
 
-      // Load data saat halaman dimuat
+      
       document.addEventListener('DOMContentLoaded', function () {
          loadDashboardData();
       });
