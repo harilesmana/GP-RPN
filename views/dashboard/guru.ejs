@@ -10,6 +10,10 @@
          margin: 0;
          padding: 0;
          box-sizing: border-box;
+
+         margin: 0;
+         padding: 0;
+         box-sizing: border-box;
       }
 
       body {
@@ -210,78 +214,13 @@
          border: 1px solid #f5c6cb;
       }
 
-      /* Modal Styles */
-      .modal-overlay {
-         position: fixed;
-         top: 0;
-         left: 0;
-         width: 100%;
-         height: 100%;
-         background: rgba(0, 0, 0, 0.5);
-         display: flex;
-         justify-content: center;
-         align-items: center;
-         z-index: 1000;
-      }
-
-      .modal-content {
-         background: white;
-         border-radius: 10px;
-         width: 90%;
-         max-width: 700px;
-         max-height: 80vh;
-         overflow-y: auto;
-         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-      }
-
-      .modal-header {
-         display: flex;
-         justify-content: space-between;
-         align-items: center;
-         padding: 1.5rem;
-         border-bottom: 1px solid #e1e5e9;
-      }
-
-      .modal-header h3 {
-         margin: 0;
-         color: #333;
-      }
-
-      .modal-close {
-         background: none;
-         border: none;
-         font-size: 1.5rem;
-         cursor: pointer;
-         color: #666;
-         padding: 0;
-         width: 30px;
-         height: 30px;
-         display: flex;
-         align-items: center;
-         justify-content: center;
-      }
-
-      .modal-close:hover {
-         color: #333;
-      }
-
-      .modal-body {
-         padding: 1.5rem;
-      }
-
-      .siswa-grid {
-         display: grid;
-         grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-         gap: 1rem;
-         margin-top: 1rem;
-      }
-
       .siswa-card {
          background: #f8fff9;
          border: 1px solid #e1e5e9;
          border-radius: 8px;
          padding: 1rem;
          text-align: center;
+         margin-bottom: 1rem;
       }
 
       .siswa-card h4 {
@@ -340,6 +279,18 @@
          background: #00b894;
          color: white;
       }
+
+      .loading {
+         text-align: center;
+         padding: 2rem;
+         color: #666;
+      }
+
+      .empty-state {
+         text-align: center;
+         padding: 2rem;
+         color: #666;
+      }
    </style>
 </head>
 
@@ -350,7 +301,7 @@
          <p>Sistem Manajemen E-Learning</p>
       </div>
       <div class="user-info">
-         <span>Selamat datang, <%= user.nama %></span>
+         <span id="userGreeting">Selamat datang, Guru</span>
          <button class="logout-btn" onclick="logout()">Logout</button>
       </div>
    </div>
@@ -396,7 +347,7 @@
             <div class="card">
                <div class="card-title">Aktivitas Terakhir</div>
                <div id="recentActivity">
-                  <p>Loading aktivitas...</p>
+                  <div class="loading">Memuat aktivitas...</div>
                </div>
             </div>
          </div>
@@ -413,6 +364,11 @@
                      <input type="text" id="materiJudul" name="judul" required>
                   </div>
                   <div class="form-group">
+                     <label for="materiDeskripsi">Deskripsi Materi</label>
+                     <textarea id="materiDeskripsi" name="deskripsi" rows="3"
+                        placeholder="Deskripsi singkat materi..."></textarea>
+                  </div>
+                  <div class="form-group">
                      <label for="materiKonten">Konten Materi</label>
                      <textarea id="materiKonten" name="konten" rows="6" placeholder="Masukkan konten pembelajaran..."
                         required></textarea>
@@ -423,19 +379,9 @@
 
             <div class="card">
                <div class="card-title">Daftar Materi Saya</div>
-               <table class="table">
-                  <thead>
-                     <tr>
-                        <th>Judul</th>
-                        <th>Tanggal Dibuat</th>
-                        <th>Jumlah Siswa</th>
-                        <th>Aksi</th>
-                     </tr>
-                  </thead>
-                  <tbody id="materiTableBody">
-                     <!-- Data akan dimuat di sini -->
-                  </tbody>
-               </table>
+               <div id="materiListContainer">
+                  <div class="loading">Memuat daftar materi...</div>
+               </div>
             </div>
          </div>
 
@@ -471,7 +417,7 @@
             <div class="card">
                <div class="card-title">Daftar Tugas</div>
                <div id="tugasListContainer">
-                  <!-- Tugas akan dimuat di sini -->
+                  <div class="loading">Memuat daftar tugas...</div>
                </div>
             </div>
          </div>
@@ -483,7 +429,7 @@
             <div class="card">
                <div class="card-title">Tugas yang Perlu Dinilai</div>
                <div id="tugasPendingContainer">
-                  <!-- Tugas pending akan dimuat di sini -->
+                  <div class="loading">Memuat tugas pending...</div>
                </div>
             </div>
          </div>
@@ -494,8 +440,8 @@
 
             <div class="card">
                <div class="card-title">Daftar Siswa dan Progress</div>
-               <div class="siswa-grid" id="siswaProgressGrid">
-                  <!-- Progress siswa akan dimuat di sini -->
+               <div id="siswaProgressContainer">
+                  <div class="loading">Memuat progress siswa...</div>
                </div>
             </div>
          </div>
@@ -507,7 +453,7 @@
             <div class="card">
                <div class="card-title">Diskusi Materi Saya</div>
                <div id="diskusiContainer">
-                  <!-- Diskusi akan dimuat di sini -->
+                  <div class="loading">Memuat diskusi...</div>
                </div>
             </div>
          </div>
@@ -515,11 +461,56 @@
    </div>
 
    <script>
-      let currentUser = null;
-      let materiList = [];
-      let tugasList = [];
+      // ===========================================
+      // API ENDPOINTS YANG DIBUTUHKAN BACKEND
+      // ===========================================
+      /*
+      AUTHENTICATION:
+      POST /api/auth/logout
 
-      // Show alert function
+      DASHBOARD:
+      GET /api/guru/dashboard/stats
+      GET /api/guru/dashboard/recent-activity
+
+      MATERI MANAGEMENT:
+      GET /api/guru/materi
+      POST /api/guru/materi
+      GET /api/guru/materi/:id
+      PUT /api/guru/materi/:id
+      DELETE /api/guru/materi/:id
+
+      TUGAS MANAGEMENT:
+      GET /api/guru/tugas
+      POST /api/guru/tugas
+      GET /api/guru/tugas/:id
+      PUT /api/guru/tugas/:id
+      DELETE /api/guru/tugas/:id
+
+      PENILAIAN:
+      GET /api/guru/submissions/pending
+      POST /api/guru/submissions/:id/grade
+
+      SISWA PROGRESS:
+      GET /api/guru/siswa/progress
+
+      DISKUSI:
+      GET /api/guru/diskusi
+      POST /api/guru/diskusi/:id/reply
+      */
+
+      // ===========================================
+      // GLOBAL VARIABLES
+      // ===========================================
+      let currentData = {
+         materi: [],
+         tugas: [],
+         siswa: [],
+         diskusi: []
+      };
+
+      // ===========================================
+      // UTILITY FUNCTIONS
+      // ===========================================
       function showAlert(message, type = 'success') {
          const alert = document.getElementById('alert');
          const alertMessage = document.getElementById('alertMessage');
@@ -533,57 +524,97 @@
          }, 5000);
       }
 
-      // Show section function
-      // Show section function
+      function formatDate(dateString) {
+         if (!dateString) return '-';
+         return new Date(dateString).toLocaleDateString('id-ID');
+      }
+
+      function formatDateTime(dateString) {
+         if (!dateString) return '-';
+         return new Date(dateString).toLocaleString('id-ID');
+      }
+
+      // ===========================================
+      // API FUNCTIONS
+      // ===========================================
+      async function apiCall(endpoint, options = {}) {
+         const defaultOptions = {
+            method: 'GET',
+            headers: {
+               'Content-Type': 'application/json',
+            },
+            credentials: 'include'
+         };
+
+         try {
+            const response = await fetch(`${endpoint}`, { ...defaultOptions, ...options });
+            const data = await response.json();
+
+            if (!response.ok) {
+               throw new Error(data.message || 'API Error');
+            }
+
+            return data;
+         } catch (error) {
+            showAlert(error.message || 'Terjadi kesalahan', 'error');
+            throw error;
+         }
+      }
+
+      // ===========================================
+      // NAVIGATION FUNCTIONS
+      // ===========================================
       function showSection(sectionId) {
+         // Hide all sections
          document.querySelectorAll('.page-section').forEach(section => {
             section.classList.remove('active');
          });
+
+         // Remove active class from nav items
          document.querySelectorAll('.nav-item').forEach(item => {
             item.classList.remove('active');
          });
 
+         // Show selected section
          document.getElementById(sectionId).classList.add('active');
          event.target.classList.add('active');
 
-         // Load data untuk section tertentu
-         if (sectionId === 'materi-management') {
-            loadMateriSaya();
-         } else if (sectionId === 'tugas-management') {
-            loadTugasList();
-            loadMateriOptions();
-         } else if (sectionId === 'nilai-management') {
-            loadTugasPending();
-         } else if (sectionId === 'siswa-progress') {
-            loadSiswaProgress();
-         } else if (sectionId === 'diskusi-management') {
-            loadDiskusiMateri();
+         // Load data for specific sections
+         switch (sectionId) {
+            case 'materi-management':
+               loadMateriList();
+               break;
+            case 'tugas-management':
+               loadTugasList();
+               loadMateriOptions();
+               break;
+            case 'nilai-management':
+               loadPendingSubmissions();
+               break;
+            case 'siswa-progress':
+               loadSiswaProgress();
+               break;
+            case 'diskusi-management':
+               loadDiskusi();
+               break;
          }
       }
 
-      // Load dashboard data
+      // ===========================================
+      // DASHBOARD FUNCTIONS
+      // ===========================================
       async function loadDashboardData() {
          try {
-            // Load basic stats
-            const statsResponse = await fetch('/guru/stats', {
-               method: 'GET',
-               credentials: 'include'
-            });
+            const stats = await apiCall('/guru/dashboard/stats');
+            updateDashboardStats(stats.data);
 
-            if (statsResponse.ok) {
-               const stats = await statsResponse.json();
-               updateDashboardStats(stats);
-            }
-
-            // Load recent activity
-            loadRecentActivity();
+            const activities = await apiCall('/guru/dashboard/recent-activity');
+            displayRecentActivity(activities.data);
          } catch (error) {
             console.error('Error loading dashboard:', error);
-            showAlert('Terjadi kesalahan saat memuat dashboard', 'error');
          }
       }
 
-      // Update dashboard stats
       function updateDashboardStats(stats) {
          document.getElementById('totalMateri').textContent = stats.total_materi || 0;
          document.getElementById('totalSiswa').textContent = stats.total_siswa || 0;
@@ -591,117 +622,113 @@
          document.getElementById('rataRataNilai').textContent = stats.rata_nilai || 0;
       }
 
-      // Load recent activity
-      async function loadRecentActivity() {
-         try {
-            const response = await fetch('/guru/recent-activity', {
-               method: 'GET',
-               credentials: 'include'
-            });
-
-            if (response.ok) {
-               const activities = await response.json();
-               displayRecentActivity(activities);
-            }
-         } catch (error) {
-            document.getElementById('recentActivity').innerHTML = '<p>Tidak ada aktivitas terbaru</p>';
-         }
-      }
-
-      // Display recent activity
       function displayRecentActivity(activities) {
          const container = document.getElementById('recentActivity');
 
          if (activities.length === 0) {
-            container.innerHTML = '<p>Tidak ada aktivitas terbaru</p>';
+            container.innerHTML = '<div class="empty-state">Tidak ada aktivitas terbaru</div>';
             return;
          }
 
          container.innerHTML = activities.map(activity => `
             <div style="padding: 0.5rem 0; border-bottom: 1px solid #eee;">
                <strong>${activity.title}</strong> - ${activity.description}
-               <div style="font-size: 0.8rem; color: #666;">${new Date(activity.created_at).toLocaleDateString('id-ID')}</div>
+               <div style="font-size: 0.8rem; color: #666;">${formatDateTime(activity.created_at)}</div>
             </div>
          `).join('');
       }
 
-      // Load materi saya
-      async function loadMateriSaya() {
-         try {
-            const response = await fetch('/guru/materi', {
-               method: 'GET',
-               credentials: 'include'
-            });
+      // ===========================================
+      // MATERI FUNCTIONS
+      // ===========================================
+      async function loadMateriList() {
+         const container = document.getElementById('materiListContainer');
 
-            if (response.ok) {
-               materiList = await response.json();
-               displayMateriTable();
-            } else {
-               showAlert('Error loading materi', 'error');
-            }
+         try {
+            const response = await apiCall('/guru/materi');
+            currentData.materi = response.data;
+            displayMateriList(response.data);
          } catch (error) {
-            console.error('Error loading materi:', error);
-            showAlert('Terjadi kesalahan saat memuat materi', 'error');
+            container.innerHTML = '<div class="empty-state">Gagal memuat daftar materi</div>';
          }
       }
 
-      // Display materi table
-      function displayMateriTable() {
-         const tbody = document.getElementById('materiTableBody');
-         tbody.innerHTML = '';
+      function displayMateriList(materiList) {
+         const container = document.getElementById('materiListContainer');
 
-         materiList.forEach(materi => {
-            const row = document.createElement('tr');
-            row.innerHTML = `
-               <td>${materi.judul}</td>
-               <td>${new Date(materi.created_at).toLocaleDateString('id-ID')}</td>
-               <td>${materi.jumlah_siswa || 0}</td>
-               <td>
-                  <button class="btn" onclick="viewMateri(${materi.id})" style="margin-right: 5px;">Lihat</button>
-                  <button class="btn btn-warning" onclick="editMateri(${materi.id})" style="margin-right: 5px;">Edit</button>
-                  <button class="btn btn-danger" onclick="deleteMateri(${materi.id})">Hapus</button>
-               </td>
-            `;
-            tbody.appendChild(row);
-         });
+         if (materiList.length === 0) {
+            container.innerHTML = '<div class="empty-state">Belum ada materi yang dibuat</div>';
+            return;
+         }
+
+         const table = document.createElement('table');
+         table.className = 'table';
+         table.innerHTML = `
+            <thead>
+               <tr>
+                  <th>Judul</th>
+                  <th>Deskripsi</th>
+                  <th>Tanggal Dibuat</th>
+                  <th>Aksi</th>
+               </tr>
+            </thead>
+            <tbody>
+               ${materiList.map(materi => `
+                  <tr>
+                     <td>${materi.judul}</td>
+                     <td>${materi.deskripsi || '-'}</td>
+                     <td>${formatDate(materi.created_at)}</td>
+                     <td>
+                        <button class="btn" onclick="viewMateri(${materi.id})" style="margin-right: 5px;">Lihat</button>
+                        <button class="btn btn-warning" onclick="editMateri(${materi.id})" style="margin-right: 5px;">Edit</button>
+                        <button class="btn btn-danger" onclick="deleteMateri(${materi.id})">Hapus</button>
+                     </td>
+                  </tr>
+               `).join('')}
+            </tbody>
+         `;
+
+         container.innerHTML = '';
+         container.appendChild(table);
       }
 
-      // Load materi options untuk dropdown
       async function loadMateriOptions() {
          const select = document.getElementById('tugasMateri');
          select.innerHTML = '<option value="">-- Pilih Materi --</option>';
 
-         materiList.forEach(materi => {
-            const option = document.createElement('option');
-            option.value = materi.id;
-            option.textContent = materi.judul;
-            select.appendChild(option);
-         });
-      }
-
-      // Load tugas list
-      async function loadTugasList() {
          try {
-            const response = await fetch('/guru/tugas', {
-               method: 'GET',
-               credentials: 'include'
+            const response = await apiCall('/guru/materi');
+            response.data.forEach(materi => {
+               const option = document.createElement('option');
+               option.value = materi.id;
+               option.textContent = materi.judul;
+               select.appendChild(option);
             });
-
-            if (response.ok) {
-               tugasList = await response.json();
-               displayTugasList();
-            }
          } catch (error) {
-            console.error('Error loading tugas:', error);
+            console.error('Error loading materi options:', error);
          }
       }
 
-      // Display tugas list
-      function displayTugasList() {
+      // ===========================================
+      // TUGAS FUNCTIONS
+      // ===========================================
+      async function loadTugasList() {
+         const container = document.getElementById('tugasListContainer');
+
+         try {
+            const response = await apiCall('/guru/tugas');
+            currentData.tugas = response.data;
+            displayTugasList(response.data);
+         } catch (error) {
+            container.innerHTML = '<div class="empty-state">Gagal memuat daftar tugas</div>';
+         }
+      }
+
+      function displayTugasList(tugasList) {
          const container = document.getElementById('tugasListContainer');
 
          if (tugasList.length === 0) {
-            container.innerHTML = '<p>Belum ada tugas yang dibuat</p>';
+            container.innerHTML = '<div class="empty-state">Belum ada tugas yang dibuat</div>';
             return;
          }
 
@@ -713,51 +740,48 @@
                      ${tugas.submissions_count || 0} Submission
                   </span>
                </div>
-               <p><strong>Materi:</strong> ${tugas.materi_judul}</p>
-               <p><strong>Deadline:</strong> ${new Date(tugas.deadline).toLocaleDateString('id-ID')}</p>
+               <p><strong>Materi:</strong> ${tugas.materi_judul || '-'}</p>
+               <p><strong>Deadline:</strong> ${formatDate(tugas.deadline)}</p>
                <p>${tugas.deskripsi}</p>
                <div style="margin-top: 1rem;">
-                  <button class="btn" onclick="viewTugasSubmissions(${tugas.id})">Lihat Submissions</button>
+                  <button class="btn" onclick="viewTugasDetail(${tugas.id})">Lihat Detail</button>
                   <button class="btn btn-warning" onclick="editTugas(${tugas.id})" style="margin-left: 5px;">Edit</button>
+                  <button class="btn btn-danger" onclick="deleteTugas(${tugas.id})" style="margin-left: 5px;">Hapus</button>
                </div>
             </div>
          `).join('');
       }
 
-      // Load tugas pending untuk penilaian
-      async function loadTugasPending() {
-         try {
-            const response = await fetch('/guru/tugas-pending', {
-               method: 'GET',
-               credentials: 'include'
-            });
+      // ===========================================
+      // PENILAIAN FUNCTIONS
+      // ===========================================
+      async function loadPendingSubmissions() {
+         const container = document.getElementById('tugasPendingContainer');
 
-            if (response.ok) {
-               const pendingTugas = await response.json();
-               displayTugasPending(pendingTugas);
-            }
+         try {
+            const response = await apiCall('/guru/submissions/pending');
+            displayPendingSubmissions(response.data);
          } catch (error) {
-            console.error('Error loading pending tugas:', error);
+            container.innerHTML = '<div class="empty-state">Gagal memuat submission pending</div>';
          }
       }
 
-      // Display tugas pending
-      function displayTugasPending(pendingTugas) {
+      function displayPendingSubmissions(submissions) {
          const container = document.getElementById('tugasPendingContainer');
 
-         if (pendingTugas.length === 0) {
-            container.innerHTML = '<p>Tidak ada tugas yang perlu dinilai</p>';
+         if (submissions.length === 0) {
+            container.innerHTML = '<div class="empty-state">Tidak ada tugas yang perlu dinilai</div>';
             return;
          }
 
-         container.innerHTML = pendingTugas.map(submission => `
+         container.innerHTML = submissions.map(submission => `
             <div class="tugas-item">
                <div class="tugas-header">
                   <h4>${submission.tugas_judul}</h4>
                   <span class="tugas-status status-pending">Belum Dinilai</span>
                </div>
                <p><strong>Siswa:</strong> ${submission.siswa_nama}</p>
-               <p><strong>Dikumpulkan:</strong> ${new Date(submission.submitted_at).toLocaleDateString('id-ID')}</p>
+               <p><strong>Dikumpulkan:</strong> ${formatDateTime(submission.submitted_at)}</p>
                <p><strong>Jawaban:</strong> ${submission.jawaban}</p>
                <div style="margin-top: 1rem;">
                   <input type="number" id="nilai-${submission.id}" placeholder="Nilai (0-100)" min="0" max="100" 
@@ -768,178 +792,6 @@
          `).join('');
       }
 
-      // Load siswa progress
-      async function loadSiswaProgress() {
-         try {
-            const response = await fetch('/guru/siswa-progress', {
-               method: 'GET',
-               credentials: 'include'
-            });
-
-            if (response.ok) {
-               const siswaProgress = await response.json();
-               displaySiswaProgress(siswaProgress);
-            }
-         } catch (error) {
-            console.error('Error loading siswa progress:', error);
-         }
-      }
-
-      // Display siswa progress
-      function displaySiswaProgress(siswaProgress) {
-         const container = document.getElementById('siswaProgressGrid');
-
-         if (siswaProgress.length === 0) {
-            container.innerHTML = '<p>Tidak ada data progress siswa</p>';
-            return;
-         }
-
-         container.innerHTML = siswaProgress.map(siswa => `
-            <div class="siswa-card">
-               <h4>${siswa.nama}</h4>
-               <p>${siswa.email}</p>
-               <div class="progress-bar">
-                  <div class="progress-fill" style="width: ${siswa.progress}%"></div>
-               </div>
-               <p>Progress: ${siswa.progress}%</p>
-               <p>Rata-rata Nilai: ${siswa.rata_nilai || 0}</p>
-               <button class="btn" onclick="detailSiswaProgress(${siswa.id})" style="margin-top: 0.5rem;">
-                  Detail Progress
-               </button>
-            </div>
-         `).join('');
-      }
-
-      // Load diskusi materi
-      async function loadDiskusiMateri() {
-         try {
-            const response = await fetch('/guru/diskusi', {
-               method: 'GET',
-               credentials: 'include'
-            });
-
-            if (response.ok) {
-               const diskusiData = await response.json();
-               displayDiskusiMateri(diskusiData);
-            }
-         } catch (error) {
-            console.error('Error loading diskusi:', error);
-         }
-      }
-
-      // Display diskusi materi
-      function displayDiskusiMateri(diskusiData) {
-         const container = document.getElementById('diskusiContainer');
-
-         if (diskusiData.length === 0) {
-            container.innerHTML = '<p>Belum ada diskusi untuk materi Anda</p>';
-            return;
-         }
-
-         // Group diskusi by materi
-         const diskusiByMateri = diskusiData.reduce((acc, diskusi) => {
-            if (!acc[diskusi.materi_id]) {
-               acc[diskusi.materi_id] = {
-                  materi_judul: diskusi.materi_judul,
-                  diskusi: []
-               };
-            }
-            acc[diskusi.materi_id].diskusi.push(diskusi);
-            return acc;
-         }, {});
-
-         container.innerHTML = Object.entries(diskusiByMateri).map(([materiId, data]) => `
-            <div style="margin-bottom: 2rem;">
-               <h3 style="color: #2ecc71; border-bottom: 2px solid #2ecc71; padding-bottom: 0.5rem;">
-                  ${data.materi_judul}
-               </h3>
-               <div style="margin-top: 1rem;">
-                  ${data.diskusi.map(diskusi => `
-                     <div style="background: #f8fff9; padding: 1rem; margin-bottom: 1rem; border-radius: 8px; border-left: 3px solid #2ecc71;">
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                           <strong style="color: #2ecc71;">${diskusi.user_name}</strong>
-                           <span style="color: #666; font-size: 0.8rem;">${new Date(diskusi.created_at).toLocaleDateString('id-ID')}</span>
-                        </div>
-                        <p style="line-height: 1.5;">${diskusi.isi}</p>
-                     </div>
-                  `).join('')}
-                  <div style="margin-top: 1rem;">
-                     <button class="btn" onclick="replyDiskusi(${materiId})" style="margin-right: 10px;">Balas Diskusi</button>
-                     <button class="btn btn-warning" onclick="viewAllDiskusi(${materiId})">Lihat Semua</button>
-                  </div>
-               </div>
-            </div>
-         `).join('');
-      }
-
-      // Form handlers
-      document.getElementById('addMateriForm').addEventListener('submit', async function (e) {
-         e.preventDefault();
-
-         const formData = new FormData(this);
-         const materiData = {
-            judul: formData.get('judul'),
-            konten: formData.get('konten')
-         };
-
-         try {
-            const response = await fetch('/guru/materi', {
-               method: 'POST',
-               headers: { 'Content-Type': 'application/json' },
-               credentials: 'include',
-               body: JSON.stringify(materiData)
-            });
-
-            if (response.ok) {
-               showAlert('Materi berhasil ditambahkan!');
-               this.reset();
-               loadMateriSaya();
-               loadDashboardData();
-            } else {
-               const error = await response.text();
-               showAlert('Error: ' + error, 'error');
-            }
-         } catch (error) {
-            console.error('Error adding materi:', error);
-            showAlert('Terjadi kesalahan saat menambah materi', 'error');
-         }
-      });
-
-      document.getElementById('addTugasForm').addEventListener('submit', async function (e) {
-         e.preventDefault();
-
-         const formData = new FormData(this);
-         const tugasData = {
-            materi_id: parseInt(formData.get('materi_id')),
-            judul: formData.get('judul'),
-            deskripsi: formData.get('deskripsi'),
-            deadline: formData.get('deadline')
-         };
-
-         try {
-            const response = await fetch('/guru/tugas', {
-               method: 'POST',
-               headers: { 'Content-Type': 'application/json' },
-               credentials: 'include',
-               body: JSON.stringify(tugasData)
-            });
-
-            if (response.ok) {
-               showAlert('Tugas berhasil dibuat!');
-               this.reset();
-               loadTugasList();
-               loadDashboardData();
-            } else {
-               const error = await response.text();
-               showAlert('Error: ' + error, 'error');
-            }
-         } catch (error) {
-            console.error('Error creating tugas:', error);
-            showAlert('Terjadi kesalahan saat membuat tugas', 'error');
-         }
-      });
-
-      // Action functions
       async function berikanNilai(submissionId) {
          const nilaiInput = document.getElementById(`nilai-${submissionId}`);
          const nilai = parseInt(nilaiInput.value);
@@ -950,57 +802,288 @@
          }
 
          try {
-            const response = await fetch(`/guru/tugas-submission/${submissionId}/grade`, {
+            await apiCall(`/guru/submissions/${submissionId}/grade`, {
                method: 'POST',
-               headers: { 'Content-Type': 'application/json' },
-               credentials: 'include',
                body: JSON.stringify({ nilai })
             });
 
-            if (response.ok) {
-               showAlert('Nilai berhasil diberikan!');
-               loadTugasPending();
-               loadDashboardData();
-            } else {
-               const error = await response.text();
-               showAlert('Error: ' + error, 'error');
-            }
+            showAlert('Nilai berhasil diberikan!');
+            loadPendingSubmissions();
+            loadDashboardData(); // Refresh dashboard stats
          } catch (error) {
             console.error('Error grading submission:', error);
-            showAlert('Terjadi kesalahan saat memberikan nilai', 'error');
          }
       }
 
-      // Placeholder functions untuk action buttons
-      function viewMateri(id) { showAlert('Feature: View Materi ' + id); }
-      function editMateri(id) { showAlert('Feature: Edit Materi ' + id); }
-      function deleteMateri(id) {
-         if (confirm('Yakin ingin menghapus materi ini?')) {
-            showAlert('Feature: Delete Materi ' + id);
+      // ===========================================
+      // SISWA PROGRESS FUNCTIONS
+      // ===========================================
+      async function loadSiswaProgress() {
+         const container = document.getElementById('siswaProgressContainer');
+
+         try {
+            const response = await apiCall('/guru/siswa/progress');
+            displaySiswaProgress(response.data);
+         } catch (error) {
+            container.innerHTML = '<div class="empty-state">Gagal memuat progress siswa</div>';
          }
       }
-      function viewTugasSubmissions(id) { showAlert('Feature: View Submissions ' + id); }
-      function editTugas(id) { showAlert('Feature: Edit Tugas ' + id); }
-      function detailSiswaProgress(id) { showAlert('Feature: Detail Progress Siswa ' + id); }
-      function replyDiskusi(materiId) { showAlert('Feature: Reply Diskusi Materi ' + materiId); }
-      function viewAllDiskusi(materiId) { showAlert('Feature: View All Diskusi ' + materiId); }
 
-      // Logout function
+      function displaySiswaProgress(siswaList) {
+         const container = document.getElementById('siswaProgressContainer');
+
+         if (siswaList.length === 0) {
+            container.innerHTML = '<div class="empty-state">Tidak ada data progress siswa</div>';
+            return;
+         }
+
+         container.innerHTML = siswaList.map(siswa => `
+            <div class="siswa-card">
+               <h4>${siswa.nama}</h4>
+               <p>${siswa.email}</p>
+               <div class="progress-bar">
+                  <div class="progress-fill" style="width: ${siswa.progress || 0}%"></div>
+               </div>
+               <p>Progress: ${siswa.progress || 0}%</p>
+               <p>Rata-rata Nilai: ${siswa.rata_nilai || 0}</p>
+               <button class="btn" onclick="detailSiswaProgress(${siswa.id})" style="margin-top: 0.5rem;">
+                  Detail Progress
+               </button>
+            </div>
+         `).join('');
+      }
+
+      // ===========================================
+      // DISKUSI FUNCTIONS
+      // ===========================================
+      async function loadDiskusi() {
+         const container = document.getElementById('diskusiContainer');
+
+         try {
+            const response = await apiCall('/guru/diskusi');
+            displayDiskusi(response.data);
+         } catch (error) {
+            container.innerHTML = '<div class="empty-state">Gagal memuat diskusi</div>';
+         }
+      }
+
+      function displayDiskusi(diskusiList) {
+         const container = document.getElementById('diskusiContainer');
+
+         if (diskusiList.length === 0) {
+            container.innerHTML = '<div class="empty-state">Belum ada diskusi untuk materi Anda</div>';
+            return;
+         }
+
+         container.innerHTML = diskusiList.map(diskusi => `
+            <div style="background: #f8fff9; padding: 1rem; margin-bottom: 1rem; border-radius: 8px; border-left: 3px solid #2ecc71;">
+               <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                  <strong style="color: #2ecc71;">${diskusi.user_name}</strong>
+                  <span style="color: #666; font-size: 0.8rem;">${formatDateTime(diskusi.created_at)}</span>
+               </div>
+               <p style="line-height: 1.5;">${diskusi.isi}</p>
+               <div style="margin-top: 1rem;">
+                  <button class="btn" onclick="replyDiskusi(${diskusi.id})" style="margin-right: 10px;">Balas</button>
+               </div>
+            </div>
+         `).join('');
+      }
+
+      // ===========================================
+      // FORM HANDLERS
+      // ===========================================
+      document.addEventListener('DOMContentLoaded', function () {
+         // Materi Form Handler
+         document.getElementById('addMateriForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const formData = new FormData(this);
+            const materiData = {
+               judul: formData.get('judul'),
+               deskripsi: formData.get('deskripsi'),
+               konten: formData.get('konten')
+            };
+
+            try {
+               await apiCall('/guru/materi', {
+                  method: 'POST',
+                  body: JSON.stringify(materiData)
+               });
+
+               showAlert('Materi berhasil ditambahkan!');
+               this.reset();
+               loadMateriList();
+               loadDashboardData();
+            } catch (error) {
+               console.error('Error adding materi:', error);
+            }
+         });
+
+         // Tugas Form Handler
+         document.getElementById('addTugasForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const formData = new FormData(this);
+            const tugasData = {
+               materi_id: parseInt(formData.get('materi_id')),
+               judul: formData.get('judul'),
+               deskripsi: formData.get('deskripsi'),
+               deadline: formData.get('deadline')
+            };
+
+            try {
+               await apiCall('/guru/tugas', {
+                  method: 'POST',
+                  body: JSON.stringify(tugasData)
+               });
+
+               showAlert('Tugas berhasil dibuat!');
+               this.reset();
+               loadTugasList();
+               loadDashboardData();
+            } catch (error) {
+               console.error('Error creating tugas:', error);
+            }
+         });
+
+         // Load initial data
+         loadDashboardData();
+      });
+
+      // ===========================================
+      // ACTION FUNCTIONS
+      // ===========================================
+      function viewMateri(id) {
+         const materi = currentData.materi.find(m => m.id === id);
+         if (materi) {
+            alert(`Judul: ${materi.judul}\n\nKonten: ${materi.konten}`);
+         }
+      }
+
+      async function editMateri(id) {
+         const materi = currentData.materi.find(m => m.id === id);
+         if (!materi) return;
+
+         const newJudul = prompt('Edit Judul Materi:', materi.judul);
+         if (!newJudul) return;
+
+         const newKonten = prompt('Edit Konten Materi:', materi.konten);
+         if (!newKonten) return;
+
+         try {
+            await apiCall(`/guru/materi/${id}`, {
+               method: 'PUT',
+               body: JSON.stringify({
+                  judul: newJudul,
+                  konten: newKonten
+               })
+            });
+
+            showAlert('Materi berhasil diupdate!');
+            loadMateriList();
+         } catch (error) {
+            console.error('Error updating materi:', error);
+         }
+      }
+
+      async function deleteMateri(id) {
+         if (!confirm('Yakin ingin menghapus materi ini?')) return;
+
+         try {
+            await apiCall(`/guru/materi/${id}`, {
+               method: 'DELETE'
+            });
+
+            showAlert('Materi berhasil dihapus!');
+            loadMateriList();
+            loadDashboardData();
+         } catch (error) {
+            console.error('Error deleting materi:', error);
+         }
+      }
+
+      function viewTugasDetail(id) {
+         const tugas = currentData.tugas.find(t => t.id === id);
+         if (tugas) {
+            alert(`Judul: ${tugas.judul}\n\nDeskripsi: ${tugas.deskripsi}\n\nDeadline: ${formatDate(tugas.deadline)}`);
+         }
+      }
+
+      async function editTugas(id) {
+         const tugas = currentData.tugas.find(t => t.id === id);
+         if (!tugas) return;
+
+         const newJudul = prompt('Edit Judul Tugas:', tugas.judul);
+         if (!newJudul) return;
+
+         const newDeskripsi = prompt('Edit Deskripsi Tugas:', tugas.deskripsi);
+         if (!newDeskripsi) return;
+
+         try {
+            await apiCall(`/guru/tugas/${id}`, {
+               method: 'PUT',
+               body: JSON.stringify({
+                  judul: newJudul,
+                  deskripsi: newDeskripsi
+               })
+            });
+
+            showAlert('Tugas berhasil diupdate!');
+            loadTugasList();
+         } catch (error) {
+            console.error('Error updating tugas:', error);
+         }
+      }
+
+      async function deleteTugas(id) {
+         if (!confirm('Yakin ingin menghapus tugas ini?')) return;
+
+         try {
+            await apiCall(`/guru/tugas/${id}`, {
+               method: 'DELETE'
+            });
+
+            showAlert('Tugas berhasil dihapus!');
+            loadTugasList();
+            loadDashboardData();
+         } catch (error) {
+            console.error('Error deleting tugas:', error);
+         }
+      }
+
+      function detailSiswaProgress(id) {
+         // Navigate to detailed student progress page
+         window.location.href = `/guru/siswa/${id}/progress`;
+      }
+
+      async function replyDiskusi(diskusiId) {
+         const reply = prompt('Masukkan balasan Anda:');
+         if (!reply) return;
+
+         try {
+            await apiCall(`/guru/diskusi/${diskusiId}/reply`, {
+               method: 'POST',
+               body: JSON.stringify({ reply })
+            });
+
+            showAlert('Balasan berhasil dikirim!');
+            loadDiskusi();
+         } catch (error) {
+            console.error('Error replying to discussion:', error);
+         }
+      }
+
+      // ===========================================
+      // AUTH FUNCTIONS
+      // ===========================================
       async function logout() {
          try {
-            await fetch('/logout', { method: 'POST', credentials: 'include' });
+            await apiCall('/auth/logout', { method: 'POST' });
             window.location.href = '/login';
          } catch (error) {
-            console.error('Logout error:', error);
             window.location.href = '/login';
          }
       }
-
-      // Load data saat halaman dimuat
-      document.addEventListener('DOMContentLoaded', function () {
-         loadDashboardData();
-         loadMateriSaya();
-      });
    </script>
 </body>
 
