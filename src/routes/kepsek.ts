@@ -33,13 +33,6 @@ export const kepsekRoutes = new Elysia({ prefix: "/kepsek" })
     };
   })
 
-.get("/chat/online-users", () => {
-  
-  return {
-    total_online: 0,
-    users: []
-  };
-})
   .get("/guru/daftar", () => {
     const daftarGuru = users
       .filter(u => u.role === "guru")
