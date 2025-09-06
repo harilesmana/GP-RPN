@@ -10,7 +10,6 @@ export const siswaRoutes = new Elysia()
     }
     return { user };
   })
-  
   .get("/siswa/dashboard-stats", async ({ user }) => {
     const siswaId = user.userId;
     
@@ -54,7 +53,6 @@ export const siswaRoutes = new Elysia()
 
     return recentTugas;
   })
-  
   .get("/siswa/materi", async () => {
     return materi.map(m => ({
       id: m.id,
@@ -65,7 +63,6 @@ export const siswaRoutes = new Elysia()
       created_at: m.created_at
     }));
   })
-  
   .get("/siswa/tugas", async ({ user }) => {
     const siswaId = user.userId;
     
@@ -101,17 +98,14 @@ export const siswaRoutes = new Elysia()
       throw new Error("Tugas tidak ditemukan");
     }
 
-    
     let submission = submissions.find(s => 
       s.tugas_id === tugasId && s.siswa_id === siswaId
     );
 
     if (submission) {
-      
       submission.jawaban = jawaban;
       submission.submitted_at = new Date();
     } else {
-      
       submission = {
         id: submissions.length > 0 ? Math.max(...submissions.map(s => s.id)) + 1 : 1,
         tugas_id: tugasId,
@@ -122,7 +116,6 @@ export const siswaRoutes = new Elysia()
       submissions.push(submission);
     }
 
-    
     let tugasSiswa = tugas.find(t => 
       t.materi_id === tugasId && t.siswa_id === siswaId
     );
@@ -148,7 +141,6 @@ export const siswaRoutes = new Elysia()
       tugas: tugasSiswa
     };
   })
-  
   .get("/siswa/nilai", async ({ user }) => {
     const siswaId = user.userId;
     
@@ -171,7 +163,6 @@ export const siswaRoutes = new Elysia()
         };
       });
   })
-  
   .get("/siswa/diskusi-kelas", async () => {
     return diskusi.map(d => ({
       id: d.id,
@@ -217,7 +208,6 @@ export const siswaRoutes = new Elysia()
     diskusiMateri.push(newDiskusi);
     return { message: "Diskusi berhasil ditambahkan", diskusi: newDiskusi };
   })
-  
   .get("/siswa/progress-detail", async ({ user }) => {
     const siswaId = user.userId;
     
