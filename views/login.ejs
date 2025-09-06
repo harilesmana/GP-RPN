@@ -198,123 +198,123 @@
          <p>Belum punya akun? <a href="/register">Daftar di sini</a></p>
       </div>
    </div>
-<script>
-   document.getElementById('loginForm').addEventListener('submit', async function (e) {
-      e.preventDefault();
+   <script>
+      document.getElementById('loginForm').addEventListener('submit', async function (e) {
+         e.preventDefault();
 
-      const submitBtn = document.getElementById('submitBtn');
-      const loading = document.getElementById('loading');
-      const generalError = document.getElementById('generalError');
-      const generalSuccess = document.getElementById('generalSuccess');
+         const submitBtn = document.getElementById('submitBtn');
+         const loading = document.getElementById('loading');
+         const generalError = document.getElementById('generalError');
+         const generalSuccess = document.getElementById('generalSuccess');
 
-      // Reset error messages
-      document.querySelectorAll('.error').forEach(el => {
-         el.style.display = 'none';
-         el.textContent = '';
-      });
-      generalError.style.display = 'none';
-      generalSuccess.style.display = 'none';
-
-      // Show loading state
-      submitBtn.disabled = true;
-      submitBtn.textContent = 'Memproses...';
-      loading.style.display = 'block';
-
-      const formData = new FormData(this);
-
-      try {
-         const response = await fetch('/login', {
-            method: 'POST',
-            body: formData
+         // Reset error messages
+         document.querySelectorAll('.error').forEach(el => {
+            el.style.display = 'none';
+            el.textContent = '';
          });
+         generalError.style.display = 'none';
+         generalSuccess.style.display = 'none';
 
-         const responseText = await response.text();
-         console.log('Response:', response.status, responseText);
+         // Show loading state
+         submitBtn.disabled = true;
+         submitBtn.textContent = 'Memproses...';
+         loading.style.display = 'block';
 
-         if (response.redirected) {
-            // Jika ada redirect, ikuti redirect
-            window.location.href = response.url;
-            return;
-         }
+         const formData = new FormData(this);
 
-         if (response.ok) {
-            // Jika response adalah HTML (dashboard)
-            if (responseText.includes('<!DOCTYPE html>') || responseText.includes('<html')) {
-               document.open();
-               document.write(responseText);
-               document.close();
-            } else {
-               // Jika response adalah pesan sukses
-               generalSuccess.textContent = responseText;
-               generalSuccess.style.display = 'block';
+         try {
+            const response = await fetch('/login', {
+               method: 'POST',
+               body: formData
+            });
+
+            const responseText = await response.text();
+            console.log('Response:', response.status, responseText);
+
+            if (response.redirected) {
+               // Jika ada redirect, ikuti redirect
+               window.location.href = response.url;
+               return;
             }
+
+            if (response.ok) {
+               // Jika response adalah HTML (dashboard)
+               if (responseText.includes('<!DOCTYPE html>') || responseText.includes('<html')) {
+                  document.open();
+                  document.write(responseText);
+                  document.close();
+               } else {
+                  // Jika response adalah pesan sukses
+                  generalSuccess.textContent = responseText;
+                  generalSuccess.style.display = 'block';
+               }
+            } else {
+               // Jika error
+               generalError.textContent = responseText;
+               generalError.style.display = 'block';
+            }
+         } catch (error) {
+            console.error('Login error:', error);
+            generalError.textContent = 'Terjadi kesalahan jaringan';
+            generalError.style.display = 'block';
+         } finally {
+            // Reset loading state
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Masuk';
+            loading.style.display = 'none';
+         }
+      });
+
+      // Add input validation
+      document.getElementById('email').addEventListener('blur', function () {
+         const email = this.value.trim();
+         const emailError = document.getElementById('emailError');
+
+         if (email && !isValidEmail(email)) {
+            emailError.textContent = 'Format email tidak valid';
+            emailError.style.display = 'block';
          } else {
-            // Jika error
-            generalError.textContent = responseText;
+            emailError.style.display = 'none';
+         }
+      });
+
+      document.getElementById('password').addEventListener('blur', function () {
+         const password = this.value;
+         const passwordError = document.getElementById('passwordError');
+
+         if (password && password.length < 6) {
+            passwordError.textContent = 'Password minimal 6 karakter';
+            passwordError.style.display = 'block';
+         } else {
+            passwordError.style.display = 'none';
+         }
+      });
+
+      function isValidEmail(email) {
+         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+         return emailRegex.test(email);
+      }
+
+      // Check for error/success messages in URL parameters
+      window.addEventListener('DOMContentLoaded', function () {
+         const urlParams = new URLSearchParams(window.location.search);
+         const error = urlParams.get('error');
+         const message = urlParams.get('message');
+
+         const generalError = document.getElementById('generalError');
+         const generalSuccess = document.getElementById('generalSuccess');
+
+         if (error) {
+            generalError.textContent = error;
             generalError.style.display = 'block';
          }
-      } catch (error) {
-         console.error('Login error:', error);
-         generalError.textContent = 'Terjadi kesalahan jaringan';
-         generalError.style.display = 'block';
-      } finally {
-         // Reset loading state
-         submitBtn.disabled = false;
-         submitBtn.textContent = 'Masuk';
-         loading.style.display = 'none';
-      }
-   });
 
-   // Add input validation
-   document.getElementById('email').addEventListener('blur', function () {
-      const email = this.value.trim();
-      const emailError = document.getElementById('emailError');
-
-      if (email && !isValidEmail(email)) {
-         emailError.textContent = 'Format email tidak valid';
-         emailError.style.display = 'block';
-      } else {
-         emailError.style.display = 'none';
-      }
-   });
-
-   document.getElementById('password').addEventListener('blur', function () {
-      const password = this.value;
-      const passwordError = document.getElementById('passwordError');
-
-      if (password && password.length < 6) {
-         passwordError.textContent = 'Password minimal 6 karakter';
-         passwordError.style.display = 'block';
-      } else {
-         passwordError.style.display = 'none';
-      }
-   });
-
-   function isValidEmail(email) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      return emailRegex.test(email);
-   }
-
-   // Check for error/success messages in URL parameters
-   window.addEventListener('DOMContentLoaded', function () {
-      const urlParams = new URLSearchParams(window.location.search);
-      const error = urlParams.get('error');
-      const message = urlParams.get('message');
-
-      const generalError = document.getElementById('generalError');
-      const generalSuccess = document.getElementById('generalSuccess');
-
-      if (error) {
-         generalError.textContent = error;
-         generalError.style.display = 'block';
-      }
-
-      if (message) {
-         generalSuccess.textContent = message;
-         generalSuccess.style.display = 'block';
-      }
-   });
-</script>
+         if (message) {
+            generalSuccess.textContent = message;
+            generalSuccess.style.display = 'block';
+         }
+      });
+   </script>
 </body>
 
 </html>
