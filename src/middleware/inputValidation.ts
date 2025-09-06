@@ -25,19 +25,28 @@ export const updateUserStatusSchema = z.object({
   status: z.enum(["active", "inactive"])
 });
 
-export const inputValidation = new Elysia().derive(async ({ request }) => {
-  async function parseFormData() {
-    const ct = request.headers.get("content-type") || "";
-    if (ct.includes("multipart/form-data")) {
-      const fd = await request.formData();
-      return Object.fromEntries(fd.entries());
-    } else if (ct.includes("application/x-www-form-urlencoded")) {
-      const text = await request.text();
-      return Object.fromEntries(new URLSearchParams(text).entries());
-    } else if (ct.includes("application/json")) {
-      return await request.json();
-    }
-    return {};
+
+export async function parseFormData(request: Request) {
+  const ct = request.headers.get("content-type") || "";
+  
+  if (ct.includes("multipart/form-data")) {
+    const fd = await request.formData();
+    return Object.fromEntries(fd.entries());
+  } else if (ct.includes("application/x-www-form-urlencoded")) {
+    const text = await request.text();
+    return Object.fromEntries(new URLSearchParams(text).entries());
+  } else if (ct.includes("application/json")) {
+    return await request.json();
   }
-  return { parseFormData };
-});
+  return {};
+}
+
+
+export const inputValidation = new Elysia()
+  .derive(async ({ request }) => {
+    return {
+      async parseFormData() {
+        return await parseFormData(request);
+      }
+    };
+  });
