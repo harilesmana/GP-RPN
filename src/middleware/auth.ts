@@ -1,44 +1,23 @@
-import { Context } from "elysia";
-import ejs from "ejs";
-import { readFile } from "fs/promises";
-import { join } from "path";
+import type { Context } from "elysia";
+import { verifySession } from "../utils/session";
 
-export interface EjsOptions {
-  viewsDir?: string;
-  cache?: boolean;
-}
+export async function authMiddleware({ cookie, set, request }: Context) {
+  const token = cookie?.session?.value;
+  if (!token) {
+    return { user: null };
+  }
 
-export function ejsPlugin(options: EjsOptions = {}) {
-  const { viewsDir = join(process.cwd(), 'views'), cache = true } = options;
-
-  return (app: any) => 
-    app
-      .derive({ as: 'global' }, () => ({
-        render(view: string, data: object = {}) {
-          return { _view: view.endsWith('.ejs') ? view : `${view}.ejs`, ...data };
-        }
-      }))
-      .onAfterHandle(async ({ response, set }: Context) => {
-        if (response && typeof response === 'object' && '_view' in response) {
-          const { _view, ...data } = response as any;
-          
-          try {
-            const templatePath = join(viewsDir, _view);
-            const template = await readFile(templatePath, 'utf-8');
-            const html = ejs.render(template, data, {
-              cache,
-              filename: templatePath,
-              views: [viewsDir]
-            });
-            
-            set.headers['Content-Type'] = 'text/html; charset=utf-8';
-            return html;
-          } catch (error) {
-            console.error('EJS rendering error:', error);
-            set.status = 500;
-            return 'Internal Server Error';
-          }
-        }
-        return response;
-      });
+  const secret = process.env.SESSION_SECRET || "dev_secret_change_me";
+  const data = verifySession(token, secret);
+  if (!data) {
+    if (cookie?.session) cookie.session.set({ value: "", maxAge: 0 });
+    return { user: null };
+  }
+  
+  return { 
+    user: {
+      userId: data.userId,
+      role: data.role,
+    } 
+  };
 }
