@@ -2,7 +2,7 @@ import { Elysia, t } from "elysia";
 import { authMiddleware } from "../middleware/auth";
 import { addGuruSchema, updateUserStatusSchema } from "../middleware/inputValidation";
 import { hashPassword } from "../utils/hash";
-import { users, kelas, materi, diskusi, Role } from "../db";
+import { users, kelas, materi, diskusi, diskusiMateri, tugas, submissions, Role } from "../db";
 
 export const kepsekRoutes = new Elysia()
   .use(authMiddleware)
@@ -12,7 +12,6 @@ export const kepsekRoutes = new Elysia()
     }
     return { user };
   })
-  
   .get("/kepsek/info-dasar", async () => {
     const jumlahGuru = users.filter(u => u.role === "guru").length;
     const jumlahSiswa = users.filter(u => u.role === "siswa").length;
@@ -26,7 +25,6 @@ export const kepsekRoutes = new Elysia()
       jumlah_materi: jumlahMateri
     };
   })
-  
   .get("/kepsek/guru/daftar", async () => {
     const guruList = users
       .filter(u => u.role === "guru")
@@ -44,7 +42,6 @@ export const kepsekRoutes = new Elysia()
   .post("/kepsek/guru/tambah", async ({ body }) => {
     const { nama, email, password, bidang } = addGuruSchema.parse(body);
 
-    
     if (users.some(u => u.email === email)) {
       throw new Error("Email sudah terdaftar");
     }
@@ -59,7 +56,7 @@ export const kepsekRoutes = new Elysia()
       status: "active" as const,
       bidang,
       created_at: new Date(),
-      created_by: 1 
+      created_by: 1
     };
 
     users.push(newGuru);
@@ -88,7 +85,6 @@ export const kepsekRoutes = new Elysia()
     users.splice(index, 1);
     return { message: "Guru berhasil dihapus" };
   })
-  
   .get("/kepsek/siswa/daftar", async () => {
     const siswaList = users
       .filter(u => u.role === "siswa")
@@ -97,6 +93,8 @@ export const kepsekRoutes = new Elysia()
         nama: siswa.nama,
         email: siswa.email,
         status: siswa.status,
+        kelas_id: siswa.kelas_id,
+        kelas_nama: kelas.find(k => k.id === siswa.kelas_id)?.nama || "Belum terdaftar",
         created_at: siswa.created_at
       }));
 
@@ -106,7 +104,6 @@ export const kepsekRoutes = new Elysia()
     const { id } = params;
     const siswaId = parseInt(id);
 
-    
     const tugasSiswa = tugas.filter(t => t.siswa_id === siswaId);
     return tugasSiswa.map(t => ({
       id: t.id,
@@ -116,7 +113,6 @@ export const kepsekRoutes = new Elysia()
       created_at: t.created_at
     }));
   })
-  
   .get("/kepsek/materi/daftar", async () => {
     const materiList = materi.map(m => ({
       id: m.id,
@@ -127,9 +123,15 @@ export const kepsekRoutes = new Elysia()
 
     return materiList;
   })
-  
   .get("/kepsek/kelas/diskusi", async () => {
-    return diskusi;
+    return diskusi.map(d => ({
+      id: d.id,
+      kelas: d.kelas,
+      isi: d.isi,
+      user: users.find(u => u.id === d.user_id)?.nama || "Unknown",
+      role: d.user_role,
+      created_at: d.created_at
+    }));
   })
   .post("/kepsek/kelas/diskusi", async ({ body }) => {
     const { kelas: kelasName, isi } = body;
@@ -138,7 +140,7 @@ export const kepsekRoutes = new Elysia()
       id: diskusi.length > 0 ? Math.max(...diskusi.map(d => d.id)) + 1 : 1,
       kelas: kelasName,
       isi,
-      user_id: 1, 
+      user_id: 1,
       user_role: "kepsek" as Role,
       created_at: new Date()
     };
@@ -150,8 +152,8 @@ export const kepsekRoutes = new Elysia()
     const { id } = params;
     const materiId = parseInt(id);
 
-    const diskusiMateri = diskusiMateri.filter(d => d.materi_id === materiId);
-    return diskusiMateri.map(d => ({
+    const diskusiMateriList = diskusiMateri.filter(d => d.materi_id === materiId);
+    return diskusiMateriList.map(d => ({
       id: d.id,
       user: users.find(u => u.id === d.user_id)?.nama || "Unknown",
       role: d.user_role,
