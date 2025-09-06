@@ -149,4 +149,50 @@ export const kepsekRoutes = new Elysia({ prefix: "/kepsek" })
   .get("/diskusi", async () => {
     const diskusiList = diskusi.map(d => ({
       id: d.id,
-      kelas: d
+      kelas: d.kelas,
+      isi: d.isi,
+      user: users.find(u => u.id === d.user_id)?.nama || "Unknown",
+      role: d.user_role,
+      created_at: d.created_at
+    }));
+
+    return {
+      success: true,
+      data: diskusiList
+    };
+  })
+  .post("/diskusi", async ({ body }) => {
+    const { kelas: kelasName, isi } = body as any;
+
+    const newDiskusi = {
+      id: diskusi.length > 0 ? Math.max(...diskusi.map(d => d.id)) + 1 : 1,
+      kelas: kelasName,
+      isi,
+      user_id: 1,
+      user_role: "kepsek" as Role,
+      created_at: new Date()
+    };
+
+    diskusi.push(newDiskusi);
+    return { 
+      success: true, 
+      message: "Diskusi berhasil ditambahkan", 
+      data: newDiskusi 
+    };
+  })
+  .get("/diskusi-materi/:id", async ({ params }) => {
+    const { id } = params;
+    const materiId = parseInt(id);
+
+    const diskusiMateriList = diskusiMateri.filter(d => d.materi_id === materiId);
+    return {
+      success: true,
+      data: diskusiMateriList.map(d => ({
+        id: d.id,
+        user: users.find(u => u.id === d.user_id)?.nama || "Unknown",
+        role: d.user_role,
+        isi: d.isi,
+        created_at: d.created_at
+      }))
+    };
+  });
