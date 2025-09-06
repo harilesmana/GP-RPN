@@ -1,9 +1,9 @@
 import { Elysia } from "elysia";
-import { html } from "@elysiajs/html";
 import { authMiddleware } from "../middleware/auth";
+import { users } from "../db";
+import { render } from "../middleware/ejs";
 
 export const dashboardRoutes = new Elysia()
-  .use(html())
   .use(authMiddleware)
   .get("/dashboard", async ({ user, set }) => {
     if (!user) {
@@ -11,7 +11,6 @@ export const dashboardRoutes = new Elysia()
       return;
     }
 
-    
     switch (user.role) {
       case "kepsek":
         set.redirect = "/dashboard/kepsek";
@@ -39,9 +38,10 @@ export const dashboardRoutes = new Elysia()
       return;
     }
 
-    set.headers["Content-Type"] = "text/html";
-    const template = await Bun.file("views/dashboard/kepsek.ejs").text();
-    return template.replace("<%= user.nama %>", kepsekUser.nama);
+    return render('dashboard/kepsek', { 
+      user: kepsekUser,
+      title: 'Dashboard Kepala Sekolah - E-Learning'
+    });
   })
   .get("/dashboard/guru", async ({ user, set }) => {
     if (!user || user.role !== "guru") {
@@ -55,9 +55,10 @@ export const dashboardRoutes = new Elysia()
       return;
     }
 
-    set.headers["Content-Type"] = "text/html";
-    const template = await Bun.file("views/dashboard/guru.ejs").text();
-    return template.replace("<%= user.nama %>", guruUser.nama);
+    return render('dashboard/guru', { 
+      user: guruUser,
+      title: 'Dashboard Guru - E-Learning'
+    });
   })
   .get("/dashboard/siswa", async ({ user, set }) => {
     if (!user || user.role !== "siswa") {
@@ -71,7 +72,8 @@ export const dashboardRoutes = new Elysia()
       return;
     }
 
-    set.headers["Content-Type"] = "text/html";
-    const template = await Bun.file("views/dashboard/siswa.ejs").text();
-    return template.replace("<%= user.nama %>", siswaUser.nama);
+    return render('dashboard/siswa', { 
+      user: siswaUser,
+      title: 'Dashboard Siswa - E-Learning'
+    });
   });
