@@ -35,51 +35,61 @@ export const dashboardRoutes = new Elysia()
   })
   
   
-  .get("/guru/siswa/:id/progress/view", async ({ set, params, user }) => {
-    if (!user || user.role !== "guru") {
-      set.status = 302;
-      set.headers.Location = "/login?error=Silakan login terlebih dahulu";
-      return;
+.get("/guru/siswa/:id/progress/view", async ({ set, params, user, cookie }) => {
+    
+    if (!user || !user.userId) {
+        set.status = 302;
+        set.headers.Location = "/login?error=Silakan login terlebih dahulu";
+        return;
+    }
+    
+    
+    if (user.role !== "guru") {
+        set.status = 302;
+        set.headers.Location = "/dashboard?error=Akses ditolak. Hanya guru yang dapat mengakses halaman ini.";
+        return;
     }
     
     set.headers["Content-Type"] = "text/html; charset=utf-8";
     
     try {
-      
-      const response = await fetch(`http://localhost:${process.env.PORT || 3000}/guru/siswa/${params.id}/progress`, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json'
-        }
-      });
-      
-      let progressData = null;
-      let error = null;
-      
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success) {
-          progressData = result.data;
+        
+        const response = await fetch(`http://localhost:${process.env.PORT || 3000}/guru/siswa/${params.id}/progress`, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'Cookie': `session=${cookie.session.value}` 
+            },
+            credentials: 'include'
+        });
+        
+        let progressData = null;
+        let error = null;
+        
+        if (response.ok) {
+            const result = await response.json();
+            if (result.success) {
+                progressData = result.data;
+            } else {
+                error = result.error || 'Gagal memuat data progress';
+            }
         } else {
-          error = result.error || 'Gagal memuat data progress';
+            error = await response.text();
         }
-      } else {
-        error = await response.text();
-      }
-      
-      return render("views/dashboard/siswa-progress.ejs", { 
-        user,
-        siswaId: params.id,
-        progressData: progressData,
-        error: error
-      });
+        
+        return render("views/dashboard/siswa-progress.ejs", { 
+            user,
+            siswaId: params.id,
+            progressData: progressData,
+            error: error
+        });
     } catch (error) {
-      console.error('Error loading progress data:', error);
-      return render("views/dashboard/siswa-progress.ejs", { 
-        user,
-        siswaId: params.id,
-        progressData: null,
-        error: "Terjadi kesalahan saat memuat data progress"
-      });
+        console.error('Error loading progress data:', error);
+        return render("views/dashboard/siswa-progress.ejs", { 
+            user,
+            siswaId: params.id,
+            progressData: null,
+            error: "Terjadi kesalahan saat memuat data progress"
+        });
     }
-  });
+})

@@ -204,8 +204,8 @@ async function seed() {
       
       users.push({
         id: i,
-        nama: `Siswa ${i-6}`,
-        email: `siswa${i-6}@example.com`,
+        nama: `Siswa`,
+        email: `siswa@example.com`,
         password_hash: await hashPassword("123456"),
         role: "siswa",
         status: status as "active" | "inactive",

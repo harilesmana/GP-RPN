@@ -10,12 +10,18 @@ import { z } from "zod";
 export const guruRoutes = new Elysia({ prefix: "/guru" })
   .derive(authMiddleware as any)
   
+
   .onBeforeHandle(({ user, set }) => {
-    if (!user || user.role !== "guru") {
-      set.status = 403;
-      return "Akses ditolak. Hanya guru yang dapat mengakses endpoint ini.";
+    if (!user || !user.userId) {
+        set.status = 401;
+        return "Silakan login terlebih dahulu";
     }
-  })
+    
+    if (user.role !== "guru") {
+        set.status = 403;
+        return "Akses ditolak. Hanya guru yang dapat mengakses endpoint ini.";
+    }
+})
 
   .get("/dashboard/stats", async ({ user }) => {
     const guruId = user.userId;

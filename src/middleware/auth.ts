@@ -2,9 +2,6 @@ import type { Context } from "elysia";
 import { verifySession } from "../utils/session";
 
 export async function authMiddleware({ cookie, set, request }: Context) {
-  
-  const isWebSocket = request?.headers?.get('upgrade') === 'websocket';
-  
   const token = cookie?.session?.value;
   if (!token) {
     return { user: null };
@@ -21,6 +18,7 @@ export async function authMiddleware({ cookie, set, request }: Context) {
     user: {
       userId: data.userId,
       role: data.role,
+      
     } 
   };
 }
