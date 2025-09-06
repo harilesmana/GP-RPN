@@ -1,22 +1,19 @@
 import { Elysia, t } from "elysia";
-import { loginSchema, registerSchema, inputValidation } from "../middleware/inputValidation";
+import { loginSchema, registerSchema } from "../middleware/inputValidation";
 import { hashPassword, verifyPassword } from "../utils/hash";
 import { signSession } from "../utils/session";
 import { users, loginAttempts, Role } from "../db";
-import { render } from "../middleware/ejs";
 
-export const authRoutes = new Elysia()
-  .use(inputValidation)
+export const authRoutes = new Elysia({ prefix: "/auth" })
   .get("/login", () => {
     return { _view: 'login.ejs', title: 'Login - E-Learning' };
   })
   .get("/register", () => {
-    return { _view: 'register.ejs', title: 'register - e-learning' };
+    return { _view: 'register.ejs', title: 'Register - E-Learning' };
   })
-  .post("/login", async ({ body, set, cookie, parseFormData }) => {
+  .post("/login", async ({ body, set, cookie }) => {
     try {
-      const formData = await parseFormData();
-      const { email, password } = loginSchema.parse(formData);
+      const { email, password } = loginSchema.parse(body);
 
       const attemptKey = `login_attempt_${email}`;
       const now = Date.now();
@@ -25,7 +22,7 @@ export const authRoutes = new Elysia()
       if (now < attempt.unlockTime) {
         const remainingTime = Math.ceil((attempt.unlockTime - now) / 1000);
         set.status = 429;
-        return `Terlalu banyak percobaan login. Coba lagi dalam ${remainingTime} detik.`;
+        return { error: `Terlalu banyak percobaan login. Coba lagi dalam ${remainingTime} detik.` };
       }
 
       const user = users.find(u => u.email === email && u.status === 'active');
@@ -39,7 +36,7 @@ export const authRoutes = new Elysia()
         loginAttempts.set(attemptKey, attempt);
         
         set.status = 401;
-        return "Email atau password salah";
+        return { error: "Email atau password salah" };
       }
 
       loginAttempts.delete(attemptKey);
@@ -63,23 +60,17 @@ export const authRoutes = new Elysia()
         path: "/"
       });
 
-      switch (user.role) {
-        case "kepsek":
-          set.redirect = "/dashboard/kepsek";
-          break;
-        case "guru":
-          set.redirect = "/dashboard/guru";
-          break;
-        case "siswa":
-          set.redirect = "/dashboard/siswa";
-          break;
-        default:
-          set.redirect = "/dashboard";
-      }
+      return { 
+        success: true, 
+        message: "Login berhasil",
+        redirect: user.role === "kepsek" ? "/dashboard/kepsek" :
+                 user.role === "guru" ? "/dashboard/guru" :
+                 user.role === "siswa" ? "/dashboard/siswa" : "/dashboard"
+      };
     } catch (error) {
       console.error("Login error:", error);
       set.status = 400;
-      return "Terjadi kesalahan saat login";
+      return { error: "Terjadi kesalahan saat login" };
     }
   })
   .post("/register", async ({ body, set }) => {
@@ -88,12 +79,12 @@ export const authRoutes = new Elysia()
 
       if (password !== confirmPassword) {
         set.status = 400;
-        return "Konfirmasi password tidak cocok";
+        return { error: "Konfirmasi password tidak cocok" };
       }
 
       if (users.some(u => u.email === email)) {
         set.status = 400;
-        return "Email sudah terdaftar";
+        return { error: "Email sudah terdaftar" };
       }
 
       const passwordHash = await hashPassword(password);
@@ -113,11 +104,11 @@ export const authRoutes = new Elysia()
       users.push(newUser);
 
       set.status = 201;
-      return "Registrasi berhasil! Silakan login.";
+      return { success: true, message: "Registrasi berhasil! Silakan login." };
     } catch (error) {
       console.error("Registration error:", error);
       set.status = 400;
-      return "Terjadi kesalahan saat registrasi";
+      return { error: "Terjadi kesalahan saat registrasi" };
     }
   })
   .post("/logout", ({ cookie, set }) => {
@@ -126,5 +117,6 @@ export const authRoutes = new Elysia()
       maxAge: 0,
       path: "/"
     });
-    set.redirect = "/login";
+    set.redirect = "/auth/login";
+    return { success: true, message: "Logout berhasil" };
   });
