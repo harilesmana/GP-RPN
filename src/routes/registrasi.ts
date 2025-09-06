@@ -10,7 +10,6 @@ export const registrasiRoutes = new Elysia()
     }
     return { user };
   })
-  
   .get("/registrasi/kelas", async () => {
     return kelas.map(k => ({
       ...k,
@@ -20,7 +19,6 @@ export const registrasiRoutes = new Elysia()
   .post("/registrasi/kelas", async ({ body }) => {
     const { nama, tingkat, wali_kelas_id } = body;
 
-    
     const waliKelas = users.find(u => u.id === parseInt(wali_kelas_id) && u.role === "guru");
     if (!waliKelas) {
       throw new Error("Wali kelas harus seorang guru");
@@ -46,7 +44,6 @@ export const registrasiRoutes = new Elysia()
       throw new Error("Kelas tidak ditemukan");
     }
 
-    
     const waliKelas = users.find(u => u.id === parseInt(wali_kelas_id) && u.role === "guru");
     if (!waliKelas) {
       throw new Error("Wali kelas harus seorang guru");
@@ -72,7 +69,6 @@ export const registrasiRoutes = new Elysia()
     kelas.splice(kelasIndex, 1);
     return { message: "Kelas berhasil dihapus" };
   })
-  
   .post("/registrasi/siswa/:id/kelas", async ({ params, body }) => {
     const { id } = params;
     const { kelas_id } = body;
@@ -87,9 +83,7 @@ export const registrasiRoutes = new Elysia()
       throw new Error("Kelas tidak ditemukan");
     }
 
-    
-    
-    (siswa as any).kelas_id = parseInt(kelas_id);
+    siswa.kelas_id = parseInt(kelas_id);
 
     return { message: "Siswa berhasil didaftarkan ke kelas", siswa, kelas: kelasItem };
   })
@@ -98,7 +92,7 @@ export const registrasiRoutes = new Elysia()
     const kelasId = parseInt(id);
 
     const siswaInKelas = users.filter(u => 
-      u.role === "siswa" && (u as any).kelas_id === kelasId
+      u.role === "siswa" && u.kelas_id === kelasId
     );
 
     return {
