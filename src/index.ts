@@ -9,6 +9,8 @@ import { dashboardRoutes } from "./routes/dashboard";
 import { kepsekRoutes } from "./routes/kepsek";
 import { guruRoutes } from "./routes/guru";
 import { siswaRoutes } from "./routes/siswa";
+import { registrasiRoutes } from "./routes/registrasi";
+
 const app = new Elysia()
   .use(cors())
   .use(cookie())
@@ -23,6 +25,7 @@ const app = new Elysia()
   .use(kepsekRoutes)
   .use(guruRoutes)
   .use(siswaRoutes)
+  .use(registrasiRoutes)
   .all("*", () => new Response("Not Found", { status: 404 }));
 
 const server = app.listen(process.env.PORT ? Number(process.env.PORT) : 3000);
