@@ -2,7 +2,7 @@ import { Elysia, t } from "elysia";
 import { authMiddleware } from "../middleware/auth";
 import { users, materi, tugas, tugasDetail, submissions, diskusi, diskusiMateri, kelas, Role } from "../db";
 
-export const siswaRoutes = new Elysia()
+export const siswaRoutes = new Elysia({ prefix: "/siswa" })
   .use(authMiddleware)
   .derive(({ user }) => {
     if (!user || user.role !== "siswa") {
@@ -10,7 +10,7 @@ export const siswaRoutes = new Elysia()
     }
     return { user };
   })
-  .get("/siswa/dashboard-stats", async ({ user }) => {
+  .get("/dashboard/stats", async ({ user }) => {
     const siswaId = user.userId;
     
     const totalMateri = materi.length;
@@ -28,14 +28,17 @@ export const siswaRoutes = new Elysia()
       : 0;
 
     return {
-      total_materi: totalMateri,
-      tugas_selesai: tugasSelesai,
-      tugas_pending: tugasPending,
-      rata_nilai: Math.round(rataNilai),
-      overall_progress: overallProgress
+      success: true,
+      data: {
+        total_materi: totalMateri,
+        tugas_selesai: tugasSelesai,
+        tugas_pending: tugasPending,
+        rata_nilai: Math.round(rataNilai),
+        overall_progress: overallProgress
+      }
     };
   })
-  .get("/siswa/tugas-recent", async ({ user }) => {
+  .get("/tugas/recent", async ({ user }) => {
     const siswaId = user.userId;
     
     const recentTugas = tugas
@@ -51,10 +54,13 @@ export const siswaRoutes = new Elysia()
         nilai: t.nilai
       }));
 
-    return recentTugas;
+    return {
+      success: true,
+      data: recentTugas
+    };
   })
-  .get("/siswa/materi", async () => {
-    return materi.map(m => ({
+  .get("/materi", async () => {
+    const materiList = materi.map(m => ({
       id: m.id,
       judul: m.judul,
       deskripsi: m.deskripsi,
@@ -62,11 +68,16 @@ export const siswaRoutes = new Elysia()
       guru_nama: users.find(u => u.id === m.guru_id)?.nama || "Unknown",
       created_at: m.created_at
     }));
+
+    return {
+      success: true,
+      data: materiList
+    };
   })
-  .get("/siswa/tugas", async ({ user }) => {
+  .get("/tugas", async ({ user }) => {
     const siswaId = user.userId;
     
-    return tugas
+    const tugasList = tugas
       .filter(t => t.siswa_id === siswaId)
       .map(t => {
         const detail = tugasDetail.find(td => td.id === t.materi_id);
@@ -86,16 +97,21 @@ export const siswaRoutes = new Elysia()
           created_at: t.created_at
         };
       });
+
+    return {
+      success: true,
+      data: tugasList
+    };
   })
-  .post("/siswa/tugas/:id/submit", async ({ user, params, body }) => {
+  .post("/tugas/:id/submit", async ({ user, params, body }) => {
     const siswaId = user.userId;
     const { id } = params;
-    const { jawaban } = body;
+    const { jawaban } = body as any;
 
     const tugasId = parseInt(id);
     const tugasItem = tugasDetail.find(t => t.id === tugasId);
     if (!tugasItem) {
-      throw new Error("Tugas tidak ditemukan");
+      return { success: false, error: "Tugas tidak ditemukan" };
     }
 
     let submission = submissions.find(s => 
@@ -107,7 +123,7 @@ export const siswaRoutes = new Elysia()
       submission.submitted_at = new Date();
     } else {
       submission = {
-        id: submissions.length > 0 ? Math.max(...submissions.map(s => s.id)) + 1 : 1,
+        id: submissions.length + 1,
         tugas_id: tugasId,
         siswa_id: siswaId,
         jawaban,
@@ -125,7 +141,7 @@ export const siswaRoutes = new Elysia()
       tugasSiswa.updated_at = new Date();
     } else {
       tugasSiswa = {
-        id: tugas.length > 0 ? Math.max(...tugas.map(t => t.id)) + 1 : 1,
+        id: tugas.length + 1,
         materi_id: tugasId,
         siswa_id: siswaId,
         status: "dikerjakan",
@@ -136,35 +152,43 @@ export const siswaRoutes = new Elysia()
     }
 
     return { 
+      success: true,
       message: "Jawaban berhasil disimpan", 
-      submission,
-      tugas: tugasSiswa
+      data: {
+        submission,
+        tugas: tugasSiswa
+      }
     };
   })
-  .get("/siswa/nilai", async ({ user }) => {
+  .get("/nilai", async ({ user }) => {
     const siswaId = user.userId;
     
-    return submissions
+    const nilaiList = submissions
       .filter(s => s.siswa_id === siswaId && s.nilai !== null)
       .map(s => {
-        const tugasItem = tugasDetail.find(t => t.id === s.tugas_id);
-        const materiItem = materi.find(m => m.id === (tugasItem?.materi_id || 0));
+        const t = tugasDetail.find(t => t.id === s.tugas_id);
+        const m = materi.find(m => m.id === (t?.materi_id || 0));
         
         return {
           id: s.id,
           tugas_id: s.tugas_id,
-          tugas_judul: tugasItem?.judul || "Unknown",
-          materi_id: tugasItem?.materi_id || 0,
-          materi_judul: materiItem?.judul || "Unknown",
+          tugas_judul: t?.judul || "Unknown",
+          materi_id: t?.materi_id || 0,
+          materi_judul: m?.judul || "Unknown",
           nilai: s.nilai,
           feedback: s.feedback,
           submitted_at: s.submitted_at,
           graded_at: s.graded_at
         };
       });
+
+    return {
+      success: true,
+      data: nilaiList
+    };
   })
-  .get("/siswa/diskusi-kelas", async () => {
-    return diskusi.map(d => ({
+  .get("/diskusi/kelas", async () => {
+    const diskusiList = diskusi.map(d => ({
       id: d.id,
       kelas: d.kelas,
       isi: d.isi,
@@ -173,9 +197,14 @@ export const siswaRoutes = new Elysia()
       user_role: d.user_role,
       created_at: d.created_at
     }));
+
+    return {
+      success: true,
+      data: diskusiList
+    };
   })
-  .get("/siswa/diskusi-materi", async () => {
-    return diskusiMateri.map(d => ({
+  .get("/diskusi/materi", async () => {
+    const diskusiList = diskusiMateri.map(d => ({
       id: d.id,
       materi_id: d.materi_id,
       materi_judul: materi.find(m => m.id === d.materi_id)?.judul || "Unknown",
@@ -186,18 +215,23 @@ export const siswaRoutes = new Elysia()
       parent_id: d.parent_id,
       created_at: d.created_at
     }));
+
+    return {
+      success: true,
+      data: diskusiList
+    };
   })
-  .post("/siswa/diskusi-materi", async ({ user, body }) => {
+  .post("/diskusi/materi", async ({ user, body }) => {
     const siswaId = user.userId;
-    const { materi_id, isi } = body;
+    const { materi_id, isi } = body as any;
 
     const materiItem = materi.find(m => m.id === parseInt(materi_id));
     if (!materiItem) {
-      throw new Error("Materi tidak ditemukan");
+      return { success: false, error: "Materi tidak ditemukan" };
     }
 
     const newDiskusi = {
-      id: diskusiMateri.length > 0 ? Math.max(...diskusiMateri.map(d => d.id)) + 1 : 1,
+      id: diskusiMateri.length + 1,
       materi_id: parseInt(materi_id),
       user_id: siswaId,
       user_role: "siswa" as Role,
@@ -206,9 +240,13 @@ export const siswaRoutes = new Elysia()
     };
 
     diskusiMateri.push(newDiskusi);
-    return { message: "Diskusi berhasil ditambahkan", diskusi: newDiskusi };
+    return { 
+      success: true, 
+      message: "Diskusi berhasil ditambahkan", 
+      data: newDiskusi 
+    };
   })
-  .get("/siswa/progress-detail", async ({ user }) => {
+  .get("/progress/detail", async ({ user }) => {
     const siswaId = user.userId;
     
     const totalMateri = materi.length;
@@ -230,12 +268,15 @@ export const siswaRoutes = new Elysia()
       : 0;
 
     return {
-      total_materi: totalMateri,
-      materi_dipelajari: materiDipelajari,
-      progress_materi: totalMateri > 0 ? Math.round((materiDipelajari / totalMateri) * 100) : 0,
-      total_tugas: totalTugas,
-      tugas_selesai: tugasSelesai,
-      progress_tugas: totalTugas > 0 ? Math.round((tugasSelesai / totalTugas) * 100) : 0,
-      rata_nilai: Math.round(rataNilai)
+      success: true,
+      data: {
+        total_materi: totalMateri,
+        materi_dipelajari: materiDipelajari,
+        progress_materi: totalMateri > 0 ? Math.round((materiDipelajari / totalMateri) * 100) : 0,
+        total_tugas: totalTugas,
+        tugas_selesai: tugasSelesai,
+        progress_tugas: totalTugas > 0 ? Math.round((tugasSelesai / totalTugas) * 100) : 0,
+        rata_nilai: Math.round(rataNilai)
+      }
     };
   });
