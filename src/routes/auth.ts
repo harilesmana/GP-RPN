@@ -1,27 +1,23 @@
 import { Elysia, t } from "elysia";
-import { html } from "@elysiajs/html";
 import { loginSchema, registerSchema, inputValidation } from "../middleware/inputValidation";
 import { hashPassword, verifyPassword } from "../utils/hash";
 import { signSession } from "../utils/session";
 import { users, loginAttempts, Role } from "../db";
+import { render } from "../middleware/ejs";
 
 export const authRoutes = new Elysia()
-  .use(html())
   .use(inputValidation)
-  .get("/login", async ({ set }) => {
-    set.headers["Content-Type"] = "text/html";
-    return Bun.file("views/login.ejs").text();
+  .get("/login", () => {
+    return render('login', { title: 'Login - E-Learning' });
   })
-  .get("/register", async ({ set }) => {
-    set.headers["Content-Type"] = "text/html";
-    return Bun.file("views/register.ejs").text();
+  .get("/register", () => {
+    return render('register', { title: 'Register - E-Learning' });
   })
   .post("/login", async ({ body, set, cookie, parseFormData }) => {
     try {
       const formData = await parseFormData();
       const { email, password } = loginSchema.parse(formData);
 
-      // Check login attempts
       const attemptKey = `login_attempt_${email}`;
       const now = Date.now();
       const attempt = loginAttempts.get(attemptKey) || { count: 0, unlockTime: 0 };
@@ -32,14 +28,12 @@ export const authRoutes = new Elysia()
         return `Terlalu banyak percobaan login. Coba lagi dalam ${remainingTime} detik.`;
       }
 
-      // Find user
       const user = users.find(u => u.email === email && u.status === 'active');
       
       if (!user || !(await verifyPassword(password, user.password_hash))) {
-        // Increment failed attempts
         attempt.count++;
         if (attempt.count >= 5) {
-          attempt.unlockTime = now + 15 * 60 * 1000; // Lock for 15 minutes
+          attempt.unlockTime = now + 15 * 60 * 1000;
           attempt.count = 0;
         }
         loginAttempts.set(attemptKey, attempt);
@@ -48,14 +42,11 @@ export const authRoutes = new Elysia()
         return "Email atau password salah";
       }
 
-      // Reset login attempts on successful login
       loginAttempts.delete(attemptKey);
 
-      // Update user login info
       user.last_login = new Date();
       user.login_count = (user.login_count || 0) + 1;
 
-      // Create session
       const secret = process.env.SESSION_SECRET || "dev_secret_change_me";
       const sessionData = {
         userId: user.id,
@@ -65,15 +56,13 @@ export const authRoutes = new Elysia()
       
       const token = signSession(sessionData, secret);
       
-      // Set cookie
       cookie.session.set({
         value: token,
         httpOnly: true,
-        maxAge: 7 * 24 * 60 * 60, // 1 week
+        maxAge: 7 * 24 * 60 * 60,
         path: "/"
       });
 
-      // Redirect based on role
       switch (user.role) {
         case "kepsek":
           set.redirect = "/dashboard/kepsek";
@@ -102,16 +91,13 @@ export const authRoutes = new Elysia()
         return "Konfirmasi password tidak cocok";
       }
 
-      // Check if email already exists
       if (users.some(u => u.email === email)) {
         set.status = 400;
         return "Email sudah terdaftar";
       }
 
-      // Hash password
       const passwordHash = await hashPassword(password);
 
-      // Create new user (default as siswa)
       const newUser = {
         id: users.length > 0 ? Math.max(...users.map(u => u.id)) + 1 : 1,
         nama,
