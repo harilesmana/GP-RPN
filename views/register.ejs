@@ -4,7 +4,7 @@
 <head>
    <meta charset="UTF-8">
    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-   <title>Daftar - E-Learning</title>
+   <title><%= title %></title>
    <style>
       * {
          margin: 0;
@@ -146,6 +146,32 @@
       .requirement-not-met {
          color: #e74c3c;
       }
+
+      .loading {
+         display: none;
+         text-align: center;
+         margin-top: 1rem;
+      }
+
+      .spinner {
+         border: 2px solid #f3f3f3;
+         border-top: 2px solid #667eea;
+         border-radius: 50%;
+         width: 20px;
+         height: 20px;
+         animation: spin 1s linear infinite;
+         margin: 0 auto;
+      }
+
+      @keyframes spin {
+         0% {
+            transform: rotate(0deg);
+         }
+
+         100% {
+            transform: rotate(360deg);
+         }
+      }
    </style>
 </head>
 
@@ -156,7 +182,7 @@
          <p>Buat akun baru</p>
       </div>
 
-      <form id="registerForm" method="POST" action="/register">
+      <form id="registerForm" method="POST">
          <div class="form-group">
             <label for="nama">Nama Lengkap:</label>
             <input type="text" id="nama" name="nama" required>
@@ -190,23 +216,28 @@
             <div class="error" id="confirmPasswordError"></div>
          </div>
 
-         <button type="submit" class="btn">Daftar</button>
+         <button type="submit" class="btn" id="submitBtn">Daftar</button>
+
+         <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Memproses pendaftaran...</p>
+         </div>
 
          <div class="error" id="generalError"></div>
          <div class="success" id="generalSuccess"></div>
       </form>
 
       <div class="login-link">
-         <p>Sudah punya akun? <a href="/login">Masuk di sini</a></p>
+         <p>Sudah punya akun? <a href="/auth/login">Masuk di sini</a></p>
       </div>
    </div>
 
    <script>
-      // Real-time password validation
+      
       document.getElementById('password').addEventListener('input', function () {
          const password = this.value;
 
-         // Check length
+         
          const lengthReq = document.getElementById('lengthReq');
          if (password.length >= 6) {
             lengthReq.className = 'requirement-met';
@@ -214,7 +245,7 @@
             lengthReq.className = 'requirement-not-met';
          }
 
-         // Check uppercase
+         
          const upperReq = document.getElementById('upperReq');
          if (/[A-Z]/.test(password)) {
             upperReq.className = 'requirement-met';
@@ -222,7 +253,7 @@
             upperReq.className = 'requirement-not-met';
          }
 
-         // Check lowercase
+         
          const lowerReq = document.getElementById('lowerReq');
          if (/[a-z]/.test(password)) {
             lowerReq.className = 'requirement-met';
@@ -230,7 +261,7 @@
             lowerReq.className = 'requirement-not-met';
          }
 
-         // Check numbers
+         
          const numberReq = document.getElementById('numberReq');
          if (/\d/.test(password)) {
             numberReq.className = 'requirement-met';
@@ -239,7 +270,7 @@
          }
       });
 
-      // Password confirmation validation
+      
       document.getElementById('confirmPassword').addEventListener('input', function () {
          const password = document.getElementById('password').value;
          const confirmPassword = this.value;
@@ -256,29 +287,44 @@
       document.getElementById('registerForm').addEventListener('submit', async function (e) {
          e.preventDefault();
 
-         // Reset error messages
+         const submitBtn = document.getElementById('submitBtn');
+         const loading = document.getElementById('loading');
+         const generalError = document.getElementById('generalError');
+         const generalSuccess = document.getElementById('generalSuccess');
+
+         
          document.querySelectorAll('.error').forEach(el => el.style.display = 'none');
          document.querySelectorAll('.success').forEach(el => el.style.display = 'none');
+
+         
+         submitBtn.disabled = true;
+         submitBtn.textContent = 'Memproses...';
+         loading.style.display = 'block';
 
          const formData = new FormData(this);
          const password = formData.get('password');
          const confirmPassword = formData.get('confirmPassword');
 
-         // Client-side validation
+         
          if (password !== confirmPassword) {
             document.getElementById('confirmPasswordError').textContent = 'Password tidak cocok';
             document.getElementById('confirmPasswordError').style.display = 'block';
+            
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Daftar';
+            loading.style.display = 'none';
             return;
          }
 
          const data = {
             nama: formData.get('nama'),
             email: formData.get('email'),
-            password: password
+            password: password,
+            confirmPassword: confirmPassword
          };
 
          try {
-            const response = await fetch('/register', {
+            const response = await fetch('/auth/register', {
                method: 'POST',
                headers: {
                   'Content-Type': 'application/json',
@@ -286,34 +332,58 @@
                body: JSON.stringify(data)
             });
 
-            const result = await response.text();
+            const result = await response.json();
 
             if (response.ok) {
-               document.getElementById('generalSuccess').textContent = result;
-               document.getElementById('generalSuccess').style.display = 'block';
-               // Reset form
+               generalSuccess.textContent = result.message || 'Registrasi berhasil!';
+               generalSuccess.style.display = 'block';
+               
+               
                this.reset();
-               // Reset password requirements display
+               
+               
                document.querySelectorAll('.requirement-met').forEach(el => {
                   el.className = 'requirement-not-met';
                });
-               // Redirect to login after 2 seconds
+               
+               
                setTimeout(() => {
-                  window.location.href = '/login';
+                  window.location.href = '/auth/login?message=Registrasi berhasil! Silakan login.';
                }, 2000);
             } else {
-               // Try to parse as JSON first
-               try {
-                  const errorData = JSON.parse(result);
-                  document.getElementById('generalError').textContent = errorData.error;
-               } catch {
-                  document.getElementById('generalError').textContent = result;
-               }
-               document.getElementById('generalError').style.display = 'block';
+               generalError.textContent = result.error || 'Terjadi kesalahan';
+               generalError.style.display = 'block';
             }
          } catch (error) {
-            document.getElementById('generalError').textContent = 'Terjadi kesalahan. Silakan coba lagi.';
-            document.getElementById('generalError').style.display = 'block';
+            generalError.textContent = 'Terjadi kesalahan jaringan. Silakan coba lagi.';
+            generalError.style.display = 'block';
+         } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Daftar';
+            loading.style.display = 'none';
+         }
+      });
+
+      
+      document.getElementById('nama').addEventListener('blur', function() {
+         const errorDiv = document.getElementById('namaError');
+         if (this.value.length < 2) {
+            errorDiv.textContent = 'Nama minimal 2 karakter';
+            errorDiv.style.display = 'block';
+         } else {
+            errorDiv.style.display = 'none';
+         }
+      });
+
+      document.getElementById('email').addEventListener('blur', function() {
+         const errorDiv = document.getElementById('emailError');
+         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+         
+         if (!emailRegex.test(this.value)) {
+            errorDiv.textContent = 'Format email tidak valid';
+            errorDiv.style.display = 'block';
+         } else {
+            errorDiv.style.display = 'none';
          }
       });
    </script>
