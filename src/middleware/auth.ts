@@ -18,7 +18,6 @@ export async function authMiddleware({ cookie, set, request }: Context) {
     user: {
       userId: data.userId,
       role: data.role,
-      
     } 
   };
 }
