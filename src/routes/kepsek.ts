@@ -4,7 +4,7 @@ import { addGuruSchema, updateUserStatusSchema } from "../middleware/inputValida
 import { hashPassword } from "../utils/hash";
 import { users, kelas, materi, diskusi, diskusiMateri, tugas, submissions, Role } from "../db";
 
-export const kepsekRoutes = new Elysia()
+export const kepsekRoutes = new Elysia({ prefix: "/kepsek" })
   .use(authMiddleware)
   .derive(({ user }) => {
     if (!user || user.role !== "kepsek") {
@@ -12,20 +12,23 @@ export const kepsekRoutes = new Elysia()
     }
     return { user };
   })
-  .get("/kepsek/info-dasar", async () => {
+  .get("/dashboard/stats", async () => {
     const jumlahGuru = users.filter(u => u.role === "guru").length;
     const jumlahSiswa = users.filter(u => u.role === "siswa").length;
     const jumlahKelas = kelas.length;
     const jumlahMateri = materi.length;
 
     return {
-      jumlah_guru: jumlahGuru,
-      jumlah_siswa: jumlahSiswa,
-      jumlah_kelas: jumlahKelas,
-      jumlah_materi: jumlahMateri
+      success: true,
+      data: {
+        jumlah_guru: jumlahGuru,
+        jumlah_siswa: jumlahSiswa,
+        jumlah_kelas: jumlahKelas,
+        jumlah_materi: jumlahMateri
+      }
     };
   })
-  .get("/kepsek/guru/daftar", async () => {
+  .get("/guru", async () => {
     const guruList = users
       .filter(u => u.role === "guru")
       .map(guru => ({
@@ -37,13 +40,16 @@ export const kepsekRoutes = new Elysia()
         created_at: guru.created_at
       }));
 
-    return guruList;
+    return {
+      success: true,
+      data: guruList
+    };
   })
-  .post("/kepsek/guru/tambah", async ({ body }) => {
+  .post("/guru", async ({ body }) => {
     const { nama, email, password, bidang } = addGuruSchema.parse(body);
 
     if (users.some(u => u.email === email)) {
-      throw new Error("Email sudah terdaftar");
+      return { success: false, error: "Email sudah terdaftar" };
     }
 
     const passwordHash = await hashPassword(password);
@@ -60,32 +66,40 @@ export const kepsekRoutes = new Elysia()
     };
 
     users.push(newGuru);
-    return { message: "Guru berhasil ditambahkan", guru: newGuru };
+    return { 
+      success: true, 
+      message: "Guru berhasil ditambahkan", 
+      data: newGuru 
+    };
   })
-  .patch("/kepsek/guru/status/:id", async ({ params, body }) => {
+  .patch("/guru/:id/status", async ({ params, body }) => {
     const { id } = params;
     const { status } = updateUserStatusSchema.parse(body);
 
     const user = users.find(u => u.id === parseInt(id) && u.role === "guru");
     if (!user) {
-      throw new Error("Guru tidak ditemukan");
+      return { success: false, error: "Guru tidak ditemukan" };
     }
 
     user.status = status;
-    return { message: "Status guru berhasil diubah", user };
+    return { 
+      success: true, 
+      message: "Status guru berhasil diubah", 
+      data: user 
+    };
   })
-  .delete("/kepsek/guru/hapus/:id", async ({ params }) => {
+  .delete("/guru/:id", async ({ params }) => {
     const { id } = params;
     const index = users.findIndex(u => u.id === parseInt(id) && u.role === "guru");
     
     if (index === -1) {
-      throw new Error("Guru tidak ditemukan");
+      return { success: false, error: "Guru tidak ditemukan" };
     }
 
     users.splice(index, 1);
-    return { message: "Guru berhasil dihapus" };
+    return { success: true, message: "Guru berhasil dihapus" };
   })
-  .get("/kepsek/siswa/daftar", async () => {
+  .get("/siswa", async () => {
     const siswaList = users
       .filter(u => u.role === "siswa")
       .map(siswa => ({
@@ -98,22 +112,28 @@ export const kepsekRoutes = new Elysia()
         created_at: siswa.created_at
       }));
 
-    return siswaList;
+    return {
+      success: true,
+      data: siswaList
+    };
   })
-  .get("/kepsek/siswa/tugas/:id", async ({ params }) => {
+  .get("/siswa/:id/tugas", async ({ params }) => {
     const { id } = params;
     const siswaId = parseInt(id);
 
     const tugasSiswa = tugas.filter(t => t.siswa_id === siswaId);
-    return tugasSiswa.map(t => ({
-      id: t.id,
-      materi: materi.find(m => m.id === t.materi_id)?.judul || "Unknown",
-      status: t.status,
-      nilai: t.nilai,
-      created_at: t.created_at
-    }));
+    return {
+      success: true,
+      data: tugasSiswa.map(t => ({
+        id: t.id,
+        materi: materi.find(m => m.id === t.materi_id)?.judul || "Unknown",
+        status: t.status,
+        nilai: t.nilai,
+        created_at: t.created_at
+      }))
+    };
   })
-  .get("/kepsek/materi/daftar", async () => {
+  .get("/materi", async () => {
     const materiList = materi.map(m => ({
       id: m.id,
       judul: m.judul,
@@ -121,43 +141,12 @@ export const kepsekRoutes = new Elysia()
       created_at: m.created_at
     }));
 
-    return materiList;
-  })
-  .get("/kepsek/kelas/diskusi", async () => {
-    return diskusi.map(d => ({
-      id: d.id,
-      kelas: d.kelas,
-      isi: d.isi,
-      user: users.find(u => u.id === d.user_id)?.nama || "Unknown",
-      role: d.user_role,
-      created_at: d.created_at
-    }));
-  })
-  .post("/kepsek/kelas/diskusi", async ({ body }) => {
-    const { kelas: kelasName, isi } = body;
-
-    const newDiskusi = {
-      id: diskusi.length > 0 ? Math.max(...diskusi.map(d => d.id)) + 1 : 1,
-      kelas: kelasName,
-      isi,
-      user_id: 1,
-      user_role: "kepsek" as Role,
-      created_at: new Date()
+    return {
+      success: true,
+      data: materiList
     };
-
-    diskusi.push(newDiskusi);
-    return { message: "Diskusi berhasil ditambahkan", diskusi: newDiskusi };
   })
-  .get("/kepsek/kelas/diskusi-materi/:id", async ({ params }) => {
-    const { id } = params;
-    const materiId = parseInt(id);
-
-    const diskusiMateriList = diskusiMateri.filter(d => d.materi_id === materiId);
-    return diskusiMateriList.map(d => ({
+  .get("/diskusi", async () => {
+    const diskusiList = diskusi.map(d => ({
       id: d.id,
-      user: users.find(u => u.id === d.user_id)?.nama || "Unknown",
-      role: d.user_role,
-      isi: d.isi,
-      created_at: d.created_at
-    }));
-  });
+      kelas: d
