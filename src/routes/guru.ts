@@ -1,6 +1,6 @@
 import { Elysia, t } from "elysia";
 import { authMiddleware } from "../middleware/auth";
-import { users, materi, tugas, submissions, diskusiMateri, kelas, Role } from "../db";
+import { users, materi, tugas, tugasDetail, submissions, diskusiMateri, kelas, Role } from "../db";
 
 export const guruRoutes = new Elysia()
   .use(authMiddleware)
@@ -10,22 +10,19 @@ export const guruRoutes = new Elysia()
     }
     return { user };
   })
-  
   .get("/guru/dashboard/stats", async ({ user }) => {
     const guruId = user.userId;
     
     const totalMateri = materi.filter(m => m.guru_id === guruId).length;
     const totalSiswa = users.filter(u => u.role === "siswa").length;
     
-    
     const tugasPending = submissions.filter(s => {
-      const t = tugas.find(t => t.id === s.tugas_id);
+      const t = tugasDetail.find(t => t.id === s.tugas_id);
       return t && materi.find(m => m.id === t.materi_id && m.guru_id === guruId) && s.nilai === null;
     }).length;
 
-    
     const gradedSubmissions = submissions.filter(s => {
-      const t = tugas.find(t => t.id === s.tugas_id);
+      const t = tugasDetail.find(t => t.id === s.tugas_id);
       return t && materi.find(m => m.id === t.materi_id && m.guru_id === guruId) && s.nilai !== null;
     });
     
@@ -43,7 +40,6 @@ export const guruRoutes = new Elysia()
   .get("/guru/dashboard/recent-activity", async ({ user }) => {
     const guruId = user.userId;
     
-    
     const recentMateri = materi
       .filter(m => m.guru_id === guruId)
       .sort((a, b) => b.created_at.getTime() - a.created_at.getTime())
@@ -57,7 +53,7 @@ export const guruRoutes = new Elysia()
 
     const recentGrading = submissions
       .filter(s => {
-        const t = tugas.find(t => t.id === s.tugas_id);
+        const t = tugasDetail.find(t => t.id === s.tugas_id);
         return t && materi.find(m => m.id === t.materi_id && m.guru_id === guruId) && s.graded_at;
       })
       .sort((a, b) => (b.graded_at?.getTime() || 0) - (a.graded_at?.getTime() || 0))
@@ -73,7 +69,6 @@ export const guruRoutes = new Elysia()
       b.created_at.getTime() - a.created_at.getTime()
     ).slice(0, 5);
   })
-  
   .get("/guru/materi", async ({ user }) => {
     const guruId = user.userId;
     return materi.filter(m => m.guru_id === guruId);
@@ -88,7 +83,7 @@ export const guruRoutes = new Elysia()
       deskripsi,
       konten,
       guru_id: guruId,
-      kelas_id: 1, 
+      kelas_id: 1,
       created_at: new Date(),
       updated_at: new Date()
     };
@@ -127,7 +122,6 @@ export const guruRoutes = new Elysia()
     materi.splice(materiIndex, 1);
     return { message: "Materi berhasil dihapus" };
   })
-  
   .get("/guru/tugas", async ({ user }) => {
     const guruId = user.userId;
     
@@ -146,7 +140,6 @@ export const guruRoutes = new Elysia()
     const guruId = user.userId;
     const { materi_id, judul, deskripsi, deadline } = body;
 
-    
     const materiItem = materi.find(m => m.id === materi_id && m.guru_id === guruId);
     if (!materiItem) {
       throw new Error("Materi tidak ditemukan atau tidak memiliki akses");
@@ -203,7 +196,6 @@ export const guruRoutes = new Elysia()
     tugasDetail.splice(tugasIndex, 1);
     return { message: "Tugas berhasil dihapus" };
   })
-  
   .get("/guru/submissions/pending", async ({ user }) => {
     const guruId = user.userId;
     
@@ -234,7 +226,6 @@ export const guruRoutes = new Elysia()
       graded_at: new Date()
     };
 
-    
     const tugasId = submissions[submissionIndex].tugas_id;
     const tugasIndex = tugas.findIndex(t => t.id === tugasId);
     if (tugasIndex !== -1) {
@@ -245,7 +236,6 @@ export const guruRoutes = new Elysia()
 
     return { message: "Nilai berhasil diberikan", submission: submissions[submissionIndex] };
   })
-  
   .get("/guru/siswa/progress", async ({ user }) => {
     const guruId = user.userId;
     
@@ -271,7 +261,6 @@ export const guruRoutes = new Elysia()
       };
     });
   })
-  
   .get("/guru/diskusi", async ({ user }) => {
     const guruId = user.userId;
     
@@ -296,7 +285,6 @@ export const guruRoutes = new Elysia()
       throw new Error("Diskusi tidak ditemukan");
     }
 
-    
     const materiItem = materi.find(m => m.id === parentDiskusi.materi_id && m.guru_id === guruId);
     if (!materiItem) {
       throw new Error("Tidak memiliki akses ke materi ini");
