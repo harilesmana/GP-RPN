@@ -1,181 +1,144 @@
-import { Elysia } from "elysia";
-import ejs from "ejs";
-import { users, loginAttempts } from "../db";
-import { verifyPassword, hashPassword } from "../utils/hash";
-import { signSession } from "../utils/session";
+import { Elysia, t } from "elysia";
+import { html } from "@elysiajs/html";
 import { loginSchema, registerSchema, inputValidation } from "../middleware/inputValidation";
-import type { Role } from "../db";
-
-const MAX_ATTEMPTS = 5;
-const LOCK_MINUTES = 10;
-
-const view = (tpl: string, data: Record<string, any> = {}) =>
-  ejs.render(tpl, data, { rmWhitespace: true });
+import { hashPassword, verifyPassword } from "../utils/hash";
+import { signSession } from "../utils/session";
+import { users, loginAttempts, Role } from "../db";
 
 export const authRoutes = new Elysia()
+  .use(html())
   .use(inputValidation)
-
-  .get("/login", async ({ set, query }) => {
-    const fs = await Bun.file("views/login.ejs").text();
-    set.headers["Content-Type"] = "text/html; charset=utf-8";
-    return view(fs, {
-      error: query.error ?? "",
-      message: query.message ?? ""
-    });
+  .get("/login", async ({ set }) => {
+    set.headers["Content-Type"] = "text/html";
+    return Bun.file("views/login.ejs").text();
   })
-
-  .get("/register", async ({ set, query }) => {
-    const fs = await Bun.file("views/register.ejs").text();
-    set.headers["Content-Type"] = "text/html; charset=utf-8";
-    return view(fs, {
-      error: query.error ?? "",
-      message: query.message ?? "",
-      formData: query.formData ? JSON.parse(query.formData) : {}
-    });
+  .get("/register", async ({ set }) => {
+    set.headers["Content-Type"] = "text/html";
+    return Bun.file("views/register.ejs").text();
   })
-
-  .post("/register", async ({ request, set }) => {
-    const formData = await request.formData();
-    const body: Record<string, string> = {};
-
-    for (const [key, value] of formData.entries()) {
-      body[key] = String(value);
-    }
-
-    const parsed = registerSchema.safeParse(body);
-    if (!parsed.success) {
-      set.status = 400;
-      const errorMessage = parsed.error.issues.map((i) => i.message).join(", ");
-      
-      set.status = 302;
-      set.headers.Location = `/register?error=${encodeURIComponent(errorMessage)}&formData=${encodeURIComponent(JSON.stringify(body))}`;
-      return;
-    }
-
-    const { email, password, nama, confirmPassword } = parsed.data;
-
-    if (password !== confirmPassword) {
-      set.status = 302;
-      set.headers.Location = `/register?error=${encodeURIComponent("Password dan konfirmasi password tidak cocok")}&formData=${encodeURIComponent(JSON.stringify(body))}`;
-      return;
-    }
-
-    const existingUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
-    if (existingUser) {
-      set.status = 302;
-      set.headers.Location = `/register?error=${encodeURIComponent("Email sudah terdaftar")}&formData=${encodeURIComponent(JSON.stringify(body))}`;
-      return;
-    }
-
+  .post("/login", async ({ body, set, cookie, parseFormData }) => {
     try {
-      const passwordHash = await hashPassword(password);
-      const now = new Date();
+      const formData = await parseFormData();
+      const { email, password } = loginSchema.parse(formData);
 
+      // Check login attempts
+      const attemptKey = `login_attempt_${email}`;
+      const now = Date.now();
+      const attempt = loginAttempts.get(attemptKey) || { count: 0, unlockTime: 0 };
+
+      if (now < attempt.unlockTime) {
+        const remainingTime = Math.ceil((attempt.unlockTime - now) / 1000);
+        set.status = 429;
+        return `Terlalu banyak percobaan login. Coba lagi dalam ${remainingTime} detik.`;
+      }
+
+      // Find user
+      const user = users.find(u => u.email === email && u.status === 'active');
+      
+      if (!user || !(await verifyPassword(password, user.password_hash))) {
+        // Increment failed attempts
+        attempt.count++;
+        if (attempt.count >= 5) {
+          attempt.unlockTime = now + 15 * 60 * 1000; // Lock for 15 minutes
+          attempt.count = 0;
+        }
+        loginAttempts.set(attemptKey, attempt);
+        
+        set.status = 401;
+        return "Email atau password salah";
+      }
+
+      // Reset login attempts on successful login
+      loginAttempts.delete(attemptKey);
+
+      // Update user login info
+      user.last_login = new Date();
+      user.login_count = (user.login_count || 0) + 1;
+
+      // Create session
+      const secret = process.env.SESSION_SECRET || "dev_secret_change_me";
+      const sessionData = {
+        userId: user.id,
+        role: user.role as Role,
+        issuedAt: Date.now()
+      };
+      
+      const token = signSession(sessionData, secret);
+      
+      // Set cookie
+      cookie.session.set({
+        value: token,
+        httpOnly: true,
+        maxAge: 7 * 24 * 60 * 60, // 1 week
+        path: "/"
+      });
+
+      // Redirect based on role
+      switch (user.role) {
+        case "kepsek":
+          set.redirect = "/dashboard/kepsek";
+          break;
+        case "guru":
+          set.redirect = "/dashboard/guru";
+          break;
+        case "siswa":
+          set.redirect = "/dashboard/siswa";
+          break;
+        default:
+          set.redirect = "/dashboard";
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      set.status = 400;
+      return "Terjadi kesalahan saat login";
+    }
+  })
+  .post("/register", async ({ body, set }) => {
+    try {
+      const { nama, email, password, confirmPassword } = registerSchema.parse(body);
+
+      if (password !== confirmPassword) {
+        set.status = 400;
+        return "Konfirmasi password tidak cocok";
+      }
+
+      // Check if email already exists
+      if (users.some(u => u.email === email)) {
+        set.status = 400;
+        return "Email sudah terdaftar";
+      }
+
+      // Hash password
+      const passwordHash = await hashPassword(password);
+
+      // Create new user (default as siswa)
       const newUser = {
-        id: users.length + 1,
-        nama: nama.trim(),
-        email: email.toLowerCase().trim(),
+        id: users.length > 0 ? Math.max(...users.map(u => u.id)) + 1 : 1,
+        nama,
+        email,
         password_hash: passwordHash,
         role: "siswa" as Role,
         status: "active" as const,
-        created_at: now,
-        last_login: now
+        created_at: new Date(),
+        last_login: new Date(),
+        login_count: 1
       };
 
       users.push(newUser);
 
-      set.status = 302;
-      set.headers.Location = "/login?message=Registrasi berhasil. Silakan login.";
-      return;
-
+      set.status = 201;
+      return "Registrasi berhasil! Silakan login.";
     } catch (error) {
       console.error("Registration error:", error);
-      set.status = 500;
-      set.headers.Location = `/register?error=${encodeURIComponent("Terjadi kesalahan server")}&formData=${encodeURIComponent(JSON.stringify(body))}`;
-      return;
-    }
-  })
-
-  .post("/login", async ({ request, set, cookie }) => {
-    const formData = await request.formData();
-    const body: Record<string, string> = {};
-
-    for (const [key, value] of formData.entries()) {
-      body[key] = String(value);
-    }
-
-    const parsed = loginSchema.safeParse(body);
-    if (!parsed.success) {
       set.status = 400;
-      return parsed.error.issues.map((i) => i.message).join(", ");
-    }
-
-    const email = String(parsed.data.email).toLowerCase().trim();
-    const password = String(parsed.data.password);
-    const key = `login:${email}`;
-    const now = Date.now();
-    const bucket = loginAttempts.get(key);
-
-    if (bucket && now < bucket.unlockTime) {
-      set.status = 429;
-      const sisa = Math.ceil((bucket.unlockTime - now) / 1000);
-      return `Akun dikunci sementara. Coba lagi dalam ${sisa} detik.`;
-    }
-
-    const user = users.find(
-      (u) => u.email.toLowerCase() === email && u.status === "active"
-    );
-    if (!user) {
-      hit();
-      set.status = 401;
-      return "Email atau password salah.";
-    }
-
-    const ok = await verifyPassword(password, user.password_hash);
-    if (!ok) {
-      hit();
-      set.status = 401;
-      return "Email atau password salah.";
-    }
-
-    loginAttempts.delete(key);
-
-    user.last_login = new Date();
-
-    const secret = process.env.SESSION_SECRET || "dev_secret_change_me";
-    const token = signSession(
-      { userId: user.id, role: user.role, issuedAt: Math.floor(now / 1000) },
-      secret
-    );
-
-    cookie.session.set({
-      value: token,
-      httpOnly: true,
-      sameSite: "Lax",
-      secure: false,
-      maxAge: 60 * 60 * 8
-    });
-
-    set.status = 302;
-    set.headers.Location = "/dashboard";
-    return;
-
-    function hit() {
-      if (!bucket || now > bucket.unlockTime) {
-        loginAttempts.set(key, { count: 1, unlockTime: 0 });
-      } else {
-        bucket.count++;
-        if (bucket.count >= MAX_ATTEMPTS) {
-          bucket.unlockTime = now + LOCK_MINUTES * 60_000;
-          bucket.count = 0;
-        }
-        loginAttempts.set(key, bucket);
-      }
+      return "Terjadi kesalahan saat registrasi";
     }
   })
-
-  .post("/logout", ({ set, cookie }) => {
-    if (cookie.session) cookie.session.set({ value: "", maxAge: 0 });
-    set.status = 302;
-    set.headers.Location = "/login?message=Berhasil logout";
+  .post("/logout", ({ cookie, set }) => {
+    cookie.session.set({
+      value: "",
+      maxAge: 0,
+      path: "/"
+    });
+    set.redirect = "/login";
   });
