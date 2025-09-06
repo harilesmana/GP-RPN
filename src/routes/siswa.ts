@@ -1,428 +1,251 @@
-import { Elysia } from "elysia";
+import { Elysia, t } from "elysia";
 import { authMiddleware } from "../middleware/auth";
-import { 
-  users, kelas, materi, diskusi, tugas, 
-  tugasDetail, submissions, diskusiMateri,
-  User, Kelas, Materi, TugasDetail, Submission, DiskusiMateri
-} from "../db";
+import { users, materi, tugas, tugasDetail, submissions, diskusi, diskusiMateri, kelas, Role } from "../db";
 
-export const siswaRoutes = new Elysia({ prefix: "/siswa" })
-  .derive(authMiddleware as any)
-  
-  
-  .onBeforeHandle(({ user, set }) => {
+export const siswaRoutes = new Elysia()
+  .use(authMiddleware)
+  .derive(({ user }) => {
     if (!user || user.role !== "siswa") {
-      set.status = 403;
-      return "Akses ditolak. Hanya siswa yang dapat mengakses endpoint ini.";
+      throw new Error("Unauthorized");
     }
+    return { user };
   })
-
   
-  .get("/dashboard-stats", async ({ user }) => {
+  .get("/siswa/dashboard-stats", async ({ user }) => {
     const siswaId = user.userId;
-    
     
     const totalMateri = materi.length;
+    const tugasSiswa = tugas.filter(t => t.siswa_id === siswaId);
+    const tugasSelesai = tugasSiswa.filter(t => t.status === "selesai").length;
+    const tugasPending = tugasSiswa.filter(t => t.status !== "selesai").length;
     
-    
-    const tugasDikerjakan = submissions.filter(s => s.siswa_id === siswaId).length;
-    
-    
-    const tugasDinilai = submissions.filter(s => 
-      s.siswa_id === siswaId && s.nilai !== undefined
-    ).length;
-    
-    
-    const nilaiSiswa = submissions
-      .filter(s => s.siswa_id === siswaId && s.nilai !== undefined)
-      .map(s => s.nilai as number);
-    
-    const rataNilai = nilaiSiswa.length > 0 
-      ? Math.round(nilaiSiswa.reduce((a, b) => a + b, 0) / nilaiSiswa.length)
+    const nilaiTugas = tugasSiswa.filter(t => t.nilai).map(t => t.nilai || 0);
+    const rataNilai = nilaiTugas.length > 0 
+      ? nilaiTugas.reduce((sum, nilai) => sum + nilai, 0) / nilaiTugas.length 
       : 0;
-    
-    
-    const totalTugas = tugasDetail.length;
-    const progress = totalTugas > 0 
-      ? Math.round((tugasDikerjakan / totalTugas) * 100)
+
+    const overallProgress = totalMateri > 0 
+      ? Math.round((tugasSelesai / totalMateri) * 100) 
       : 0;
-    
+
     return {
-      success: true,
-      data: {
-        total_materi: totalMateri,
-        tugas_selesai: tugasDinilai,
-        tugas_pending: tugasDikerjakan - tugasDinilai,
-        rata_nilai: rataNilai,
-        overall_progress: progress
-      }
+      total_materi: totalMateri,
+      tugas_selesai: tugasSelesai,
+      tugas_pending: tugasPending,
+      rata_nilai: Math.round(rataNilai),
+      overall_progress: overallProgress
     };
   })
-
-  
-  .get("/tugas-recent", async ({ user }) => {
+  .get("/siswa/tugas-recent", async ({ user }) => {
     const siswaId = user.userId;
     
-    const recentTugas = tugasDetail
-      .slice(-5)
-      .map(tugas => {
-        const submission = submissions.find(s => 
-          s.tugas_id === tugas.id && s.siswa_id === siswaId
-        );
+    const recentTugas = tugas
+      .filter(t => t.siswa_id === siswaId)
+      .sort((a, b) => b.created_at.getTime() - a.created_at.getTime())
+      .slice(0, 5)
+      .map(t => ({
+        id: t.id,
+        judul: tugasDetail.find(td => td.id === t.materi_id)?.judul || "Unknown",
+        materi_judul: materi.find(m => m.id === t.materi_id)?.judul || "Unknown",
+        status: t.status,
+        deadline: tugasDetail.find(td => td.id === t.materi_id)?.deadline || new Date(),
+        nilai: t.nilai
+      }));
+
+    return recentTugas;
+  })
+  
+  .get("/siswa/materi", async () => {
+    return materi.map(m => ({
+      id: m.id,
+      judul: m.judul,
+      deskripsi: m.deskripsi,
+      konten: m.konten.substring(0, 200) + (m.konten.length > 200 ? "..." : ""),
+      guru_nama: users.find(u => u.id === m.guru_id)?.nama || "Unknown",
+      created_at: m.created_at
+    }));
+  })
+  
+  .get("/siswa/tugas", async ({ user }) => {
+    const siswaId = user.userId;
+    
+    return tugas
+      .filter(t => t.siswa_id === siswaId)
+      .map(t => {
+        const detail = tugasDetail.find(td => td.id === t.materi_id);
+        const submission = submissions.find(s => s.tugas_id === t.id && s.siswa_id === siswaId);
         
         return {
-          id: tugas.id,
-          judul: tugas.judul,
-          materi_judul: materi.find(m => m.id === tugas.materi_id)?.judul || "Tidak diketahui",
-          deadline: tugas.deadline,
-          status: submission ? "dikerjakan" : "belum_dikerjakan"
+          id: t.id,
+          judul: detail?.judul || "Unknown",
+          deskripsi: detail?.deskripsi || "",
+          materi_id: t.materi_id,
+          materi_judul: materi.find(m => m.id === t.materi_id)?.judul || "Unknown",
+          status: t.status,
+          deadline: detail?.deadline || new Date(),
+          nilai: t.nilai,
+          feedback: submission?.feedback,
+          jawaban: submission?.jawaban,
+          created_at: t.created_at
         };
       });
-    
-    return {
-      success: true,
-      data: recentTugas
-    };
   })
-
-  
-  .get("/materi", async () => {
-    const materiList = materi.map(m => {
-      const guru = users.find(u => u.id === m.guru_id);
-      
-      return {
-        id: m.id,
-        judul: m.judul,
-        deskripsi: m.deskripsi,
-        konten: m.konten,
-        guru_nama: guru?.nama || "Tidak diketahui",
-        created_at: m.created_at
-      };
-    });
-    
-    return {
-      success: true,
-      data: materiList
-    };
-  })
-
-  
-  .get("/tugas", async ({ user }) => {
+  .post("/siswa/tugas/:id/submit", async ({ user, params, body }) => {
     const siswaId = user.userId;
-    
-    const tugasList = tugasDetail.map(tugas => {
-      const submission = submissions.find(s => 
-        s.tugas_id === tugas.id && s.siswa_id === siswaId
-      );
-      const materiItem = materi.find(m => m.id === tugas.materi_id);
-      const guru = users.find(u => u.id === tugas.guru_id);
-      
-      return {
-        id: tugas.id,
-        judul: tugas.judul,
-        deskripsi: tugas.deskripsi,
-        materi_id: tugas.materi_id,
-        materi_judul: materiItem?.judul || "Tidak diketahui",
-        guru_nama: guru?.nama || "Tidak diketahui",
-        deadline: tugas.deadline,
-        status: submission ? (submission.nilai !== undefined ? "selesai" : "dikerjakan") : "belum_dikerjakan",
-        jawaban: submission?.jawaban || "",
-        nilai: submission?.nilai || null,
-        feedback: submission?.feedback || "",
-        submitted_at: submission?.submitted_at || null
-      };
-    });
-    
-    return {
-      success: true,
-      data: tugasList
-    };
-  })
+    const { id } = params;
+    const { jawaban } = body;
 
-  
-  .post("/tugas/:id/submit", async ({ user, params, body, set }) => {
-    const siswaId = user.userId;
-    const tugasId = parseInt(params.id);
-    
-    if (isNaN(tugasId)) {
-      set.status = 400;
-      return { error: "ID tugas tidak valid" };
-    }
-    
+    const tugasId = parseInt(id);
     const tugasItem = tugasDetail.find(t => t.id === tugasId);
     if (!tugasItem) {
-      set.status = 404;
-      return { error: "Tugas tidak ditemukan" };
+      throw new Error("Tugas tidak ditemukan");
     }
+
     
-    
-    if (new Date() > new Date(tugasItem.deadline)) {
-      set.status = 400;
-      return { error: "Tugas sudah melewati deadline" };
-    }
-    
-    const { jawaban } = body as any;
-    if (!jawaban || jawaban.trim().length === 0) {
-      set.status = 400;
-      return { error: "Jawaban tidak boleh kosong" };
-    }
-    
-    
-    const existingSubmissionIndex = submissions.findIndex(s => 
+    let submission = submissions.find(s => 
       s.tugas_id === tugasId && s.siswa_id === siswaId
     );
-    
-    if (existingSubmissionIndex !== -1) {
+
+    if (submission) {
       
-      submissions[existingSubmissionIndex].jawaban = jawaban.trim();
-      submissions[existingSubmissionIndex].submitted_at = new Date();
-      submissions[existingSubmissionIndex].nilai = undefined;
-      submissions[existingSubmissionIndex].feedback = "";
-      submissions[existingSubmissionIndex].graded_at = undefined;
-      
-      return {
-        success: true,
-        message: "Jawaban berhasil diperbarui"
-      };
+      submission.jawaban = jawaban;
+      submission.submitted_at = new Date();
     } else {
       
-      const newSubmission: Submission = {
-        id: submissions.length + 1,
+      submission = {
+        id: submissions.length > 0 ? Math.max(...submissions.map(s => s.id)) + 1 : 1,
         tugas_id: tugasId,
         siswa_id: siswaId,
-        jawaban: jawaban.trim(),
+        jawaban,
         submitted_at: new Date()
       };
-      
-      submissions.push(newSubmission);
-      
-      return {
-        success: true,
-        message: "Jawaban berhasil dikumpulkan"
-      };
+      submissions.push(submission);
     }
-  })
 
+    
+    let tugasSiswa = tugas.find(t => 
+      t.materi_id === tugasId && t.siswa_id === siswaId
+    );
+
+    if (tugasSiswa) {
+      tugasSiswa.status = "dikerjakan";
+      tugasSiswa.updated_at = new Date();
+    } else {
+      tugasSiswa = {
+        id: tugas.length > 0 ? Math.max(...tugas.map(t => t.id)) + 1 : 1,
+        materi_id: tugasId,
+        siswa_id: siswaId,
+        status: "dikerjakan",
+        created_at: new Date(),
+        updated_at: new Date()
+      };
+      tugas.push(tugasSiswa);
+    }
+
+    return { 
+      message: "Jawaban berhasil disimpan", 
+      submission,
+      tugas: tugasSiswa
+    };
+  })
   
-  .get("/nilai", async ({ user }) => {
+  .get("/siswa/nilai", async ({ user }) => {
     const siswaId = user.userId;
     
-    const nilaiList = submissions
-      .filter(s => s.siswa_id === siswaId)
-      .map(submission => {
-        const tugasItem = tugasDetail.find(t => t.id === submission.tugas_id);
-        const materiItem = materi.find(m => m.id === tugasItem?.materi_id);
+    return submissions
+      .filter(s => s.siswa_id === siswaId && s.nilai !== null)
+      .map(s => {
+        const tugasItem = tugasDetail.find(t => t.id === s.tugas_id);
+        const materiItem = materi.find(m => m.id === (tugasItem?.materi_id || 0));
         
         return {
-          id: submission.id,
-          tugas_id: submission.tugas_id,
-          tugas_judul: tugasItem?.judul || "Tugas tidak ditemukan",
-          materi_judul: materiItem?.judul || "Materi tidak ditemukan",
-          jawaban: submission.jawaban,
-          nilai: submission.nilai,
-          feedback: submission.feedback,
-          submitted_at: submission.submitted_at,
-          graded_at: submission.graded_at
+          id: s.id,
+          tugas_id: s.tugas_id,
+          tugas_judul: tugasItem?.judul || "Unknown",
+          materi_id: tugasItem?.materi_id || 0,
+          materi_judul: materiItem?.judul || "Unknown",
+          nilai: s.nilai,
+          feedback: s.feedback,
+          submitted_at: s.submitted_at,
+          graded_at: s.graded_at
         };
       });
-    
-    return {
-      success: true,
-      data: nilaiList
-    };
   })
-
   
-  .get("/diskusi-kelas", async () => {
-    const diskusiList = diskusiMateri
-      .filter(d => d.parent_id === undefined) 
-      .map(d => {
-        const user = users.find(u => u.id === d.user_id);
-        const materiItem = materi.find(m => m.id === d.materi_id);
-        
-        return {
-          id: d.id,
-          materi_id: d.materi_id,
-          materi_judul: materiItem?.judul || "Materi tidak ditemukan",
-          user_id: d.user_id,
-          user_name: user?.nama || "Tidak diketahui",
-          user_role: d.user_role,
-          isi: d.isi,
-          created_at: d.created_at
-        };
-      });
-    
-    return {
-      success: true,
-      data: diskusiList
-    };
+  .get("/siswa/diskusi-kelas", async () => {
+    return diskusi.map(d => ({
+      id: d.id,
+      kelas: d.kelas,
+      isi: d.isi,
+      user_id: d.user_id,
+      user_name: users.find(u => u.id === d.user_id)?.nama || "Unknown",
+      user_role: d.user_role,
+      created_at: d.created_at
+    }));
   })
-
-  
-  .get("/diskusi-materi", async () => {
-    const diskusiList = diskusiMateri.map(d => {
-      const user = users.find(u => u.id === d.user_id);
-      const materiItem = materi.find(m => m.id === d.materi_id);
-      
-      return {
-        id: d.id,
-        materi_id: d.materi_id,
-        materi_judul: materiItem?.judul || "Materi tidak ditemukan",
-        user_id: d.user_id,
-        user_name: user?.nama || "Tidak diketahui",
-        user_role: d.user_role,
-        isi: d.isi,
-        parent_id: d.parent_id,
-        created_at: d.created_at
-      };
-    });
-    
-    return {
-      success: true,
-      data: diskusiList
-    };
+  .get("/siswa/diskusi-materi", async () => {
+    return diskusiMateri.map(d => ({
+      id: d.id,
+      materi_id: d.materi_id,
+      materi_judul: materi.find(m => m.id === d.materi_id)?.judul || "Unknown",
+      user_id: d.user_id,
+      user_name: users.find(u => u.id === d.user_id)?.nama || "Unknown",
+      user_role: d.user_role,
+      isi: d.isi,
+      parent_id: d.parent_id,
+      created_at: d.created_at
+    }));
   })
-
-  
-  .post("/diskusi-materi", async ({ user, body, set }) => {
+  .post("/siswa/diskusi-materi", async ({ user, body }) => {
     const siswaId = user.userId;
-    const { materi_id, isi } = body as any;
-    
-    if (!materi_id || !isi) {
-      set.status = 400;
-      return { error: "Materi ID dan isi diskusi harus diisi" };
-    }
-    
-    if (isi.length < 5) {
-      set.status = 400;
-      return { error: "Isi diskusi terlalu pendek" };
-    }
-    
+    const { materi_id, isi } = body;
+
     const materiItem = materi.find(m => m.id === parseInt(materi_id));
     if (!materiItem) {
-      set.status = 404;
-      return { error: "Materi tidak ditemukan" };
+      throw new Error("Materi tidak ditemukan");
     }
-    
-    const newDiskusi: DiskusiMateri = {
-      id: diskusiMateri.length + 1,
+
+    const newDiskusi = {
+      id: diskusiMateri.length > 0 ? Math.max(...diskusiMateri.map(d => d.id)) + 1 : 1,
       materi_id: parseInt(materi_id),
       user_id: siswaId,
-      user_role: "siswa",
-      isi: isi.trim(),
+      user_role: "siswa" as Role,
+      isi,
       created_at: new Date()
     };
-    
-    diskusiMateri.push(newDiskusi);
-    
-    return {
-      success: true,
-      message: "Diskusi berhasil ditambahkan",
-      data: {
-        id: newDiskusi.id,
-        materi_id: newDiskusi.materi_id
-      }
-    };
-  })
 
+    diskusiMateri.push(newDiskusi);
+    return { message: "Diskusi berhasil ditambahkan", diskusi: newDiskusi };
+  })
   
-  .get("/progress-detail", async ({ user }) => {
+  .get("/siswa/progress-detail", async ({ user }) => {
     const siswaId = user.userId;
-    
-    
-    const materiDipelajari = new Set(
-      submissions
-        .filter(s => s.siswa_id === siswaId)
-        .map(s => {
-          const tugasItem = tugasDetail.find(t => t.id === s.tugas_id);
-          return tugasItem?.materi_id;
-        })
-        .filter(id => id !== undefined)
-    ).size;
-    
-    
-    const tugasDikerjakan = submissions.filter(s => s.siswa_id === siswaId).length;
-    
-    
-    const tugasDinilai = submissions.filter(s => 
-      s.siswa_id === siswaId && s.nilai !== undefined
-    ).length;
-    
-    
-    const nilaiSiswa = submissions
-      .filter(s => s.siswa_id === siswaId && s.nilai !== undefined)
-      .map(s => s.nilai as number);
-    
-    const rataNilai = nilaiSiswa.length > 0 
-      ? Math.round(nilaiSiswa.reduce((a, b) => a + b, 0) / nilaiSiswa.length)
-      : 0;
-    
     
     const totalMateri = materi.length;
-    const totalTugas = tugasDetail.length;
-    
-    const progressMateri = totalMateri > 0 
-      ? Math.round((materiDipelajari / totalMateri) * 100)
-      : 0;
-    
-    const progressTugas = totalTugas > 0 
-      ? Math.round((tugasDikerjakan / totalTugas) * 100)
-      : 0;
-    
-    return {
-      success: true,
-      data: {
-        materi_dipelajari: materiDipelajari,
-        total_materi: totalMateri,
-        progress_materi: progressMateri,
-        tugas_selesai: tugasDinilai,
-        total_tugas: totalTugas,
-        progress_tugas: progressTugas,
-        rata_nilai: rataNilai
-      }
-    };
-  })
+    const materiDipelajari = new Set(
+      tugas.filter(t => t.siswa_id === siswaId).map(t => t.materi_id)
+    ).size;
 
-  
-  .post("/diskusi/:id/reply", async ({ user, params, body, set }) => {
-    const siswaId = user.userId;
-    const diskusiId = parseInt(params.id);
-    
-    if (isNaN(diskusiId)) {
-      set.status = 400;
-      return { error: "ID diskusi tidak valid" };
-    }
-    
-    const diskusiAsli = diskusiMateri.find(d => d.id === diskusiId);
-    if (!diskusiAsli) {
-      set.status = 404;
-      return { error: "Diskusi tidak ditemukan" };
-    }
-    
-    const { reply } = body as any;
-    if (!reply) {
-      set.status = 400;
-      return { error: "Balasan tidak boleh kosong" };
-    }
-    
-    const balasan: DiskusiMateri = {
-      id: diskusiMateri.length + 1,
-      materi_id: diskusiAsli.materi_id,
-      user_id: siswaId,
-      user_role: "siswa",
-      isi: reply.trim(),
-      parent_id: diskusiId,
-      created_at: new Date()
-    };
-    
-    diskusiMateri.push(balasan);
-    
+    const totalTugas = tugasDetail.length;
+    const tugasSelesai = tugas.filter(t => 
+      t.siswa_id === siswaId && t.status === "selesai"
+    ).length;
+
+    const nilaiTugas = tugas.filter(t => 
+      t.siswa_id === siswaId && t.nilai
+    ).map(t => t.nilai || 0);
+
+    const rataNilai = nilaiTugas.length > 0 
+      ? nilaiTugas.reduce((sum, nilai) => sum + nilai, 0) / nilaiTugas.length 
+      : 0;
+
     return {
-      success: true,
-      message: "Balasan berhasil dikirim",
-      data: {
-        id: balasan.id,
-        materi_id: balasan.materi_id
-      }
+      total_materi: totalMateri,
+      materi_dipelajari: materiDipelajari,
+      progress_materi: totalMateri > 0 ? Math.round((materiDipelajari / totalMateri) * 100) : 0,
+      total_tugas: totalTugas,
+      tugas_selesai: tugasSelesai,
+      progress_tugas: totalTugas > 0 ? Math.round((tugasSelesai / totalTugas) * 100) : 0,
+      rata_nilai: Math.round(rataNilai)
     };
   });
