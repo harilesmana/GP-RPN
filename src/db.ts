@@ -102,8 +102,8 @@ export const loginAttempts = new Map<string, { count: number; unlockTime: number
 async function seed() {
   if (users.length === 0) {
     const now = new Date();
-
-    
+    const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const twoWeeksAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
     
     
     users.push({
@@ -115,10 +115,11 @@ async function seed() {
       status: "active",
       created_at: now,
       last_login: now,
-      login_count: 10,
+      login_count: 15,
       last_activity: now
     });
-
+    
+    
     users.push({
       id: 2,
       nama: "Jokowi",
@@ -128,12 +129,12 @@ async function seed() {
       status: "active",
       created_by: 1,
       created_at: now,
-      last_login: now,
-      login_count: 8,
-      last_activity: now,
+      last_login: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
+      login_count: 12,
+      last_activity: new Date(Date.now() - 12 * 60 * 60 * 1000),
       bidang: "Matematika"
     });
-
+    
     users.push({
       id: 3,
       nama: "Megawati",
@@ -143,14 +144,79 @@ async function seed() {
       status: "active",
       created_by: 1,
       created_at: now,
-      last_login: now,
-      login_count: 6,
-      last_activity: now,
+      last_login: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+      login_count: 8,
+      last_activity: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
       bidang: "Bahasa Indonesia"
+    });
+    
+    users.push({
+      id: 4,
+      nama: "SBY",
+      email: "guru3@example.com",
+      password_hash: await hashPassword("123456"),
+      role: "guru",
+      status: "active",
+      created_by: 1,
+      created_at: now,
+      last_login: now,
+      login_count: 20,
+      last_activity: now,
+      bidang: "IPA"
+    });
+    
+    users.push({
+      id: 5,
+      nama: "Gus Dur",
+      email: "guru4@example.com",
+      password_hash: await hashPassword("123456"),
+      role: "guru",
+      status: "active",
+      created_by: 1,
+      created_at: now,
+      last_login: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+      login_count: 5,
+      last_activity: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+      bidang: "IPS"
+    });
+    
+    users.push({
+      id: 6,
+      nama: "Wiranto",
+      email: "guru5@example.com",
+      password_hash: await hashPassword("123456"),
+      role: "guru",
+      status: "inactive",
+      created_by: 1,
+      created_at: now,
+      last_login: twoWeeksAgo,
+      login_count: 3,
+      last_activity: twoWeeksAgo,
+      bidang: "Olahraga"
     });
 
     
-    
+    for (let i = 7; i <= 19; i++) {
+      const status = i === 19 ? "inactive" : "active";
+      const lastLogin = i % 3 === 0 ? now : 
+                       i % 3 === 1 ? new Date(Date.now() - 1 * 24 * 60 * 60 * 1000) : 
+                       new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+      
+      users.push({
+        id: i,
+        nama: `Siswa ${i-6}`,
+        email: `siswa${i-6}@example.com`,
+        password_hash: await hashPassword("123456"),
+        role: "siswa",
+        status: status as "active" | "inactive",
+        created_at: now,
+        last_login: lastLogin,
+        login_count: Math.floor(Math.random() * 20) + 1,
+        last_activity: lastLogin,
+        kelas_id: Math.floor((i-7) / 4) + 1
+      });
+    }
+
     
     kelas.push({
       id: 1,
@@ -160,188 +226,120 @@ async function seed() {
       created_at: now
     });
 
-    
-    
-    
-    users.push({
-      id: 4,
-      nama: "Siswa 1",
-      email: "siswa1@example.com",
-      password_hash: await hashPassword("123456"),
-      role: "siswa",
-      status: "active",
-      created_at: now,
-      last_login: now,
-      login_count: 3,
-      last_activity: now,
-      kelas_id: 1
-    });
-
-    
-    
-    
-    materi.push({
-      id: 1,
-      judul: "Materi 1",
-      deskripsi: "Deskripsi materi 1",
-      konten: "Konten lengkap materi 1",
-      guru_id: 2,
-      kelas_id: 1,
-      created_at: now,
-      updated_at: now
-    });
-
-    materi.push({
+    kelas.push({
       id: 2,
-      judul: "Materi 2",
-      deskripsi: "Deskripsi materi 2",
-      konten: "Konten lengkap materi 2",
-      guru_id: 3,
-      kelas_id: 1,
-      created_at: now,
-      updated_at: now
-    });
-
-    materi.push({
-      id: 3,
-      judul: "Materi 3",
-      deskripsi: "Deskripsi materi 3",
-      konten: "Konten lengkap materi 3",
-      guru_id: 2,
-      kelas_id: 1,
-      created_at: now,
-      updated_at: now
-    });
-
-    
-    
-    
-    tugasDetail.push({
-      id: 1,
-      judul: "Tugas 1",
-      deskripsi: "Deskripsi tugas 1",
-      materi_id: 1,
-      guru_id: 2,
-      deadline: new Date(Date.now() + 1 * 86400000),
-      created_at: now,
-      updated_at: now
-    });
-
-    tugasDetail.push({
-      id: 2,
-      judul: "Tugas 2",
-      deskripsi: "Deskripsi tugas 2",
-      materi_id: 2,
-      guru_id: 3,
-      deadline: new Date(Date.now() + 2 * 86400000),
-      created_at: now,
-      updated_at: now
-    });
-
-    tugasDetail.push({
-      id: 3,
-      judul: "Tugas 3",
-      deskripsi: "Deskripsi tugas 3",
-      materi_id: 3,
-      guru_id: 2,
-      deadline: new Date(Date.now() + 3 * 86400000),
-      created_at: now,
-      updated_at: now
-    });
-
-    
-    
-    
-    tugas.push({
-      id: 1,
-      materi_id: 1,
-      siswa_id: 4,
-      status: "belum_dikerjakan",
-      created_at: now,
-      updated_at: now
-    });
-
-    tugas.push({
-      id: 2,
-      materi_id: 2,
-      siswa_id: 4,
-      status: "dikerjakan",
-      created_at: now,
-      updated_at: now
-    });
-
-    submissions.push({
-      id: 2,
-      tugas_id: 2,
-      siswa_id: 4,
-      jawaban: "Jawaban tugas 2 dari siswa 1",
-      submitted_at: now
-    });
-
-    tugas.push({
-      id: 3,
-      materi_id: 3,
-      siswa_id: 4,
-      status: "selesai",
-      nilai: 90,
-      hasil: "Hasil tugas 3",
-      created_at: now,
-      updated_at: now
-    });
-
-    submissions.push({
-      id: 3,
-      tugas_id: 3,
-      siswa_id: 4,
-      jawaban: "Jawaban tugas 3 dari siswa 1",
-      nilai: 90,
-      feedback: "Bagus sekali",
-      submitted_at: now,
-      graded_at: now
-    });
-
-    
-    
-    
-    diskusi.push({
-      id: 1,
-      kelas: "Kelas 1A",
-      isi: "Pak, saya mau tanya soal materi pertama.",
-      user_id: 4,
-      user_role: "siswa",
+      nama: "Kelas 2B",
+      tingkat: "2",
+      wali_kelas_id: 3,
       created_at: now
     });
 
-    diskusi.push({
-      id: 2,
-      kelas: "Kelas 1A",
-      isi: "Silakan, apa yang belum dipahami?",
-      user_id: 2,
-      user_role: "guru",
+    kelas.push({
+      id: 3,
+      nama: "Kelas 3C",
+      tingkat: "3",
+      wali_kelas_id: 4,
       created_at: now
     });
 
     
-    
-    
-    diskusiMateri.push({
-      id: 1,
-      materi_id: 1,
-      user_id: 4,
-      user_role: "siswa",
-      isi: "Saya bingung di bagian contoh soal nomor 2.",
-      created_at: now
-    });
+    for (let i = 1; i <= 10; i++) {
+      materi.push({
+        id: i,
+        judul: `Materi Pembelajaran ${i}`,
+        deskripsi: `Deskripsi materi pembelajaran ${i}`,
+        konten: `Konten lengkap materi pembelajaran ${i}. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.`,
+        guru_id: Math.floor(Math.random() * 5) + 2,
+        kelas_id: Math.floor(Math.random() * 3) + 1,
+        created_at: new Date(Date.now() - i * 24 * 60 * 60 * 1000),
+        updated_at: new Date(Date.now() - i * 24 * 60 * 60 * 1000)
+      });
+    }
 
-    diskusiMateri.push({
-      id: 2,
-      materi_id: 1,
-      user_id: 2,
-      user_role: "guru",
-      isi: "Baik, saya jelaskan kembali ya.",
-      parent_id: 1,
-      created_at: now
-    });
+    
+    for (let i = 1; i <= 15; i++) {
+      const userRole = i % 3 === 0 ? "guru" : "siswa";
+      const userId = userRole === "guru" ? 
+                    Math.floor(Math.random() * 5) + 2 : 
+                    Math.floor(Math.random() * 12) + 7;
+      
+      diskusi.push({
+        id: i,
+        kelas: `Kelas ${Math.floor(Math.random() * 3) + 1}${String.fromCharCode(65 + Math.floor(Math.random() * 3))}`,
+        isi: `Isi diskusi contoh ${i} untuk kelas`,
+        user_id: userId,
+        user_role: userRole as Role,
+        created_at: new Date(Date.now() - i * 2 * 60 * 60 * 1000)
+      });
+    }
+
+    
+    for (let i = 1; i <= 5; i++) {
+      tugasDetail.push({
+        id: i,
+        judul: `Tugas ${i}`,
+        deskripsi: `Deskripsi tugas ${i}. Silakan kerjakan dengan baik dan benar.`,
+        materi_id: Math.floor(Math.random() * 10) + 1,
+        guru_id: Math.floor(Math.random() * 4) + 2,
+        deadline: new Date(Date.now() + (i * 7 * 24 * 60 * 60 * 1000)),
+        created_at: new Date(),
+        updated_at: new Date()
+      });
+    }
+
+    
+    for (let i = 1; i <= 30; i++) {
+      const statuses: Array<'belum_dikerjakan' | 'dikerjakan' | 'selesai'> = 
+        ['belum_dikerjakan', 'dikerjakan', 'selesai'];
+      const status = statuses[Math.floor(Math.random() * 3)];
+      const siswaId = Math.floor(Math.random() * 12) + 7;
+      const tugasId = Math.floor(Math.random() * 5) + 1;
+      
+      const tugasItem = {
+        id: i,
+        materi_id: tugasId,
+        siswa_id: siswaId,
+        status: status,
+        nilai: status === 'selesai' ? Math.floor(Math.random() * 100) + 1 : undefined,
+        hasil: status === 'selesai' ? `Hasil pengerjaan tugas ${i}` : undefined,
+        created_at: new Date(Date.now() - i * 24 * 60 * 60 * 1000),
+        updated_at: new Date(Date.now() - i * 24 * 60 * 60 * 1000)
+      };
+      
+      tugas.push(tugasItem);
+
+      
+      if (status !== 'belum_dikerjakan') {
+        submissions.push({
+          id: i,
+          tugas_id: tugasId,
+          siswa_id: siswaId,
+          jawaban: `Jawaban tugas ${i} dari siswa ${siswaId}`,
+          nilai: status === 'selesai' ? Math.floor(Math.random() * 100) + 1 : undefined,
+          feedback: status === 'selesai' ? 'Kerja bagus!' : undefined,
+          submitted_at: new Date(Date.now() - (i * 24 * 60 * 60 * 1000)),
+          graded_at: status === 'selesai' ? new Date(Date.now() - (i * 12 * 60 * 60 * 1000)) : undefined
+        });
+      }
+    }
+    
+    
+    for (let i = 1; i <= 15; i++) {
+      const userRole = i % 3 === 0 ? "guru" : "siswa";
+      const userId = userRole === "guru" ? 
+                    Math.floor(Math.random() * 4) + 2 : 
+                    Math.floor(Math.random() * 12) + 7;
+                    
+      diskusiMateri.push({
+        id: i,
+        materi_id: Math.floor(Math.random() * 10) + 1,
+        user_id: userId,
+        user_role: userRole as Role,
+        isi: `Pertanyaan atau komentar tentang materi ${i}`,
+        parent_id: i > 5 ? Math.floor(Math.random() * 5) + 1 : undefined,
+        created_at: new Date(Date.now() - (i * 2 * 60 * 60 * 1000))
+      });
+    }
   }
 }
 
