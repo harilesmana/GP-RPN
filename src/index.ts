@@ -12,16 +12,15 @@ import { guruRoutes } from "./routes/guru";
 import { siswaRoutes } from "./routes/siswa";
 import { registrasiRoutes } from "./routes/registrasi";
 
-// Buat instance app dengan plugin EJS terlebih dahulu
 const app = new Elysia()
-  .use(ejsPlugin({ viewsDir: './views' }))
   .use(cors())
   .use(cookie())
+  .use(ejsPlugin({ viewsDir: './views' }))
   .use(securityHeaders)
   .onBeforeHandle(rateLimit(60, 60_000))
   .get("/", ({ set }) => {
     set.status = 302;
-    set.headers.Location = "/login";
+    set.headers.Location = "/auth/login";
     return "Redirecting to login...";
   })
   .use(authRoutes)
@@ -33,7 +32,7 @@ const app = new Elysia()
   .all("*", () => new Response("Not Found", { status: 404 }));
 
 const server = app.listen(process.env.PORT ? Number(process.env.PORT) : 3000, () => {
-  console.log(`HTTP Server jalan di http://localhost:${app.server?.port}`);
+  console.log(`🚀 Server running at http://localhost:${app.server?.port}`);
 });
 
 export type App = typeof app;
