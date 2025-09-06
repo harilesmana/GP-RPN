@@ -4,6 +4,7 @@ import { cookie } from "@elysiajs/cookie";
 import { cors } from "@elysiajs/cors";
 import { securityHeaders } from "./middleware/security";
 import { rateLimit } from "./middleware/rateLimit";
+import { ejsPlugin } from "./middleware/ejs";
 import { authRoutes } from "./routes/auth";
 import { dashboardRoutes } from "./routes/dashboard";
 import { kepsekRoutes } from "./routes/kepsek";
@@ -14,6 +15,7 @@ import { registrasiRoutes } from "./routes/registrasi";
 const app = new Elysia()
   .use(cors())
   .use(cookie())
+  .use(ejsPlugin({ viewsDir: './views' }))
   .use(securityHeaders(new Elysia()))
   .onBeforeHandle(rateLimit(60, 60_000))
   .get("/", ({ set }) => {
