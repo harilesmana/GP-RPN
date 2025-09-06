@@ -8,10 +8,10 @@ import { render } from "../middleware/ejs";
 export const authRoutes = new Elysia()
   .use(inputValidation)
   .get("/login", () => {
-    return render('login', { title: 'Login - E-Learning' });
+    return { _view: 'login.ejs', title: 'Login - E-Learning' };
   })
   .get("/register", () => {
-    return render('register', { title: 'Register - E-Learning' });
+    return { _view: 'register.ejs', title: 'register - e-learning' };
   })
   .post("/login", async ({ body, set, cookie, parseFormData }) => {
     try {
