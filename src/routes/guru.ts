@@ -181,7 +181,37 @@ export const guruRoutes = new Elysia({ prefix: "/guru" })
       }
     };
   })
-
+.get("/materi/:id/detail", async ({ user, params }) => {
+  try {
+    const guruId = user.userId;
+    const materiId = parseInt(params.id);
+    
+    if (isNaN(materiId)) {
+      return { success: false, error: "ID materi tidak valid" };
+    }
+    
+    const materiItem = materi.find(m => m.id === materiId && m.guru_id === guruId);
+    if (!materiItem) {
+      return { success: false, error: "Materi tidak ditemukan atau Anda tidak memiliki akses" };
+    }
+    
+    return {
+      success: true,
+      data: {
+        id: materiItem.id,
+        judul: materiItem.judul || "Judul tidak tersedia",
+        deskripsi: materiItem.deskripsi || "Tidak ada deskripsi",
+        konten: materiItem.konten || "Tidak ada konten yang tersedia",
+        created_at: materiItem.created_at,
+        updated_at: materiItem.updated_at
+      }
+    };
+    
+  } catch (error) {
+    console.error("Error loading materi detail:", error);
+    return { success: false, error: "Terjadi kesalahan saat memuat detail materi" };
+  }
+})
   .put("/materi/:id", async ({ user, params, body, set }) => {
     const guruId = user.userId;
     const materiId = parseInt(params.id);
