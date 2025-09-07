@@ -4,9 +4,7 @@
 <head>
    <meta charset="UTF-8">
    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-   <title>
-      <%= title %>
-   </title>
+   <title>Dashboard Kepala Sekolah - E-Learning</title>
    <style>
       * {
          margin: 0;
@@ -240,6 +238,64 @@
          border: 1px solid #f5c6cb;
       }
 
+      .modal-overlay {
+         position: fixed;
+         top: 0;
+         left: 0;
+         width: 100%;
+         height: 100%;
+         background: rgba(0, 0, 0, 0.5);
+         display: flex;
+         justify-content: center;
+         align-items: center;
+         z-index: 1000;
+      }
+
+      .modal-content {
+         background: white;
+         border-radius: 10px;
+         width: 90%;
+         max-width: 600px;
+         max-height: 80vh;
+         overflow-y: auto;
+         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+      }
+
+      .modal-header {
+         display: flex;
+         justify-content: space-between;
+         align-items: center;
+         padding: 1.5rem;
+         border-bottom: 1px solid #e1e5e9;
+      }
+
+      .modal-header h3 {
+         margin: 0;
+         color: #333;
+      }
+
+      .modal-close {
+         background: none;
+         border: none;
+         font-size: 1.5rem;
+         cursor: pointer;
+         color: #666;
+         padding: 0;
+         width: 30px;
+         height: 30px;
+         display: flex;
+         align-items: center;
+         justify-content: center;
+      }
+
+      .modal-close:hover {
+         color: #333;
+      }
+
+      .modal-body {
+         padding: 1.5rem;
+      }
+
       .tugas-list {
          display: flex;
          flex-direction: column;
@@ -340,16 +396,29 @@
          border-left: 3px solid #667eea;
       }
 
-      .loading {
-         text-align: center;
-         padding: 2rem;
-         color: #666;
+      .connection-status {
+         padding: 0.5rem;
+         border-radius: 4px;
+         margin-bottom: 1rem;
+         font-size: 0.9rem;
       }
 
-      .empty-state {
-         text-align: center;
-         padding: 2rem;
-         color: #666;
+      .connection-status.connected {
+         background-color: #d4edda;
+         color: #155724;
+         border: 1px solid #c3e6cb;
+      }
+
+      .connection-status.disconnected {
+         background-color: #f8d7da;
+         color: #721c24;
+         border: 1px solid #f5c6cb;
+      }
+
+      .connection-status.connecting {
+         background-color: #fff3cd;
+         color: #856404;
+         border: 1px solid #ffeaa7;
       }
    </style>
 </head>
@@ -373,6 +442,7 @@
          <div class="nav-item" onclick="showSection('siswa-management')">👨‍🎓 Manajemen Siswa</div>
          <div class="nav-item" onclick="showSection('materi-management')">📚 Materi Pembelajaran</div>
          <div class="nav-item" onclick="showSection('diskusi-management')">💬 Diskusi Kelas</div>
+         <div class="nav-item" onclick="showSection('chat-room')">💬 Ruang Diskusi</div>
       </div>
 
       <div class="content-area">
@@ -403,8 +473,10 @@
             </div>
 
             <div class="card">
-               <div class="card-title">Aktivitas Terbaru</div>
-               <div id="recentActivity" class="loading">Memuat aktivitas...</div>
+               <div class="card-title">Aktivitas Pembelajaran</div>
+               <div class="chart-container">
+                  <p>Grafik aktivitas pembelajaran akan ditampilkan di sini</p>
+               </div>
             </div>
          </div>
 
@@ -436,8 +508,7 @@
 
             <div class="card">
                <div class="card-title">Daftar Guru</div>
-               <div class="loading" id="guruLoading">Memuat data guru...</div>
-               <table class="table" id="guruTable" style="display: none;">
+               <table class="table" id="guruTable">
                   <thead>
                      <tr>
                         <th>Nama</th>
@@ -447,7 +518,8 @@
                         <th>Aksi</th>
                      </tr>
                   </thead>
-                  <tbody id="guruTableBody"></tbody>
+                  <tbody id="guruTableBody">
+                  </tbody>
                </table>
             </div>
          </div>
@@ -457,18 +529,17 @@
 
             <div class="card">
                <div class="card-title">Daftar Siswa</div>
-               <div class="loading" id="siswaLoading">Memuat data siswa...</div>
-               <table class="table" id="siswaTable" style="display: none;">
+               <table class="table">
                   <thead>
                      <tr>
                         <th>Nama</th>
                         <th>Email</th>
-                        <th>Kelas</th>
                         <th>Status</th>
                         <th>Aksi</th>
                      </tr>
                   </thead>
-                  <tbody id="siswaTableBody"></tbody>
+                  <tbody id="siswaTableBody">
+                  </tbody>
                </table>
             </div>
          </div>
@@ -478,8 +549,7 @@
 
             <div class="card">
                <div class="card-title">Daftar Materi Pembelajaran</div>
-               <div class="loading" id="materiLoading">Memuat data materi...</div>
-               <table class="table" id="materiTable" style="display: none;">
+               <table class="table">
                   <thead>
                      <tr>
                         <th>Judul Materi</th>
@@ -488,7 +558,8 @@
                         <th>Aksi</th>
                      </tr>
                   </thead>
-                  <tbody id="materiTableBody"></tbody>
+                  <tbody id="materiTableBody">
+                  </tbody>
                </table>
             </div>
          </div>
@@ -513,18 +584,66 @@
 
             <div class="card">
                <div class="card-title">Daftar Diskusi Kelas</div>
-               <div class="loading" id="diskusiLoading">Memuat data diskusi...</div>
-               <table class="table" id="diskusiTable" style="display: none;">
+               <table class="table">
                   <thead>
                      <tr>
                         <th>Kelas</th>
                         <th>Isi</th>
-                        <th>Pengguna</th>
                         <th>Tanggal</th>
                      </tr>
                   </thead>
-                  <tbody id="diskusiTableBody"></tbody>
+                  <tbody id="diskusiTableBody">
+                  </tbody>
                </table>
+            </div>
+         </div>
+
+         <div id="chat-room" class="page-section">
+            <h2>Ruang Diskusi Real-time</h2>
+
+            <div class="card">
+               <div class="connection-panel">
+                  <div id="connectionStatus" class="connection-status disconnected">
+                     <span id="statusText">Status: Tidak terhubung</span>
+                     <button id="reconnectButton" class="btn btn-small">Coba Lagi</button>
+                  </div>
+
+                  <div class="online-users">
+                     <h4>Pengguna Online:</h4>
+                     <div id="onlineUsers">Memuat...</div>
+                  </div>
+               </div>
+               <div class="card-title">Pilih Kelas untuk Diskusi</div>
+               <div class="form-group">
+                  <select id="chatKelas" onchange="changeChatRoom()">
+                     <option value="Kelas 1A">Kelas 1A</option>
+                     <option value="Kelas 2B">Kelas 2B</option>
+                     <option value="Kelas 3C">Kelas 3C</option>
+                     <option value="Umum">Diskusi Umum</option>
+                  </select>
+               </div>
+            </div>
+
+            <div class="card">
+               <div class="card-title" id="currentChatRoom">Diskusi: Kelas 1A</div>
+
+               <div id="chatContainer"
+                  style="height: 400px; overflow-y: auto; border: 1px solid #e1e5e9; border-radius: 5px; padding: 1rem; margin-bottom: 1rem; background: #f8f9ff;">
+                  <div id="chatMessages">
+                     <div style="text-align: center; color: #666; padding: 2rem;">
+                        Memuat pesan...
+                     </div>
+                  </div>
+               </div>
+
+               <div class="form-group">
+                  <textarea id="chatMessage" placeholder="Ketik pesan Anda di sini..." rows="3"
+                     style="width: 100%; padding: 0.75rem; border: 2px solid #e1e5e9; border-radius: 5px;"></textarea>
+               </div>
+
+               <button class="btn" onclick="sendChatMessage()" style="width: 100%;">
+                  Kirim Pesan
+               </button>
             </div>
          </div>
       </div>
@@ -532,6 +651,138 @@
 
    <script>
       let dashboardData = null;
+      let chatSocket = null;
+      let currentChatRoom = 'Kelas 1A';
+      let wsPort = 3001;
+      let reconnectAttempts = 0;
+      let connectionStatus = 'disconnected';
+
+      function updateConnectionStatus(status, message = '') {
+         connectionStatus = status;
+         const statusElement = document.getElementById('connectionStatus');
+         const statusText = document.getElementById('statusText');
+
+         if (statusElement && statusText) {
+            statusElement.className = `connection-status ${status}`;
+
+            switch (status) {
+               case 'connected':
+                  statusText.textContent = 'Status: Terhubung';
+                  break;
+               case 'connecting':
+                  statusText.textContent = 'Status: Menghubungkan...';
+                  break;
+               case 'disconnected':
+                  statusText.textContent = 'Status: Tidak terhubung' + (message ? ` - ${message}` : '');
+                  break;
+               case 'error':
+                  statusText.textContent = 'Status: Error' + (message ? ` - ${message}` : '');
+                  break;
+            }
+         }
+      }
+
+      function getSessionToken() {
+         const cookies = document.cookie.split(';');
+         const sessionCookie = cookies.find(c => c.trim().startsWith('session='));
+         return sessionCookie ? sessionCookie.split('=')[1].trim() : null;
+      }
+
+      function connectWebSocket() {
+         if (chatSocket && chatSocket.readyState === WebSocket.OPEN) {
+            return;
+         }
+
+         if (chatSocket) {
+            chatSocket.onclose = null;
+            chatSocket.onerror = null;
+            chatSocket.close();
+         }
+
+         updateConnectionStatus('connecting');
+
+         const token = getSessionToken();
+         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+         const host = window.location.hostname;
+
+         const wsUrl = `${protocol}//${host}:${wsPort}?token=${token || 'test'}`;
+
+         console.log('Connecting to WebSocket:', wsUrl);
+
+         try {
+            chatSocket = new WebSocket(wsUrl);
+
+            chatSocket.onopen = function (event) {
+               console.log('WebSocket connection established successfully');
+               reconnectAttempts = 0;
+               updateConnectionStatus('connected');
+               showAlert('Berhasil terhubung ke ruang diskusi', 'success');
+
+               setTimeout(() => {
+                  if (chatSocket.readyState === WebSocket.OPEN) {
+                     chatSocket.send(JSON.stringify({
+                        type: 'history_request',
+                        kelas: currentChatRoom
+                     }));
+                  }
+               }, 1000);
+            };
+
+            chatSocket.onmessage = function (event) {
+               try {
+                  const message = JSON.parse(event.data);
+                  console.log('Received message:', message);
+
+                  if (message.type === 'connected') {
+                     console.log('Server connection confirmed');
+                     updateConnectionStatus('connected');
+                  } else if (message.type === 'history') {
+                     displayChatMessages(message.data);
+                  } else if (message.type === 'chat') {
+                     addChatMessage(message.data);
+                  } else if (message.type === 'online_users') {
+                     updateOnlineUsers(message.data);
+                  } else if (message.type === 'pong') {
+                     console.log('Pong received');
+                  } else if (message.type === 'error') {
+                     showAlert('Error: ' + message.message, 'error');
+                  }
+               } catch (error) {
+                  console.error('Error parsing message:', error, event.data);
+               }
+            };
+
+            chatSocket.onclose = function (event) {
+               console.log('WebSocket connection closed:', event.code, event.reason);
+               updateConnectionStatus('disconnected', `Kode: ${event.code} - ${event.reason || 'Tidak diketahui'}`);
+
+               reconnectAttempts++;
+               const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
+
+               console.log(`Reconnecting in ${delay}ms (attempt ${reconnectAttempts})`);
+               setTimeout(connectWebSocket, delay);
+            };
+
+            chatSocket.onerror = function (error) {
+               console.error('WebSocket error:', error);
+               updateConnectionStatus('error', 'Kesalahan koneksi');
+            };
+
+         } catch (error) {
+            console.error('Error creating WebSocket:', error);
+            updateConnectionStatus('error', 'Gagal membuat koneksi');
+            setTimeout(connectWebSocket, 5000);
+         }
+      }
+
+      function checkConnection() {
+         if (!chatSocket || chatSocket.readyState !== WebSocket.OPEN) {
+            console.log('Connection lost, reconnecting...');
+            connectWebSocket();
+            return false;
+         }
+         return true;
+      }
 
       function showAlert(message, type = 'success') {
          const alert = document.getElementById('alert');
@@ -565,25 +816,141 @@
             loadMateriList();
          } else if (sectionId === 'diskusi-management') {
             loadDiskusiList();
+         } else if (sectionId === 'chat-room') {
+            setTimeout(connectWebSocket, 100);
+         } else if (chatSocket) {
+            chatSocket.close();
          }
       }
 
+      function displayChatMessages(messages) {
+         const chatMessages = document.getElementById('chatMessages');
+         chatMessages.innerHTML = '';
+
+         messages.forEach(message => {
+            addChatMessage(message, false);
+         });
+
+         scrollChatToBottom();
+      }
+
+      function addChatMessage(message, animate = true) {
+         if (message.kelas !== currentChatRoom) {
+            return;
+         }
+
+         const chatMessages = document.getElementById('chatMessages');
+         const messageElement = document.createElement('div');
+
+         messageElement.innerHTML = `
+            <div style="margin-bottom: 1rem; padding: 0.75rem; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); ${animate ? 'animation: fadeIn 0.3s ease;' : ''}">
+               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                  <strong style="color: #667eea;">${message.user_nama}</strong>
+                  <span style="font-size: 0.8rem; color: #666;">${new Date(message.created_at).toLocaleTimeString()}</span>
+               </div>
+               <div style="color: #333;">${message.isi}</div>
+               <div style="font-size: 0.7rem; color: #888; margin-top: 0.25rem;">
+                  ${message.user_role} • ${message.kelas}
+               </div>
+            </div>
+         `;
+
+         chatMessages.appendChild(messageElement);
+
+         if (animate) {
+            scrollChatToBottom();
+         }
+      }
+
+      function scrollChatToBottom() {
+         const chatContainer = document.getElementById('chatContainer');
+         chatContainer.scrollTop = chatContainer.scrollHeight;
+      }
+
+      function sendChatMessage() {
+         if (!checkConnection()) {
+            showAlert('Sedang mencoba menghubungkan...', 'warning');
+            return;
+         }
+
+         const messageInput = document.getElementById('chatMessage');
+         const message = messageInput?.value.trim();
+
+         if (!message) {
+            showAlert('Pesan tidak boleh kosong', 'error');
+            return;
+         }
+
+         try {
+            chatSocket.send(JSON.stringify({
+               type: 'chat',
+               kelas: currentChatRoom,
+               isi: message,
+               timestamp: Date.now()
+            }));
+
+            messageInput.value = '';
+         } catch (error) {
+            console.error('Error sending message:', error);
+            showAlert('Gagal mengirim pesan', 'error');
+            connectWebSocket();
+         }
+      }
+
+      function updateOnlineUsers(users) {
+         const onlineUsersElement = document.getElementById('onlineUsers');
+         if (onlineUsersElement) {
+            onlineUsersElement.innerHTML = users.map(user =>
+               `<div>${user.nama} (${user.role})</div>`
+            ).join('');
+         }
+      }
+
+      function changeChatRoom() {
+         const roomSelect = document.getElementById('chatKelas');
+         currentChatRoom = roomSelect.value;
+
+         document.getElementById('currentChatRoom').textContent = `Diskusi: ${currentChatRoom}`;
+
+         if (chatSocket && chatSocket.readyState === WebSocket.OPEN) {
+            chatSocket.send(JSON.stringify({
+               type: 'history_request',
+               kelas: currentChatRoom
+            }));
+         } else {
+            connectWebSocket();
+         }
+
+         document.getElementById('chatMessages').innerHTML = `
+            <div style="text-align: center; color: #666; padding: 2rem;">
+               Memuat pesan untuk ${currentChatRoom}...
+            </div>
+         `;
+      }
+
+      const style = document.createElement('style');
+      style.textContent = `
+         @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+         }
+      `;
+      document.head.appendChild(style);
+
       async function loadDashboardData() {
          try {
-            const response = await fetch('/kepsek/dashboard/stats', {
+            const response = await fetch('/kepsek/info-dasar', {
                method: 'GET',
                credentials: 'include'
             });
 
             if (response.ok) {
-               const result = await response.json();
-               if (result.success) {
-                  dashboardData = result.data;
-                  updateStatistics();
-               }
+               dashboardData = await response.json();
+               updateStatistics();
+            } else {
+               const error = await response.text();
+               showAlert('Error loading dashboard: ' + error, 'error');
             }
-
-            loadRecentActivity();
          } catch (error) {
             console.error('Error loading dashboard:', error);
             showAlert('Terjadi kesalahan saat memuat dashboard', 'error');
@@ -599,182 +966,165 @@
          }
       }
 
-      async function loadRecentActivity() {
-         try {
-            const response = await fetch('/kepsek/dashboard/activity', {
-               method: 'GET',
-               credentials: 'include'
-            });
-
-            if (response.ok) {
-               const result = await response.json();
-               const container = document.getElementById('recentActivity');
-
-               if (result.success && result.data.length > 0) {
-                  container.innerHTML = result.data.map(activity => `
-                     <div style="padding: 0.5rem 0; border-bottom: 1px solid #eee;">
-                        <strong>${activity.title}</strong> - ${activity.description}
-                        <div style="font-size: 0.8rem; color: #666;">${new Date(activity.created_at).toLocaleDateString('id-ID')}</div>
-                     </div>
-                  `).join('');
-               } else {
-                  container.innerHTML = '<div class="empty-state">Tidak ada aktivitas terbaru</div>';
-               }
-            }
-         } catch (error) {
-            document.getElementById('recentActivity').innerHTML = '<div class="empty-state">Error memuat aktivitas</div>';
-         }
-      }
-
       async function loadGuruList() {
-         const container = document.getElementById('guruTableBody');
-         const loading = document.getElementById('guruLoading');
-         const table = document.getElementById('guruTable');
-
          try {
-            const response = await fetch('/kepsek/guru', {
+            const response = await fetch('/kepsek/guru/daftar', {
                method: 'GET',
                credentials: 'include'
             });
 
             if (response.ok) {
-               const result = await response.json();
-
-               if (result.success) {
-                  loading.style.display = 'none';
-                  table.style.display = 'table';
-
-                  container.innerHTML = result.data.map(guru => `
-                     <tr>
-                        <td>${guru.nama}</td>
-                        <td>${guru.email}</td>
-                        <td>${guru.bidang || '-'}</td>
-                        <td><span class="status-${guru.status}">${guru.status}</span></td>
-                        <td>
-                            <button class="btn ${guru.status === 'active' ? 'btn-danger' : 'btn-success'}" 
-                                    onclick="toggleGuruStatus(${guru.id}, '${guru.status}')">
-                                ${guru.status === 'active' ? 'Nonaktifkan' : 'Aktifkan'}
-                            </button>
-                        </td>
-                     </tr>
-                  `).join('');
-               }
+               const guruList = await response.json();
+               updateGuruTable(guruList);
+            } else {
+               const error = await response.text();
+               showAlert('Error loading guru list: ' + error, 'error');
             }
          } catch (error) {
             console.error('Error loading guru list:', error);
-            loading.innerHTML = '<div class="empty-state">Gagal memuat data guru</div>';
+            showAlert('Terjadi kesalahan saat memuat daftar guru', 'error');
          }
+      }
+
+      function updateGuruTable(guruList) {
+         const tbody = document.getElementById('guruTableBody');
+         tbody.innerHTML = '';
+
+         guruList.forEach(guru => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+               <td>${guru.nama}</td>
+               <td>${guru.email}</td>
+               <td>${guru.bidang || '-'}</td>
+               <td><span class="status-${guru.status}">${guru.status}</span></td>
+               <td>
+                  <button class="btn ${guru.status === 'active' ? 'btn-danger' : 'btn-success'}" 
+                         onclick="toggleUserStatus(${guru.id}, '${guru.status === 'active' ? 'inactive' : 'active'}')">
+                     ${guru.status === 'active' ? 'Nonaktifkan' : 'Aktifkan'}
+                  </button>
+                  <button class="btn btn-danger" onclick="hapusGuru(${guru.id})" style="margin-left: 5px;">
+                     Hapus
+                  </button>
+               </td>
+            `;
+            tbody.appendChild(row);
+         });
       }
 
       async function loadSiswaList() {
-         const container = document.getElementById('siswaTableBody');
-         const loading = document.getElementById('siswaLoading');
-         const table = document.getElementById('siswaTable');
-
          try {
-            const response = await fetch('/kepsek/siswa', {
+            const response = await fetch('/kepsek/siswa/daftar', {
                method: 'GET',
                credentials: 'include'
             });
 
             if (response.ok) {
-               const result = await response.json();
-
-               if (result.success) {
-                  loading.style.display = 'none';
-                  table.style.display = 'table';
-
-                  container.innerHTML = result.data.map(siswa => `
-                     <tr>
-                        <td>${siswa.nama}</td>
-                        <td>${siswa.email}</td>
-                        <td>${siswa.kelas_nama || 'Belum terdaftar'}</td>
-                        <td><span class="status-${siswa.status}">${siswa.status}</span></td>
-                        <td>
-                            <button class="btn" onclick="viewSiswaProgress(${siswa.id})">
-                                Lihat Progress
-                            </button>
-                        </td>
-                     </tr>
-                  `).join('');
-               }
+               const siswaList = await response.json();
+               updateSiswaTable(siswaList);
+            } else {
+               const error = await response.text();
+               showAlert('Error loading siswa list: ' + error, 'error');
             }
          } catch (error) {
             console.error('Error loading siswa list:', error);
-            loading.innerHTML = '<div class="empty-state">Gagal memuat data siswa</div>';
+            showAlert('Terjadi kesalahan saat memuat daftar siswa', 'error');
          }
+      }
+
+      function updateSiswaTable(siswaList) {
+         const tbody = document.getElementById('siswaTableBody');
+         tbody.innerHTML = '';
+
+         siswaList.forEach(siswa => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+               <td>${siswa.nama}</td>
+               <td>${siswa.email}</td>
+               <td><span class="status-${siswa.status}">${siswa.status}</span></td>
+               <td>
+                  <button class="btn" onclick="lihatTugasSiswa(${siswa.id})">
+                     Lihat Tugas
+                  </button>
+               </td>
+            `;
+            tbody.appendChild(row);
+         });
       }
 
       async function loadMateriList() {
-         const container = document.getElementById('materiTableBody');
-         const loading = document.getElementById('materiLoading');
-         const table = document.getElementById('materiTable');
-
          try {
-            const response = await fetch('/kepsek/materi', {
+            const response = await fetch('/kepsek/materi/daftar', {
                method: 'GET',
                credentials: 'include'
             });
 
             if (response.ok) {
-               const result = await response.json();
-
-               if (result.success) {
-                  loading.style.display = 'none';
-                  table.style.display = 'table';
-
-                  container.innerHTML = result.data.map(materi => `
-                     <tr>
-                        <td>${materi.judul}</td>
-                        <td>${materi.guru}</td>
-                        <td>${new Date(materi.created_at).toLocaleDateString('id-ID')}</td>
-                        <td>
-                            <button class="btn" onclick="viewMateriDetail(${materi.id})">
-                                Lihat Detail
-                            </button>
-                        </td>
-                     </tr>
-                  `).join('');
-               }
+               const materiList = await response.json();
+               updateMateriTable(materiList);
+               document.getElementById('totalMateri').textContent = materiList.length;
+            } else {
+               const error = await response.text();
+               showAlert('Error loading materi list: ' + error, 'error');
             }
          } catch (error) {
             console.error('Error loading materi list:', error);
-            loading.innerHTML = '<div class="empty-state">Gagal memuat data materi</div>';
+            showAlert('Terjadi kesalahan saat memuat daftar materi', 'error');
          }
       }
 
-      async function loadDiskusiList() {
-         const container = document.getElementById('diskusiTableBody');
-         const loading = document.getElementById('diskusiLoading');
-         const table = document.getElementById('diskusiTable');
+      function updateMateriTable(materiList) {
+         const tbody = document.getElementById('materiTableBody');
+         tbody.innerHTML = '';
 
+         materiList.forEach(materi => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+               <td>${materi.judul}</td>
+               <td>${materi.guru || '-'}</td>
+               <td>${new Date(materi.created_at).toLocaleDateString()}</td>
+               <td>
+                  <button class="btn" onclick="lihatDiskusiMateri(${materi.id})">
+                     Lihat Diskusi
+                  </button>
+               </td>
+            `;
+            tbody.appendChild(row);
+         });
+      }
+
+      async function loadDiskusiList() {
          try {
-            const response = await fetch('/kepsek/diskusi', {
+            const response = await fetch('/kepsek/kelas/diskusi', {
                method: 'GET',
                credentials: 'include'
             });
 
             if (response.ok) {
-               const result = await response.json();
-
-               if (result.success) {
-                  loading.style.display = 'none';
-                  table.style.display = 'table';
-
-                  container.innerHTML = result.data.map(diskusi => `
-                     <tr>
-                        <td>${diskusi.kelas}</td>
-                        <td>${diskusi.isi.length > 50 ? diskusi.isi.substring(0, 50) + '...' : diskusi.isi}</td>
-                        <td>${diskusi.user} (${diskusi.role})</td>
-                        <td>${new Date(diskusi.created_at).toLocaleDateString('id-ID')}</td>
-                     </tr>
-                  `).join('');
-               }
+               const diskusiList = await response.json();
+               updateDiskusiTable(diskusiList);
+            } else {
+               const error = await response.text();
+               showAlert('Error loading diskusi list: ' + error, 'error');
             }
          } catch (error) {
             console.error('Error loading diskusi list:', error);
-            loading.innerHTML = '<div class="empty-state">Gagal memuat data diskusi</div>';
+            showAlert('Terjadi kesalahan saat memuat daftar diskusi', 'error');
          }
+      }
+
+      function updateDiskusiTable(diskusiList) {
+         const tbody = document.getElementById('diskusiTableBody');
+         tbody.innerHTML = '';
+
+         diskusiList.forEach(diskusi => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+               <td>${diskusi.kelas}</td>
+               <td>${diskusi.isi.substring(0, 100)}${diskusi.isi.length > 100 ? '...' : ''}</td>
+               <td>${new Date(diskusi.created_at).toLocaleDateString()}</td>
+            `;
+            tbody.appendChild(row);
+         });
       }
 
       document.getElementById('addGuruForm').addEventListener('submit', async function (e) {
@@ -789,7 +1139,7 @@
          };
 
          try {
-            const response = await fetch('/kepsek/guru', {
+            const response = await fetch('/kepsek/guru/tambah', {
                method: 'POST',
                headers: {
                   'Content-Type': 'application/json'
@@ -798,15 +1148,15 @@
                body: JSON.stringify(guruData)
             });
 
-            const result = await response.json();
-
-            if (response.ok && result.success) {
+            if (response.ok) {
+               const result = await response.json();
                showAlert('Guru berhasil ditambahkan!');
                this.reset();
                loadGuruList();
                loadDashboardData();
             } else {
-               showAlert('Error: ' + (result.error || 'Gagal menambah guru'), 'error');
+               const error = await response.json();
+               showAlert('Error: ' + error.error, 'error');
             }
          } catch (error) {
             console.error('Error adding guru:', error);
@@ -824,7 +1174,7 @@
          };
 
          try {
-            const response = await fetch('/kepsek/diskusi', {
+            const response = await fetch('/kepsek/kelas/diskusi', {
                method: 'POST',
                headers: {
                   'Content-Type': 'application/json'
@@ -833,14 +1183,14 @@
                body: JSON.stringify(diskusiData)
             });
 
-            const result = await response.json();
-
-            if (response.ok && result.success) {
+            if (response.ok) {
+               const result = await response.json();
                showAlert('Diskusi berhasil ditambahkan!');
                this.reset();
                loadDiskusiList();
             } else {
-               showAlert('Error: ' + (result.error || 'Gagal menambah diskusi'), 'error');
+               const error = await response.text();
+               showAlert('Error: ' + error, 'error');
             }
          } catch (error) {
             console.error('Error adding diskusi:', error);
@@ -848,57 +1198,142 @@
          }
       });
 
-      async function toggleGuruStatus(userId, currentStatus) {
-         const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
-
+      async function toggleUserStatus(userId, newStatus) {
          try {
-            const response = await fetch(`/kepsek/guru/${userId}/status`, {
+            const response = await fetch(`/kepsek/guru/status/${userId}`, {
                method: 'PATCH',
                headers: {
                   'Content-Type': 'application/json'
                },
                credentials: 'include',
-               body: JSON.stringify({ status: newStatus })
+               body: JSON.stringify({
+                  status: newStatus
+               })
             });
 
-            const result = await response.json();
-
-            if (response.ok && result.success) {
-               showAlert(`Status guru berhasil diubah menjadi ${newStatus}`);
+            if (response.ok) {
+               showAlert('Status user berhasil diubah!');
                loadGuruList();
             } else {
-               showAlert('Error: ' + (result.error || 'Gagal mengubah status'), 'error');
+               const error = await response.text();
+               showAlert('Error: ' + error, 'error');
             }
          } catch (error) {
             console.error('Error updating user status:', error);
-            showAlert('Terjadi kesalahan saat mengubah status', 'error');
+            showAlert('Terjadi kesalahan saat mengubah status user', 'error');
          }
       }
 
-      function viewSiswaProgress(siswaId) {
-         alert(`Fitur melihat progress siswa ${siswaId} akan segera tersedia`);
+      async function hapusGuru(userId) {
+         if (!confirm('Apakah Anda yakin ingin menghapus guru ini?')) {
+            return;
+         }
+
+         try {
+            const response = await fetch(`/kepsek/guru/hapus/${userId}`, {
+               method: 'DELETE',
+               credentials: 'include'
+            });
+
+            if (response.ok) {
+               showAlert('Guru berhasil dihapus!');
+               loadGuruList();
+               loadDashboardData();
+            } else {
+               const error = await response.text();
+               showAlert('Error: ' + error, 'error');
+            }
+         } catch (error) {
+            console.error('Error deleting guru:', error);
+            showAlert('Terjadi kesalahan saat menghapus guru', 'error');
+         }
       }
 
-      function viewMateriDetail(materiId) {
-         alert(`Fitur melihat detail materi ${materiId} akan segera tersedia`);
+      async function lihatTugasSiswa(siswaId) {
+         try {
+            const response = await fetch(`/kepsek/siswa/tugas/${siswaId}`, {
+               method: 'GET',
+               credentials: 'include'
+            });
+
+            if (response.ok) {
+               const tugasList = await response.json();
+               let tugasHtml = 'Daftar Tugas:\n\n';
+               tugasList.forEach(tugas => {
+                  tugasHtml += `• ${tugas.materi}: ${tugas.status}`;
+                  if (tugas.nilai) tugasHtml += ` (Nilai: ${tugas.nilai})`;
+                  tugasHtml += '\n';
+               });
+               alert(tugasHtml);
+            } else {
+               const error = await response.text();
+               showAlert('Error: ' + error, 'error');
+            }
+         } catch (error) {
+            console.error('Error loading tugas siswa:', error);
+            showAlert('Terjadi kesalahan saat memuat tugas siswa', 'error');
+         }
+      }
+
+      async function lihatDiskusiMateri(materiId) {
+         try {
+            const response = await fetch(`/kepsek/kelas/diskusi-materi/${materiId}`, {
+               method: 'GET',
+               credentials: 'include'
+            });
+
+            if (response.ok) {
+               const diskusiList = await response.json();
+               let diskusiHtml = 'Diskusi Materi:\n\n';
+               diskusiList.forEach(diskusi => {
+                  diskusiHtml += `${diskusi.user} (${diskusi.role}): ${diskusi.isi}\n(${new Date(diskusi.created_at).toLocaleDateString()})\n\n`;
+               });
+               alert(diskusiHtml || 'Belum ada diskusi untuk materi ini.');
+            } else {
+               const error = await response.text();
+               showAlert('Error: ' + error, 'error');
+            }
+         } catch (error) {
+            console.error('Error loading diskusi materi:', error);
+            showAlert('Terjadi kesalahan saat memuat diskusi materi', 'error');
+         }
       }
 
       async function logout() {
          try {
-            const response = await fetch('/auth/logout', {
+            const response = await fetch('/logout', {
                method: 'POST',
                credentials: 'include'
             });
 
-            window.location.href = '/auth/login';
+            window.location.href = '/login';
          } catch (error) {
             console.error('Logout error:', error);
-            window.location.href = '/auth/login';
+            window.location.href = '/login';
          }
       }
 
       document.addEventListener('DOMContentLoaded', function () {
          loadDashboardData();
+         setTimeout(connectWebSocket, 1000);
+
+         const messageInput = document.getElementById('chatMessage');
+         if (messageInput) {
+            messageInput.addEventListener('keypress', function (e) {
+               if (e.key === 'Enter') {
+                  e.preventDefault();
+                  sendChatMessage();
+               }
+            });
+         }
+
+         const reconnectButton = document.getElementById('reconnectButton');
+         if (reconnectButton) {
+            reconnectButton.addEventListener('click', function () {
+               reconnectAttempts = 0;
+               connectWebSocket();
+            });
+         }
       });
    </script>
 </body>
