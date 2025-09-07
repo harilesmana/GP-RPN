@@ -325,34 +325,6 @@ export const guruRoutes = new Elysia({ prefix: "/guru" })
     };
   })
 
-  .get("/submissions/pending", async ({ user }) => {
-    const guruId = user.userId;
-    
-    const pendingSubmissions = submissions
-      .filter(s => {
-        const tugasItem = tugasDetail.find(t => t.id === s.tugas_id);
-        return tugasItem && tugasItem.guru_id === guruId && s.nilai === undefined;
-      })
-      .map(s => {
-        const tugasItem = tugasDetail.find(t => t.id === s.tugas_id);
-        const siswa = users.find(u => u.id === s.siswa_id);
-        
-        return {
-          id: s.id,
-          tugas_id: s.tugas_id,
-          tugas_judul: tugasItem?.judul || "Tugas tidak ditemukan",
-          siswa_id: s.siswa_id,
-          siswa_nama: siswa?.nama || "Tidak diketahui",
-          jawaban: s.jawaban,
-          submitted_at: s.submitted_at
-        };
-      });
-    
-    return {
-      success: true,
-      data: pendingSubmissions
-    };
-  })
 .get("/submissions/pending", async ({ user }) => {
   try {
     const guruId = user.userId;
