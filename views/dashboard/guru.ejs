@@ -1005,11 +1005,16 @@ function displayMateriList(materiList) {
       
       
       function viewMateri(id) {
-         const materi = currentData.materi.find(m => m.id === id);
-         if (materi) {
-            alert(`Judul: ${materi.judul}\n\nKonten: ${materi.konten}`);
-         }
-      }
+  const materi = currentData.materi.find(m => m.id === id);
+  if (materi) {
+    const judul = materi.judul || "Judul tidak tersedia";
+    const konten = materi.konten || "Tidak ada konten yang tersedia";
+    
+    alert(`Judul: ${judul}\n\nKonten: ${konten}`);
+  } else {
+    showAlert('Materi tidak ditemukan', 'error');
+  }
+}
 
       async function editMateri(id) {
          const materi = currentData.materi.find(m => m.id === id);
