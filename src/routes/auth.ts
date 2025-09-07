@@ -35,66 +35,69 @@ export const authRoutes = new Elysia()
   })
 
   .post("/register", async ({ request, set }) => {
-    const formData = await request.formData();
-    const body: Record<string, string> = {};
+  const formData = await request.formData();
+  const body: Record<string, string> = {};
 
-    for (const [key, value] of formData.entries()) {
-      body[key] = String(value);
-    }
+  for (const [key, value] of formData.entries()) {
+    body[key] = String(value);
+  }
 
-    const parsed = registerSchema.safeParse(body);
-    if (!parsed.success) {
-      set.status = 400;
-      const errorMessage = parsed.error.issues.map((i) => i.message).join(", ");
-      
-      set.status = 302;
-      set.headers.Location = `/register?error=${encodeURIComponent(errorMessage)}&formData=${encodeURIComponent(JSON.stringify(body))}`;
-      return;
-    }
+  const parsed = registerSchema.safeParse(body);
+  if (!parsed.success) {
+    set.status = 400;
+    const errorMessage = parsed.error.issues.map((i) => i.message).join(", ");
+    
+    set.status = 302;
+    set.headers.Location = `/register?error=${encodeURIComponent(errorMessage)}&formData=${encodeURIComponent(JSON.stringify(body))}`;
+    return;
+  }
 
-    const { email, password, nama, confirmPassword } = parsed.data;
+  const { email, password, nama, confirmPassword, kelas_id } = parsed.data;
 
-    if (password !== confirmPassword) {
-      set.status = 302;
-      set.headers.Location = `/register?error=${encodeURIComponent("Password dan konfirmasi password tidak cocok")}&formData=${encodeURIComponent(JSON.stringify(body))}`;
-      return;
-    }
+  if (password !== confirmPassword) {
+    set.status = 302;
+    set.headers.Location = `/register?error=${encodeURIComponent("Password dan konfirmasi password tidak cocok")}&formData=${encodeURIComponent(JSON.stringify(body))}`;
+    return;
+  }
 
-    const existingUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
-    if (existingUser) {
-      set.status = 302;
-      set.headers.Location = `/register?error=${encodeURIComponent("Email sudah terdaftar")}&formData=${encodeURIComponent(JSON.stringify(body))}`;
-      return;
-    }
+  const existingUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+  if (existingUser) {
+    set.status = 302;
+    set.headers.Location = `/register?error=${encodeURIComponent("Email sudah terdaftar")}&formData=${encodeURIComponent(JSON.stringify(body))}`;
+    return;
+  }
 
-    try {
-      const passwordHash = await hashPassword(password);
-      const now = new Date();
+  try {
+    const passwordHash = await hashPassword(password);
+    const now = new Date();
 
-      const newUser = {
-        id: users.length + 1,
-        nama: nama.trim(),
-        email: email.toLowerCase().trim(),
-        password_hash: passwordHash,
-        role: "siswa" as Role,
-        status: "active" as const,
-        created_at: now,
-        last_login: now
-      };
+    const newUser = {
+      id: users.length + 1,
+      nama: nama.trim(),
+      email: email.toLowerCase().trim(),
+      password_hash: passwordHash,
+      role: "siswa" as Role,
+      status: "active" as const,
+      kelas_id: kelas_id || 1, // Default ke kelas 1 jika tidak dipilih
+      created_at: now,
+      last_login: now,
+      login_count: 0,
+      last_activity: now
+    };
 
-      users.push(newUser);
+    users.push(newUser);
 
-      set.status = 302;
-      set.headers.Location = "/login?message=Registrasi berhasil. Silakan login.";
-      return;
+    set.status = 302;
+    set.headers.Location = "/login?message=Registrasi berhasil. Silakan login.";
+    return;
 
-    } catch (error) {
-      console.error("Registration error:", error);
-      set.status = 500;
-      set.headers.Location = `/register?error=${encodeURIComponent("Terjadi kesalahan server")}&formData=${encodeURIComponent(JSON.stringify(body))}`;
-      return;
-    }
-  })
+  } catch (error) {
+    console.error("Registration error:", error);
+    set.status = 500;
+    set.headers.Location = `/register?error=${encodeURIComponent("Terjadi kesalahan server")}&formData=${encodeURIComponent(JSON.stringify(body))}`;
+    return;
+  }
+})
 
   .post("/login", async ({ request, set, cookie }) => {
     const formData = await request.formData();
