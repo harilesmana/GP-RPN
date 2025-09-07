@@ -115,21 +115,40 @@ export const guruRoutes = new Elysia({ prefix: "/guru" })
     };
   })
 
-  .get("/materi", async ({ user }) => {
+  
+.get("/materi", async ({ user }) => {
+  try {
     const guruId = user.userId;
-    const materiGuru = materi.filter(m => m.guru_id === guruId);
+    
+    console.log(`Loading materi untuk guru ${guruId}`);
+    console.log(`Total materi di database: ${materi.length}`);
+    
+    const materiGuru = materi
+      .filter(m => m.guru_id === guruId)
+      .map(m => {
+        
+        return {
+          id: m.id,
+          judul: m.judul || "Judul tidak tersedia",
+          deskripsi: m.deskripsi || "Tidak ada deskripsi",
+          konten: m.konten || "Tidak ada konten yang tersedia",
+          created_at: m.created_at || new Date(),
+          updated_at: m.updated_at || m.created_at || new Date()
+        };
+      });
+    
+    console.log(`Materi ditemukan untuk guru ${guruId}: ${materiGuru.length} items`);
     
     return {
       success: true,
-      data: materiGuru.map(m => ({
-        id: m.id,
-        judul: m.judul,
-        deskripsi: m.deskripsi,
-        created_at: m.created_at,
-        updated_at: m.updated_at
-      }))
+      data: materiGuru
     };
-  })
+    
+  } catch (error) {
+    console.error("Error loading materi guru:", error);
+    return { success: false, error: "Terjadi kesalahan saat memuat materi" };
+  }
+})
 
   .post("/materi", async ({ user, body, set }) => {
     const guruId = user.userId;
