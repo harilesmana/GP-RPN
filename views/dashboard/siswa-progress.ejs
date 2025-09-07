@@ -4,9 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>
-        <%= title %>
-    </title>
+    <title>Progress Siswa - E-Learning</title>
     <style>
         * {
             margin: 0;
@@ -237,6 +235,18 @@
             color: #333;
             line-height: 1.4;
         }
+
+        .error-container {
+            text-align: center;
+            padding: 40px;
+            color: #e74c3c;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
     </style>
 </head>
 
@@ -244,151 +254,174 @@
     <div class="container">
         <button class="back-btn" onclick="window.history.back()">← Kembali ke Dashboard</button>
 
-        <!-- Informasi Siswa -->
-        <div class="student-info">
-            <div class="info-item">
-                <span class="info-label">Nama Siswa</span>
-                <span class="info-value">
-                    <%= siswa.nama %>
-                </span>
+        <% if (error) { %>
+            <div class="error-container">
+                <h2>Terjadi Kesalahan</h2>
+                <p><%= error %></p>
+                <button class="back-btn" onclick="window.location.reload()" style="margin-top: 20px;">
+                    Muat Ulang Halaman
+                </button>
             </div>
-            <div class="info-item">
-                <span class="info-label">Email</span>
-                <span class="info-value">
-                    <%= siswa.email %>
-                </span>
+        <% } else if (!progressData) { %>
+            <div class="loading">
+                <p>Memuat data progress siswa...</p>
             </div>
-            <div class="info-item">
-                <span class="info-label">Login Terakhir</span>
-                <span class="info-value">
-                    <%= siswa.last_login ? new Date(siswa.last_login).toLocaleString('id-ID') : 'Belum pernah login' %>
-                </span>
+        <% } else { %>
+            <!-- Informasi Siswa -->
+            <div class="student-info">
+                <div class="info-item">
+                    <span class="info-label">Nama Siswa</span>
+                    <span class="info-value">
+                        <%= progressData.siswa?.nama || 'Tidak diketahui' %>
+                    </span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Email</span>
+                    <span class="info-value">
+                        <%= progressData.siswa?.email || 'Tidak diketahui' %>
+                    </span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Login Terakhir</span>
+                    <span class="info-value">
+                        <%= progressData.siswa?.last_login ? new Date(progressData.siswa.last_login).toLocaleString('id-ID') : 'Belum pernah login' %>
+                    </span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Aktivitas Terakhir</span>
+                    <span class="info-value">
+                        <%= progressData.siswa?.last_activity ? new Date(progressData.siswa.last_activity).toLocaleString('id-ID') : 'Tidak ada aktivitas' %>
+                    </span>
+                </div>
             </div>
-            <div class="info-item">
-                <span class="info-label">Aktivitas Terakhir</span>
-                <span class="info-value">
-                    <%= siswa.last_activity ? new Date(siswa.last_activity).toLocaleString('id-ID')
-                        : 'Tidak ada aktivitas' %>
-                </span>
-            </div>
-        </div>
 
-        <!-- Statistik -->
-        <h2 class="section-title">Statistik Progress</h2>
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-value">
-                    <%= statistik.total_tugas %>
+            <!-- Statistik -->
+            <h2 class="section-title">Statistik Progress</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value">
+                        <%= progressData.statistik?.total_tugas || 0 %>
+                    </div>
+                    <div class="stat-label">Total Tugas</div>
                 </div>
-                <div class="stat-label">Total Tugas</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value">
-                    <%= statistik.tugas_dikerjakan %>
+                <div class="stat-card">
+                    <div class="stat-value">
+                        <%= progressData.statistik?.tugas_dikerjakan || 0 %>
+                    </div>
+                    <div class="stat-label">Tugas Dikerjakan</div>
                 </div>
-                <div class="stat-label">Tugas Dikerjakan</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value">
-                    <%= statistik.tugas_dinilai %>
+                <div class="stat-card">
+                    <div class="stat-value">
+                        <%= progressData.statistik?.tugas_dinilai || 0 %>
+                    </div>
+                    <div class="stat-label">Tugas Dinilai</div>
                 </div>
-                <div class="stat-label">Tugas Dinilai</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value">
-                    <%= statistik.rata_rata_nilai %>
+                <div class="stat-card">
+                    <div class="stat-value">
+                        <%= progressData.statistik?.rata_rata_nilai || 0 %>
+                    </div>
+                    <div class="stat-label">Rata-rata Nilai</div>
                 </div>
-                <div class="stat-label">Rata-rata Nilai</div>
             </div>
-        </div>
 
-        <!-- Progress Bar -->
-        <div class="progress-container">
-            <div class="progress-header">
-                <span class="progress-title">Progress Keseluruhan</span>
-                <span class="progress-percentage">
-                    <%= statistik.progress %>%
-                </span>
+            <!-- Progress Bar -->
+            <div class="progress-container">
+                <div class="progress-header">
+                    <span class="progress-title">Progress Keseluruhan</span>
+                    <span class="progress-percentage">
+                        <%= progressData.statistik?.progress || 0 %>%
+                    </span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: <%= progressData.statistik?.progress || 0 %>%"></div>
+                </div>
             </div>
-            <div class="progress-bar">
-                <div class="progress-fill" style="width: <%= statistik.progress %>%"></div>
-            </div>
-        </div>
 
-        <!-- Detail Tugas -->
-        <h2 class="section-title">Detail Tugas</h2>
-        <% if (detailTugas && detailTugas.length> 0) { %>
-            <table class="tasks-table">
-                <thead>
-                    <tr>
-                        <th>Materi</th>
-                        <th>Tugas</th>
-                        <th>Deadline</th>
-                        <th>Status</th>
-                        <th>Nilai</th>
-                        <th>Dikumpulkan</th>
-                        <th>Feedback</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <% detailTugas.forEach(tugas=> { %>
+            <!-- Detail Tugas -->
+            <h2 class="section-title">Detail Tugas</h2>
+            <% if (progressData.detail_tugas && progressData.detail_tugas.length > 0) { %>
+                <table class="tasks-table">
+                    <thead>
                         <tr>
-                            <td>
-                                <%= tugas.materi %>
-                            </td>
-                            <td>
-                                <div><strong>
-                                        <%= tugas.judul %>
-                                    </strong></div>
-                                <% if (tugas.deskripsi) { %>
-                                    <div style="font-size: 0.9rem; color: #666; margin-top: 0.25rem;">
-                                        <%= tugas.deskripsi %>
-                                    </div>
+                            <th>Materi</th>
+                            <th>Tugas</th>
+                            <th>Deadline</th>
+                            <th>Status</th>
+                            <th>Nilai</th>
+                            <th>Dikumpulkan</th>
+                            <th>Feedback</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% progressData.detail_tugas.forEach(tugas => { %>
+                            <tr>
+                                <td>
+                                    <%= tugas.materi || 'Tidak diketahui' %>
+                                </td>
+                                <td>
+                                    <div><strong>
+                                            <%= tugas.judul || 'Tidak ada judul' %>
+                                        </strong></div>
+                                    <% if (tugas.deskripsi) { %>
+                                        <div style="font-size: 0.9rem; color: #666; margin-top: 0.25rem;">
+                                            <%= tugas.deskripsi %>
+                                        </div>
                                     <% } %>
-                                        <!-- Tampilkan jawaban siswa jika ada -->
-                                        <% if (tugas.jawaban && tugas.status==='dikerjakan' ) { %>
-                                            <div class="answer-section">
-                                                <div class="answer-label">Jawaban Siswa:</div>
-                                                <div class="answer-text">
-                                                    <%= tugas.jawaban %>
-                                                </div>
-                                            </div>
-                                            <% } %>
-                            </td>
-                            <td>
-                                <%= tugas.deadline ? new Date(tugas.deadline).toLocaleDateString('id-ID') : '-' %>
-                            </td>
-                            <td>
-                                <span class="status-badge status-<%= tugas.status %>">
-                                    <%= tugas.status==='belum_dikerjakan' ? 'Belum Dikerjakan' : 'Sudah Dikerjakan' %>
-                                </span>
-                            </td>
-                            <td>
-                                <% if (tugas.nilai !==null && tugas.nilai !==undefined) { %>
-                                    <span
-                                        class="<%= tugas.nilai >= 85 ? 'grade-excellent' : tugas.nilai >= 70 ? 'grade-good' : 'grade-poor' %>">
-                                        <%= tugas.nilai %>
+                                </td>
+                                <td>
+                                    <%= tugas.deadline ? new Date(tugas.deadline).toLocaleDateString('id-ID') : '-' %>
+                                </td>
+                                <td>
+                                    <span class="status-badge status-<%= tugas.status || 'belum_dikerjakan' %>">
+                                        <%= tugas.status === 'belum_dikerjakan' ? 'Belum Dikerjakan' : 
+                                            tugas.status === 'dikerjakan' ? 'Sudah Dikerjakan' : 
+                                            tugas.status || 'Belum Dikerjakan' %>
                                     </span>
+                                </td>
+                                <td>
+                                    <% if (tugas.nilai !== null && tugas.nilai !== undefined) { %>
+                                        <span class="<%= tugas.nilai >= 85 ? 'grade-excellent' : tugas.nilai >= 70 ? 'grade-good' : 'grade-poor' %>">
+                                            <%= tugas.nilai %>
+                                        </span>
                                     <% } else { %>
                                         -
-                                        <% } %>
-                            </td>
-                            <td>
-                                <%= tugas.submitted_at ? new Date(tugas.submitted_at).toLocaleString('id-ID') : '-' %>
-                            </td>
-                            <td>
-                                <%= tugas.feedback || '-' %>
-                            </td>
-                        </tr>
+                                    <% } %>
+                                </td>
+                                <td>
+                                    <%= tugas.submitted_at ? new Date(tugas.submitted_at).toLocaleString('id-ID') : '-' %>
+                                </td>
+                                <td>
+                                    <%= tugas.feedback || '-' %>
+                                </td>
+                            </tr>
                         <% }); %>
-                </tbody>
-            </table>
+                    </tbody>
+                </table>
             <% } else { %>
                 <div class="empty-state">
                     <p>Belum ada tugas yang tersedia untuk siswa ini</p>
                 </div>
-                <% } %>
+            <% } %>
+        <% } %>
     </div>
+
+    <script>
+        // Auto reload jika ada error
+        if (window.location.search.includes('error')) {
+            setTimeout(() => {
+                window.location.reload();
+            }, 3000);
+        }
+
+        // Handle back button
+        function goBack() {
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                window.location.href = '/guru/dashboard';
+            }
+        }
+    </script>
 </body>
 
 </html>
