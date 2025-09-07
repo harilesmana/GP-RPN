@@ -1,6 +1,6 @@
 import { Elysia } from "elysia";
 import { authMiddleware } from "../middleware/auth";
-import { addGuruSchema, updateUserStatusSchema } from "../middleware/inputValidadation";
+import { addGuruSchema, updateUserStatusSchema } from "../middleware/inputValidation";
 import { hashPassword } from "../utils/hash";
 import { users, kelas, materi, diskusi, Role } from "../db";
 
