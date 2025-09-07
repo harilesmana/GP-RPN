@@ -199,64 +199,72 @@
       </div>
    </div>
 
-   <script>
-      document.getElementById('loginForm').addEventListener('submit', async function (e) {
-         e.preventDefault();
+ <script>
+   document.getElementById('loginForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
 
-         const submitBtn = document.getElementById('submitBtn');
-         const loading = document.getElementById('loading');
-         const generalError = document.getElementById('generalError');
-         const generalSuccess = document.getElementById('generalSuccess');
+      const submitBtn = document.getElementById('submitBtn');
+      const loading = document.getElementById('loading');
+      const generalError = document.getElementById('generalError');
+      const generalSuccess = document.getElementById('generalSuccess');
 
-         
-         document.querySelectorAll('.error').forEach(el => {
-            el.style.display = 'none';
-            el.textContent = '';
-         });
-         generalError.style.display = 'none';
-         generalSuccess.style.display = 'none';
-
-         
-         submitBtn.disabled = true;
-         submitBtn.textContent = 'Memproses...';
-         loading.style.display = 'block';
-
-         const formData = new FormData(this);
-
-         try {
-            const response = await fetch('/login', {
-               method: 'POST',
-               body: formData
-            });
-
-            if (response.redirected) {
-               window.location.href = response.url;
-               return;
-            }
-
-            const responseText = await response.text();
-
-            if (response.ok) {
-               generalSuccess.textContent = responseText;
-               generalSuccess.style.display = 'block';
-               setTimeout(() => {
-                  window.location.href = '/dashboard';
-               }, 1000);
-            } else {
-               generalError.textContent = responseText;
-               generalError.style.display = 'block';
-            }
-         } catch (error) {
-            console.error('Login error:', error);
-            generalError.textContent = 'Terjadi kesalahan jaringan';
-            generalError.style.display = 'block';
-         } finally {
-            
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Masuk';
-            loading.style.display = 'none';
-         }
+      // Reset error messages
+      document.querySelectorAll('.error').forEach(el => {
+         el.style.display = 'none';
+         el.textContent = '';
       });
+      generalError.style.display = 'none';
+      generalSuccess.style.display = 'none';
+
+      // Show loading state
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Memproses...';
+      loading.style.display = 'block';
+
+      // Buat FormData dari form
+      const formData = new FormData(this);
+      const data = Object.fromEntries(formData.entries());
+
+      try {
+         const response = await fetch('/login', {
+            method: 'POST',
+            headers: {
+               'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+         });
+
+         if (response.redirected) {
+            window.location.href = response.url;
+            return;
+         }
+
+         const responseText = await response.text();
+
+         if (response.ok) {
+            generalSuccess.textContent = responseText;
+            generalSuccess.style.display = 'block';
+            setTimeout(() => {
+               window.location.href = '/dashboard';
+            }, 1000);
+         } else {
+            generalError.textContent = responseText;
+            generalError.style.display = 'block';
+         }
+      } catch (error) {
+         console.error('Login error:', error);
+         generalError.textContent = 'Terjadi kesalahan jaringan';
+         generalError.style.display = 'block';
+      } finally {
+         // Reset loading state
+         submitBtn.disabled = false;
+         submitBtn.textContent = 'Masuk';
+         loading.style.display = 'none';
+      }
+   });
+
+   // ... kode lainnya tetap sama
+
 
       
       document.getElementById('email').addEventListener('blur', function () {
