@@ -1,5 +1,5 @@
 import { Elysia } from "elysia";
-import { loginSchema, registerSchema, inputValidation } from "../middleware/inputValidation";
+import { loginSchema, registerSchema, inputValidation } from "../middleware/inputValidadation";
 import { hashPassword, verifyPassword } from "../utils/hash";
 import { signSession } from "../utils/session";
 import { users, loginAttempts, Role } from "../db";
@@ -14,10 +14,10 @@ export const authRoutes = new Elysia()
     set.headers["Content-Type"] = "text/html";
     return Bun.file("views/register.ejs").text();
   })
-  .post("/login", async ({ body, set, cookie, parseFormData }) => {
+  .post("/login", async ({ body, set, cookie }) => { 
     try {
-      const formData = await parseFormData();
-      const validatedData = loginSchema.parse(formData);
+      
+      const validatedData = loginSchema.parse(body);
 
       
       const attemptKey = `${validatedData.email}_${new Date().toISOString().split('T')[0]}`;
