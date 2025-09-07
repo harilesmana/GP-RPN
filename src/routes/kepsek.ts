@@ -1,150 +1,303 @@
 import { Elysia } from "elysia";
 import { authMiddleware } from "../middleware/auth";
+import { 
+  users, kelas, materi, diskusi, tugas, 
+  User, Kelas, Materi, Diskusi, Tugas 
+} from "../db";
 import { addGuruSchema, updateUserStatusSchema } from "../middleware/inputValidation";
 import { hashPassword } from "../utils/hash";
-import { users, kelas, materi, diskusi, Role } from "../db";
 
-export const kepsekRoutes = new Elysia()
-  .use(authMiddleware)
-  .derive(({ user }) => {
-    if (!user || user.role !== "kepsek") {
-      throw new Error("Unauthorized");
-    }
-    return { user };
-  })
+export const kepsekRoutes = new Elysia({ prefix: "/kepsek" })
+  .derive(authMiddleware as any)
   
-  .get("/kepsek/info-dasar", () => {
-    const jumlah_guru = users.filter(u => u.role === "guru").length;
-    const jumlah_siswa = users.filter(u => u.role === "siswa").length;
-    const jumlah_kelas = kelas.length;
-    const jumlah_materi = materi.length;
+  
+  .onBeforeHandle(({ user, set }) => {
+    if (!user || user.role !== "kepsek") {
+      set.status = 403;
+      return "Akses ditolak. Hanya kepala sekolah yang dapat mengakses endpoint ini.";
+    }
+  })
+
+
+   .get("/info-dasar", () => {
+    const jumlahGuru = users.filter(u => u.role === "guru").length;
+    const jumlahSiswa = users.filter(u => u.role === "siswa").length;
+    const jumlahKelas = kelas.length;
+    const jumlahMateri = materi.length;
 
     return {
-      jumlah_guru,
-      jumlah_siswa,
-      jumlah_kelas,
-      jumlah_materi
+      jumlah_guru: jumlahGuru,
+      jumlah_siswa: jumlahSiswa,
+      jumlah_kelas: jumlahKelas,
+      jumlah_materi: jumlahMateri
     };
   })
-  
-  .get("/kepsek/guru/daftar", () => {
-    return users
+
+  .get("/guru/daftar", () => {
+    const daftarGuru = users
       .filter(u => u.role === "guru")
       .map(guru => ({
         id: guru.id,
         nama: guru.nama,
         email: guru.email,
-        bidang: guru.bidang,
+        bidang: guru.bidang || "-",
         status: guru.status,
-        created_at: guru.created_at
+        last_login: guru.last_login,
+        login_count: guru.login_count
       }));
-  })
-  .post("/kepsek/guru/tambah", async ({ body }) => {
-    const validatedData = addGuruSchema.parse(body);
 
-    
-    if (users.some(u => u.email === validatedData.email)) {
-      throw new Error("Email sudah terdaftar");
+    return daftarGuru;
+  })
+
+  
+  .post("/guru/tambah", async ({ body, set }) => {
+    const parsed = addGuruSchema.safeParse(body);
+    if (!parsed.success) {
+      set.status = 400;
+      return { error: "Data tidak valid", details: parsed.error.issues };
     }
 
-    const hashedPassword = await hashPassword(validatedData.password);
-    const newGuru = {
-      id: users.length > 0 ? Math.max(...users.map(u => u.id)) + 1 : 1,
-      nama: validatedData.nama,
-      email: validatedData.email,
-      password_hash: hashedPassword,
-      role: "guru" as Role,
-      status: "active" as const,
-      bidang: validatedData.nama, 
-      created_at: new Date(),
-      last_login: undefined,
-      login_count: 0,
-      last_activity: new Date()
-    };
+    const { nama, email, password } = parsed.data;
+    const bidang = (body as any).bidang || "";
 
-    users.push(newGuru);
-    return { message: "Guru berhasil ditambahkan", id: newGuru.id };
-  })
-  .patch("/kepsek/guru/status/:id", async ({ params, body }) => {
-    const { id } = params;
-    const validatedData = updateUserStatusSchema.parse(body);
-
-    const user = users.find(u => u.id === parseInt(id) && u.role === "guru");
-    if (!user) {
-      throw new Error("Guru tidak ditemukan");
+    
+    const existingUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+    if (existingUser) {
+      set.status = 400;
+      return { error: "Email sudah terdaftar" };
     }
 
-    user.status = validatedData.status;
-    return { message: "Status guru berhasil diupdate" };
+    try {
+      const passwordHash = await hashPassword(password);
+      const now = new Date();
+
+      const newGuru: User = {
+        id: users.length + 1,
+        nama: nama.trim(),
+        email: email.toLowerCase().trim(),
+        password_hash: passwordHash,
+        role: "guru",
+        status: "active",
+        created_by: 1, 
+        created_at: now,
+        last_login: now,
+        login_count: 0,
+        last_activity: now,
+        bidang: bidang.trim() || undefined
+      };
+
+      users.push(newGuru);
+
+      return { 
+        success: true, 
+        message: "Guru berhasil ditambahkan",
+        data: {
+          id: newGuru.id,
+          nama: newGuru.nama,
+          email: newGuru.email,
+          bidang: newGuru.bidang
+        }
+      };
+    } catch (error) {
+      console.error("Error adding guru:", error);
+      set.status = 500;
+      return { error: "Terjadi kesalahan server" };
+    }
   })
-  .delete("/kepsek/guru/hapus/:id", async ({ params }) => {
-    const { id } = params;
-    const index = users.findIndex(u => u.id === parseInt(id) && u.role === "guru");
+
+  
+  .patch("/guru/status/:id", async ({ params, body, set }) => {
+    const parsed = updateUserStatusSchema.safeParse({ 
+      id: params.id, 
+      ...body 
+    });
     
+    if (!parsed.success) {
+      set.status = 400;
+      return { error: "Data tidak valid", details: parsed.error.issues };
+    }
+
+    const { id, status } = parsed.data;
+    const guru = users.find(u => u.id === id && u.role === "guru");
+
+    if (!guru) {
+      set.status = 404;
+      return { error: "Guru tidak ditemukan" };
+    }
+
+    guru.status = status;
+    return { success: true, message: `Status guru berhasil diubah menjadi ${status}` };
+  })
+
+  
+  .delete("/guru/hapus/:id", async ({ params, set }) => {
+    const id = parseInt(params.id);
+    if (isNaN(id)) {
+      set.status = 400;
+      return { error: "ID tidak valid" };
+    }
+
+    const index = users.findIndex(u => u.id === id && u.role === "guru");
     if (index === -1) {
-      throw new Error("Guru tidak ditemukan");
+      set.status = 404;
+      return { error: "Guru tidak ditemukan" };
     }
 
-    users.splice(index, 1);
-    return { message: "Guru berhasil dihapus" };
-  })
-  
-  .get("/kepsek/siswa/daftar", () => {
-    return users
-      .filter(u => u.role === "siswa")
-      .map(siswa => ({
-        id: siswa.id,
-        nama: siswa.nama,
-        email: siswa.email,
-        status: siswa.status,
-        created_at: siswa.created_at
-      }));
-  })
-  .get("/kepsek/siswa/tugas/:id", async ({ params }) => {
-    const { id } = params;
-    const { tugas } = await import("../db");
     
-    return tugas.filter(t => t.siswa_id === parseInt(id));
+    users.splice(index, 1);
+    return { success: true, message: "Guru berhasil dihapus" };
   })
-  
-  .get("/kepsek/materi/daftar", () => {
-    return materi.map(m => ({
-      id: m.id,
-      judul: m.judul,
-      guru: users.find(u => u.id === m.guru_id)?.nama || "Unknown",
-      created_at: m.created_at
-    }));
-  })
-  
-  .get("/kepsek/kelas/diskusi", () => {
-    return diskusi;
-  })
-  .post("/kepsek/kelas/diskusi", async ({ body, user }) => {
-    const { kelas: kelasName, isi } = body as any;
 
-    const newDiskusi = {
-      id: diskusi.length > 0 ? Math.max(...diskusi.map(d => d.id)) + 1 : 1,
-      kelas: kelasName,
-      isi,
-      user_id: user!.userId,
-      user_role: user!.role as Role,
+  
+  .get("/siswa/daftar", () => {
+    const daftarSiswa = users
+      .filter(u => u.role === "siswa")
+      .map(siswa => {
+        
+        const kelasSiswa = kelas[siswa.id % kelas.length] || kelas[0];
+        
+        return {
+          id: siswa.id,
+          nama: siswa.nama,
+          email: siswa.email,
+          kelas: kelasSiswa?.nama || "Belum ditentukan",
+          status: siswa.status,
+          last_login: siswa.last_login
+        };
+      });
+
+    return daftarSiswa;
+  })
+
+  
+  .get("/siswa/tugas/:id", async ({ params, set }) => {
+    const siswaId = parseInt(params.id);
+    if (isNaN(siswaId)) {
+      set.status = 400;
+      return { error: "ID siswa tidak valid" };
+    }
+
+    const siswa = users.find(u => u.id === siswaId && u.role === "siswa");
+    if (!siswa) {
+      set.status = 404;
+      return { error: "Siswa tidak ditemukan" };
+    }
+
+    const tugasSiswa = tugas
+      .filter(t => t.siswa_id === siswaId)
+      .map(t => {
+        const materiItem = materi.find(m => m.id === t.materi_id);
+        return {
+          id: t.id,
+          materi: materiItem?.judul || "Materi tidak ditemukan",
+          status: t.status,
+          nilai: t.nilai,
+          hasil: t.hasil,
+          updated_at: t.updated_at
+        };
+      });
+
+    return tugasSiswa;
+  })
+
+  
+  .get("/materi/daftar", () => {
+    const daftarMateri = materi.map(m => {
+      const guruPengampu = users.find(u => u.id === m.guru_id);
+      const kelasMateri = kelas.find(k => k.id === m.kelas_id);
+      
+      return {
+        id: m.id,
+        judul: m.judul,
+        deskripsi: m.deskripsi,
+        guru: guruPengampu?.nama || "Tidak diketahui",
+        kelas: kelasMateri?.nama || "Tidak diketahui",
+        created_at: m.created_at
+      };
+    });
+
+    return daftarMateri;
+  })
+
+  
+  .get("/kelas/diskusi-materi/:id", async ({ params, set }) => {
+    const materiId = parseInt(params.id);
+    if (isNaN(materiId)) {
+      set.status = 400;
+      return { error: "ID materi tidak valid" };
+    }
+
+    const materiItem = materi.find(m => m.id === materiId);
+    if (!materiItem) {
+      set.status = 404;
+      return { error: "Materi tidak ditemukan" };
+    }
+
+    
+    
+    const diskusiMateri = diskusi.slice(0, 5).map(d => {
+      const user = users.find(u => u.id === d.user_id);
+      return {
+        id: d.id,
+        user: user?.nama || "Anonim",
+        role: d.user_role,
+        isi: d.isi,
+        created_at: d.created_at
+      };
+    });
+
+    return diskusiMateri;
+  })
+
+  
+  .get("/kelas/diskusi", () => {
+    const daftarDiskusi = diskusi.map(d => {
+      const user = users.find(u => u.id === d.user_id);
+      return {
+        id: d.id,
+        kelas: d.kelas,
+        isi: d.isi.length > 100 ? d.isi.substring(0, 100) + "..." : d.isi,
+        user: user?.nama || "Anonim",
+        role: d.user_role,
+        created_at: d.created_at
+      };
+    });
+
+    return daftarDiskusi;
+  })
+
+  
+  .post("/kelas/diskusi", async ({ body, user, set }) => {
+    const { kelas, isi } = body as any;
+    
+    if (!kelas || !isi) {
+      set.status = 400;
+      return { error: "Kelas dan isi diskusi harus diisi" };
+    }
+
+    if (isi.length < 5) {
+      set.status = 400;
+      return { error: "Isi diskusi terlalu pendek" };
+    }
+
+    const newDiskusi: Diskusi = {
+      id: diskusi.length + 1,
+      kelas: kelas.trim(),
+      isi: isi.trim(),
+      user_id: user.userId,
+      user_role: user.role,
       created_at: new Date()
     };
 
     diskusi.push(newDiskusi);
-    return { message: "Diskusi berhasil ditambahkan", id: newDiskusi.id };
-  })
-  .get("/kepsek/kelas/diskusi-materi/:id", async ({ params }) => {
-    const { id } = params;
-    const { diskusiMateri } = await import("../db");
     
-    return diskusiMateri
-      .filter(d => d.materi_id === parseInt(id))
-      .map(d => ({
-        id: d.id,
-        user: users.find(u => u.id === d.user_id)?.nama || "Unknown",
-        role: d.user_role,
-        isi: d.isi,
-        created_at: d.created_at
-      }));
+    return { 
+      success: true, 
+      message: "Diskusi berhasil ditambahkan",
+      data: {
+        id: newDiskusi.id,
+        kelas: newDiskusi.kelas,
+        isi: newDiskusi.isi
+      }
+    };
   });
