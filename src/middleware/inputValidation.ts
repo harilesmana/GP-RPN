@@ -11,6 +11,7 @@ export const registerSchema = z.object({
   email: z.string().email("Email tidak valid").min(5).max(100),
   password: z.string().min(6, "Password minimal 6 karakter").max(100),
   confirmPassword: z.string().min(6, "Konfirmasi password minimal 6 karakter").max(100),
+  kelas_id: z.coerce.number().int().positive("Pilih kelas yang valid").optional(),
 });
 
 export const addGuruSchema = z.object({
