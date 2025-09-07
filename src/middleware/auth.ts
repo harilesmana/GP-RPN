@@ -1,7 +1,7 @@
-import type { Context } from "elysia";
+import { Elysia, type Context } from "elysia";
 import { verifySession } from "../utils/session";
 
-export async function authMiddleware({ cookie, set, request }: Context) {
+export const authMiddleware = new Elysia().derive(({ cookie, set, request }) => {
   const token = cookie?.session?.value;
   if (!token) {
     return { user: null };
@@ -13,11 +13,11 @@ export async function authMiddleware({ cookie, set, request }: Context) {
     if (cookie?.session) cookie.session.set({ value: "", maxAge: 0 });
     return { user: null };
   }
-  
-  return { 
-    user: {
-      userId: data.userId,
-      role: data.role,
-    } 
-  };
-}
+
+  const user = {
+    userId: data.userId,
+    role: data.role,
+  }
+
+  return { user };
+})

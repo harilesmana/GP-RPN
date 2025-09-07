@@ -14,7 +14,7 @@ import { registrasiRoutes } from "./routes/registrasi";
 
 const app = new Elysia()
   .use(cors())
-  .use(cookie())
+  .use(cookie({ secret: process.env.SESSION_SECRET || "dev_secret_change_me" }))
   .use(ejsPlugin({ viewsDir: './views' }))
   .use(securityHeaders)
   .onBeforeHandle(rateLimit(60, 60_000))

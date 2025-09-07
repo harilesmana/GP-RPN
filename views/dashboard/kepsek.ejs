@@ -4,7 +4,9 @@
 <head>
    <meta charset="UTF-8">
    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-   <title><%= title %></title>
+   <title>
+      <%= title %>
+   </title>
    <style>
       * {
          margin: 0;
@@ -607,7 +609,7 @@
             if (response.ok) {
                const result = await response.json();
                const container = document.getElementById('recentActivity');
-               
+
                if (result.success && result.data.length > 0) {
                   container.innerHTML = result.data.map(activity => `
                      <div style="padding: 0.5rem 0; border-bottom: 1px solid #eee;">
@@ -637,11 +639,11 @@
 
             if (response.ok) {
                const result = await response.json();
-               
+
                if (result.success) {
                   loading.style.display = 'none';
                   table.style.display = 'table';
-                  
+
                   container.innerHTML = result.data.map(guru => `
                      <tr>
                         <td>${guru.nama}</td>
@@ -677,11 +679,11 @@
 
             if (response.ok) {
                const result = await response.json();
-               
+
                if (result.success) {
                   loading.style.display = 'none';
                   table.style.display = 'table';
-                  
+
                   container.innerHTML = result.data.map(siswa => `
                      <tr>
                         <td>${siswa.nama}</td>
@@ -716,11 +718,11 @@
 
             if (response.ok) {
                const result = await response.json();
-               
+
                if (result.success) {
                   loading.style.display = 'none';
                   table.style.display = 'table';
-                  
+
                   container.innerHTML = result.data.map(materi => `
                      <tr>
                         <td>${materi.judul}</td>
@@ -754,11 +756,11 @@
 
             if (response.ok) {
                const result = await response.json();
-               
+
                if (result.success) {
                   loading.style.display = 'none';
                   table.style.display = 'table';
-                  
+
                   container.innerHTML = result.data.map(diskusi => `
                      <tr>
                         <td>${diskusi.kelas}</td>
