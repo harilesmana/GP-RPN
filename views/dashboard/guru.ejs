@@ -756,27 +756,62 @@
       }
 
       async function berikanNilai(submissionId) {
-         const nilaiInput = document.getElementById(`nilai-${submissionId}`);
-         const nilai = parseInt(nilaiInput.value);
+  const nilaiInput = document.getElementById(`nilai-${submissionId}`);
+  const feedbackInput = document.getElementById(`feedback-${submissionId}`);
+  
+  const nilai = nilaiInput ? parseInt(nilaiInput.value) : null;
+  const feedback = feedbackInput ? feedbackInput.value : "";
 
-         if (!nilai || nilai < 0 || nilai > 100) {
-            showAlert('Nilai harus antara 0-100', 'error');
-            return;
-         }
+  
+  if (nilai === null || isNaN(nilai)) {
+    showAlert('Masukkan nilai yang valid (0-100)', 'error');
+    return;
+  }
 
-         try {
-            await apiCall(`/guru/submissions/${submissionId}/grade`, {
-               method: 'POST',
-               body: JSON.stringify({ nilai })
-            });
+  if (nilai < 0 || nilai > 100) {
+    showAlert('Nilai harus antara 0-100', 'error');
+    return;
+  }
 
-            showAlert('Nilai berhasil diberikan!');
-            loadPendingSubmissions();
-            loadDashboardData(); 
-         } catch (error) {
-            console.error('Error grading submission:', error);
-         }
-      }
+  try {
+    const response = await fetch(`/guru/submissions/${submissionId}/grade`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({ 
+        nilai: nilai,
+        feedback: feedback 
+      })
+    });
+
+    const result = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(result.error || 'Terjadi kesalahan');
+    }
+
+    if (result.success) {
+      showAlert('Nilai berhasil diberikan!');
+      
+      
+      loadPendingSubmissions();
+      loadDashboardData();
+      
+      
+      if (nilaiInput) nilaiInput.value = '';
+      if (feedbackInput) feedbackInput.value = '';
+      
+    } else {
+      showAlert(result.error || 'Gagal memberikan nilai', 'error');
+    }
+    
+  } catch (error) {
+    console.error('Error grading submission:', error);
+    showAlert(error.message || 'Terjadi kesalahan saat memberikan nilai', 'error');
+  }
+}
 
       
       
