@@ -4,35 +4,27 @@ import { cookie } from "@elysiajs/cookie";
 import { cors } from "@elysiajs/cors";
 import { securityHeaders } from "./middleware/security";
 import { rateLimit } from "./middleware/rateLimit";
-import { ejsPlugin } from "./middleware/ejs";
 import { authRoutes } from "./routes/auth";
 import { dashboardRoutes } from "./routes/dashboard";
 import { kepsekRoutes } from "./routes/kepsek";
 import { guruRoutes } from "./routes/guru";
 import { siswaRoutes } from "./routes/siswa";
-import { registrasiRoutes } from "./routes/registrasi";
-
 const app = new Elysia()
   .use(cors())
-  .use(cookie({ secret: process.env.SESSION_SECRET || "dev_secret_change_me" }))
-  .use(ejsPlugin({ viewsDir: './views' }))
-  .use(securityHeaders)
+  .use(cookie())
+  .use(securityHeaders(new Elysia()))
   .onBeforeHandle(rateLimit(60, 60_000))
   .get("/", ({ set }) => {
     set.status = 302;
-    set.headers.Location = "/auth/login";
-    return "Redirecting to login...";
+    set.headers.Location = "/login";
   })
   .use(authRoutes)
   .use(dashboardRoutes)
   .use(kepsekRoutes)
   .use(guruRoutes)
   .use(siswaRoutes)
-  .use(registrasiRoutes)
   .all("*", () => new Response("Not Found", { status: 404 }));
 
-const server = app.listen(process.env.PORT ? Number(process.env.PORT) : 3000, () => {
-  console.log(`🚀 Server running at http://localhost:${app.server?.port}`);
-});
+const server = app.listen(process.env.PORT ? Number(process.env.PORT) : 3000);
 
-export type App = typeof app;
+console.log(`HTTP Server jalan di http://localhost:${app.server?.port}`);
