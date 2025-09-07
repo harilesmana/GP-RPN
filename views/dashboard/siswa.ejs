@@ -830,42 +830,57 @@ function displayMateriGrid() {
 
       // Display tugas grid
       function displayTugasGrid() {
-         const container = document.getElementById('tugasGrid');
+  const container = document.getElementById('tugasGrid');
 
-         if (tugasData.length === 0) {
-            container.innerHTML = '<p>Belum ada tugas yang tersedia</p>';
-            return;
-         }
+  if (!tugasData || tugasData.length === 0) {
+    container.innerHTML = `
+      <div style="text-align: center; padding: 2rem; color: #666;">
+        <p>Belum ada tugas yang tersedia untuk kelas Anda</p>
+        <p style="font-size: 0.9rem; margin-top: 0.5rem;">
+          Silakan hubungi guru jika Anda merasa ini adalah kesalahan
+        </p>
+      </div>
+    `;
+    return;
+  }
 
-         container.innerHTML = tugasData.map(tugas => `
-            <div class="tugas-card">
-               <div class="tugas-header">
-                  <div class="tugas-title">${tugas.judul}</div>
-                  <span class="tugas-status status-${tugas.status}">${tugas.status.replace('_', ' ')}</span>
-               </div>
-               <div class="tugas-materi">Materi: ${tugas.materi_judul}</div>
-               <div class="tugas-deadline">Deadline: ${new Date(tugas.deadline).toLocaleDateString('id-ID')}</div>
-               <div class="tugas-description">${tugas.deskripsi}</div>
-               
-               ${tugas.nilai ? `
-                  <div class="tugas-nilai">
-                     <span class="nilai-badge">Nilai: ${tugas.nilai}/100</span>
-                     ${tugas.feedback ? `<p style="margin-top: 0.5rem; color: #666; font-style: italic;">${tugas.feedback}</p>` : ''}
-                  </div>
-               ` : ''}
-               
-               <div style="display: flex; gap: 10px; margin-top: 1rem;">
-                  ${tugas.status === 'belum_dikerjakan' ?
-               `<button class="btn btn-success" onclick="kerjakanTugas(${tugas.id})">Kerjakan</button>` :
-               tugas.status === 'dikerjakan' ?
-                  `<button class="btn btn-warning" onclick="editJawaban(${tugas.id})">Edit Jawaban</button>` :
-                  `<button class="btn" onclick="lihatJawaban(${tugas.id})">Lihat Jawaban</button>`
-            }
-                  <button class="btn" onclick="lihatDetailTugas(${tugas.id})">Detail</button>
-               </div>
-            </div>
-         `).join('');
-      }
+  container.innerHTML = tugasData.map(tugas => `
+    <div class="tugas-card">
+      <div class="tugas-header">
+        <div class="tugas-title">${tugas.judul}</div>
+        <span class="tugas-status status-${tugas.status}">
+          ${tugas.status.replace('_', ' ')}
+        </span>
+      </div>
+      <div class="tugas-materi">Materi: ${tugas.materi_judul}</div>
+      <div class="tugas-deadline">
+        Deadline: ${tugas.deadline ? new Date(tugas.deadline).toLocaleDateString('id-ID') : '-'}
+      </div>
+      <div class="tugas-description">${tugas.deskripsi || 'Tidak ada deskripsi'}</div>
+      
+      ${tugas.nilai !== undefined ? `
+        <div class="tugas-nilai">
+          <span class="nilai-badge">Nilai: ${tugas.nilai}/100</span>
+          ${tugas.feedback ? `
+            <p style="margin-top: 0.5rem; color: #666; font-style: italic;">
+              Feedback: ${tugas.feedback}
+            </p>
+          ` : ''}
+        </div>
+      ` : ''}
+      
+      <div style="display: flex; gap: 10px; margin-top: 1rem;">
+        ${tugas.status === 'belum_dikerjakan' ?
+          `<button class="btn btn-success" onclick="kerjakanTugas(${tugas.id})">Kerjakan</button>` :
+          tugas.status === 'dikerjakan' ?
+            `<button class="btn btn-warning" onclick="editJawaban(${tugas.id})">Edit Jawaban</button>` :
+            `<button class="btn" onclick="lihatJawaban(${tugas.id})">Lihat Jawaban</button>`
+        }
+        <button class="btn" onclick="lihatDetailTugas(${tugas.id})">Detail</button>
+      </div>
+    </div>
+  `).join('');
+}
 
       // Load nilai saya
       async function loadNilaiSaya() {
