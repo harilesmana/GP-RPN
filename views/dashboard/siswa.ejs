@@ -926,52 +926,69 @@ function displayMateriGrid() {
 
       // Display nilai
       function displayNilai() {
-         // Summary
-         const summaryContainer = document.getElementById('nilaiSummary');
-         const totalTugas = nilaiData.length;
-         const tugasDinilai = nilaiData.filter(n => n.nilai !== null).length;
-         const rataRata = tugasDinilai > 0 ?
-            nilaiData.filter(n => n.nilai !== null).reduce((sum, n) => sum + n.nilai, 0) / tugasDinilai : 0;
+  const summaryContainer = document.getElementById('nilaiSummary');
+  const detailContainer = document.getElementById('detailNilai');
 
-         summaryContainer.innerHTML = `
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
-               <div style="text-align: center; background: #f8f9ff; padding: 1rem; border-radius: 8px;">
-                  <div style="font-size: 2rem; font-weight: bold; color: #3498db;">${totalTugas}</div>
-                  <div style="color: #666;">Total Tugas</div>
-               </div>
-               <div style="text-align: center; background: #f8f9ff; padding: 1rem; border-radius: 8px;">
-                  <div style="font-size: 2rem; font-weight: bold; color: #3498db;">${tugasDinilai}</div>
-                  <div style="color: #666;">Sudah Dinilai</div>
-               </div>
-               <div style="text-align: center; background: #f8f9ff; padding: 1rem; border-radius: 8px;">
-                  <div style="font-size: 2rem; font-weight: bold; color: #3498db;">${Math.round(rataRata)}</div>
-                  <div style="color: #666;">Rata-rata</div>
-               </div>
-            </div>
-         `;
+  if (!nilaiData || nilaiData.length === 0) {
+    summaryContainer.innerHTML = `
+      <div style="text-align: center; padding: 2rem; color: #666;">
+        <p>Belum ada nilai yang tersedia</p>
+      </div>
+    `;
+    detailContainer.innerHTML = `
+      <div style="text-align: center; padding: 2rem; color: #666;">
+        <p>Belum ada tugas yang dinilai</p>
+      </div>
+    `;
+    return;
+  }
 
-         // Detail
-         const detailContainer = document.getElementById('detailNilai');
-         if (nilaiData.length === 0) {
-            detailContainer.innerHTML = '<p>Belum ada tugas dengan nilai</p>';
-            return;
-         }
+  // Summary
+  const totalTugas = nilaiData.length;
+  const tugasDinilai = nilaiData.filter(n => n.nilai !== undefined && n.nilai !== null).length;
+  const rataRata = tugasDinilai > 0 ?
+    nilaiData.filter(n => n.nilai !== undefined && n.nilai !== null)
+      .reduce((sum, n) => sum + n.nilai, 0) / tugasDinilai : 0;
 
-         detailContainer.innerHTML = nilaiData.map(nilai => `
-            <div style="background: #f8f9ff; padding: 1rem; margin-bottom: 1rem; border-radius: 8px; border-left: 3px solid ${nilai.nilai ? '#3498db' : '#e74c3c'};">
-               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                  <h4 style="margin: 0; color: #333;">${nilai.tugas_judul}</h4>
-                  ${nilai.nilai ?
-               `<span class="nilai-badge">${nilai.nilai}/100</span>` :
-               `<span style="color: #e74c3c; font-weight: 600;">Belum Dinilai</span>`
-            }
-               </div>
-               <p style="color: #666; margin: 0.25rem 0; font-size: 0.9rem;">Materi: ${nilai.materi_judul}</p>
-               <p style="color: #666; margin: 0.25rem 0; font-size: 0.9rem;">Dikumpulkan: ${new Date(nilai.submitted_at).toLocaleDateString('id-ID')}</p>
-               ${nilai.feedback ? `<p style="color: #555; margin-top: 0.5rem; font-style: italic; background: white; padding: 0.5rem; border-radius: 4px;">${nilai.feedback}</p>` : ''}
-            </div>
-         `).join('');
-      }
+  summaryContainer.innerHTML = `
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+      <div style="text-align: center; background: #f8f9ff; padding: 1rem; border-radius: 8px;">
+        <div style="font-size: 2rem; font-weight: bold; color: #3498db;">${totalTugas}</div>
+        <div style="color: #666;">Total Tugas</div>
+      </div>
+      <div style="text-align: center; background: #f8f9ff; padding: 1rem; border-radius: 8px;">
+        <div style="font-size: 2rem; font-weight: bold; color: #3498db;">${tugasDinilai}</div>
+        <div style="color: #666;">Sudah Dinilai</div>
+      </div>
+      <div style="text-align: center; background: #f8f9ff; padding: 1rem; border-radius: 8px;">
+        <div style="font-size: 2rem; font-weight: bold; color: #3498db;">${Math.round(rataRata)}</div>
+        <div style="color: #666;">Rata-rata</div>
+      </div>
+    </div>
+  `;
+
+  // Detail
+  detailContainer.innerHTML = nilaiData.map(nilai => `
+    <div style="background: #f8f9ff; padding: 1rem; margin-bottom: 1rem; border-radius: 8px; border-left: 3px solid ${nilai.nilai ? '#3498db' : '#e74c3c'};">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+        <h4 style="margin: 0; color: #333;">${nilai.tugas_judul}</h4>
+        ${nilai.nilai !== undefined && nilai.nilai !== null ?
+          `<span class="nilai-badge">${nilai.nilai}/100</span>` :
+          `<span style="color: #e74c3c; font-weight: 600;">Belum Dinilai</span>`
+        }
+      </div>
+      <p style="color: #666; margin: 0.25rem 0; font-size: 0.9rem;">Materi: ${nilai.materi_judul}</p>
+      <p style="color: #666; margin: 0.25rem 0; font-size: 0.9rem;">
+        Dikumpulkan: ${nilai.submitted_at ? new Date(nilai.submitted_at).toLocaleDateString('id-ID') : '-'}
+      </p>
+      ${nilai.feedback ? `
+        <p style="color: #555; margin-top: 0.5rem; font-style: italic; background: white; padding: 0.5rem; border-radius: 4px;">
+          Feedback: ${nilai.feedback}
+        </p>
+      ` : ''}
+    </div>
+  `).join('');
+}
 
       // Load diskusi
       async function loadDiskusi() {
