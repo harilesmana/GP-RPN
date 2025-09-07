@@ -1098,24 +1098,35 @@ function displayMateriGrid() {
 }
 
       function showMateriModal(materi) {
-         const modal = document.createElement('div');
-         modal.className = 'modal-overlay';
-         modal.innerHTML = `
-            <div class="modal-content">
-               <div class="modal-header">
-                  <h3>${materi.judul}</h3>
-                  <button class="modal-close" onclick="closeModal()">&times;</button>
-               </div>
-               <div class="modal-body">
-                  <p style="color: #666; margin-bottom: 1rem;">Guru: ${materi.guru_nama}</p>
-                  <div style="line-height: 1.6; color: #333;">
-                     ${materi.konten.replace(/\n/g, '<br>')}
-                  </div>
-               </div>
-            </div>
-         `;
-         document.body.appendChild(modal);
-      }
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay';
+  modal.innerHTML = `
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>${materi.judul}</h3>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="color: #666; margin-bottom: 1rem;">
+          <strong>Guru:</strong> ${materi.guru_nama}
+        </p>
+        ${materi.deskripsi ? `
+          <div style="background: #f8f9ff; padding: 1rem; border-radius: 5px; margin-bottom: 1rem;">
+            <strong>Deskripsi:</strong><br>
+            ${materi.deskripsi}
+          </div>
+        ` : ''}
+        <div style="line-height: 1.6; color: #333; max-height: 60vh; overflow-y: auto;">
+          ${materi.konten.replace(/\n/g, '<br>')}
+        </div>
+        <div style="margin-top: 1rem; font-size: 0.8rem; color: #888;">
+          Diperbarui: ${new Date(materi.updated_at || materi.created_at).toLocaleDateString('id-ID')}
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
 
       function kerjakanTugas(tugasId) {
          const tugas = tugasData.find(t => t.id === tugasId);
