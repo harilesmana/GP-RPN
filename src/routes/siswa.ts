@@ -301,9 +301,9 @@ export const siswaRoutes = new Elysia({ prefix: "/siswa" })
       return { success: false, error: "Siswa tidak ditemukan" };
     }
     
-    // Dapatkan nama kelas siswa
+    
     const kelasSiswa = kelas.find(k => k.id === siswa.kelas_id);
-    const namaKelas = kelasSiswa?.nama || "Kelas 1A"; // Default value
+    const namaKelas = kelasSiswa?.nama || "Kelas 1A"; 
     
     console.log(`Loading diskusi untuk kelas: ${namaKelas}`);
     console.log(`Total diskusi: ${diskusi.length}`);
@@ -351,7 +351,7 @@ export const siswaRoutes = new Elysia({ prefix: "/siswa" })
     console.log(`Total diskusi materi: ${diskusiMateri.length}`);
     console.log(`Total materi: ${materi.length}`);
     
-    // Dapatkan materi yang sesuai dengan kelas siswa
+    
     const materiSiswa = materi.filter(m => m.kelas_id === kelasSiswa);
     console.log(`Materi untuk kelas ${kelasSiswa}: ${materiSiswa.length} items`);
     
@@ -407,13 +407,13 @@ export const siswaRoutes = new Elysia({ prefix: "/siswa" })
       return { success: false, error: "Isi diskusi terlalu pendek (minimal 5 karakter)" };
     }
     
-    // Validasi materi exists
+    
     const materiItem = materi.find(m => m.id === parseInt(materi_id));
     if (!materiItem) {
       return { success: false, error: "Materi tidak ditemukan" };
     }
     
-    // Validasi siswa boleh mengakses materi ini
+    
     const siswa = users.find(u => u.id === siswaId);
     if (materiItem.kelas_id !== (siswa?.kelas_id || 1)) {
       return { success: false, error: "Anda tidak memiliki akses ke materi ini" };
@@ -515,7 +515,7 @@ export const siswaRoutes = new Elysia({ prefix: "/siswa" })
       return { success: false, error: "Isi diskusi terlalu pendek (minimal 5 karakter)" };
     }
     
-    // Dapatkan kelas siswa
+    
     const siswa = users.find(u => u.id === siswaId);
     const kelasSiswa = kelas.find(k => k.id === siswa?.kelas_id);
     const namaKelas = kelasSiswa?.nama || "Kelas 1A";
