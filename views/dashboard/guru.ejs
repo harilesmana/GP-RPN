@@ -10,6 +10,10 @@
          margin: 0;
          padding: 0;
          box-sizing: border-box;
+
+         margin: 0;
+         padding: 0;
+         box-sizing: border-box;
       }
 
       body {
@@ -176,10 +180,6 @@
          width: 100%;
          border-collapse: collapse;
          margin-top: 1rem;
-         background: white;
-         border-radius: 10px;
-         overflow: hidden;
-         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
       }
 
       .table th,
@@ -218,7 +218,8 @@
          background: #f8fff9;
          border: 1px solid #e1e5e9;
          border-radius: 8px;
-         padding: 1.5rem;
+         padding: 1rem;
+         text-align: center;
          margin-bottom: 1rem;
       }
 
@@ -251,7 +252,7 @@
          background: #f8fff9;
          border: 1px solid #e1e5e9;
          border-radius: 8px;
-         padding: 1.5rem;
+         padding: 1rem;
          margin-bottom: 1rem;
       }
 
@@ -289,87 +290,6 @@
          text-align: center;
          padding: 2rem;
          color: #666;
-         background: #f8f9fa;
-         border-radius: 10px;
-         border: 2px dashed #e1e5e9;
-      }
-
-      .modal-overlay {
-         position: fixed;
-         top: 0;
-         left: 0;
-         width: 100%;
-         height: 100%;
-         background: rgba(0, 0, 0, 0.5);
-         display: flex;
-         justify-content: center;
-         align-items: center;
-         z-index: 1000;
-      }
-
-      .modal-content {
-         background: white;
-         border-radius: 10px;
-         width: 90%;
-         max-width: 600px;
-         max-height: 80vh;
-         overflow-y: auto;
-         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-      }
-
-      .modal-header {
-         display: flex;
-         justify-content: space-between;
-         align-items: center;
-         padding: 1.5rem;
-         border-bottom: 1px solid #e1e5e9;
-      }
-
-      .modal-header h3 {
-         margin: 0;
-         color: #333;
-      }
-
-      .modal-close {
-         background: none;
-         border: none;
-         font-size: 1.5rem;
-         cursor: pointer;
-         color: #666;
-         padding: 0;
-         width: 30px;
-         height: 30px;
-         display: flex;
-         align-items: center;
-         justify-content: center;
-      }
-
-      .modal-close:hover {
-         color: #333;
-      }
-
-      .modal-body {
-         padding: 1.5rem;
-      }
-
-      .nilai-input {
-         width: 100px;
-         padding: 0.5rem;
-         border: 2px solid #e1e5e9;
-         border-radius: 5px;
-         font-size: 1rem;
-         margin-right: 1rem;
-      }
-
-      .feedback-input {
-         width: 100%;
-         padding: 0.75rem;
-         border: 2px solid #e1e5e9;
-         border-radius: 5px;
-         font-size: 1rem;
-         margin-top: 1rem;
-         min-height: 100px;
-         resize: vertical;
       }
    </style>
 </head>
@@ -381,7 +301,7 @@
          <p>Sistem Manajemen E-Learning</p>
       </div>
       <div class="user-info">
-         <span id="userGreeting">Selamat datang, <%= user.nama %></span>
+         <span id="userGreeting">Selamat datang, Guru</span>
          <button class="logout-btn" onclick="logout()">Logout</button>
       </div>
    </div>
@@ -401,7 +321,7 @@
             <span id="alertMessage"></span>
          </div>
 
-         
+         <!-- Dashboard Section -->
          <div id="dashboard" class="page-section active">
             <h2>Ringkasan Pembelajaran</h2>
 
@@ -432,7 +352,7 @@
             </div>
          </div>
 
-         
+         <!-- Materi Management Section -->
          <div id="materi-management" class="page-section">
             <h2>Kelola Materi Pembelajaran</h2>
 
@@ -465,7 +385,7 @@
             </div>
          </div>
 
-         
+         <!-- Tugas Management Section -->
          <div id="tugas-management" class="page-section">
             <h2>Kelola Tugas</h2>
 
@@ -502,7 +422,7 @@
             </div>
          </div>
 
-         
+         <!-- Nilai Management Section -->
          <div id="nilai-management" class="page-section">
             <h2>Kelola Penilaian</h2>
 
@@ -514,7 +434,7 @@
             </div>
          </div>
 
-         
+         <!-- Siswa Progress Section -->
          <div id="siswa-progress" class="page-section">
             <h2>Progress Siswa</h2>
 
@@ -526,7 +446,7 @@
             </div>
          </div>
 
-         
+         <!-- Diskusi Management Section -->
          <div id="diskusi-management" class="page-section">
             <h2>Kelola Diskusi</h2>
 
@@ -541,6 +461,9 @@
    </div>
 
    <script>
+      // ===========================================
+      // GLOBAL VARIABLES
+      // ===========================================
       let currentData = {
          materi: [],
          tugas: [],
@@ -548,6 +471,9 @@
          diskusi: []
       };
 
+      // ===========================================
+      // UTILITY FUNCTIONS
+      // ===========================================
       function showAlert(message, type = 'success') {
          const alert = document.getElementById('alert');
          const alertMessage = document.getElementById('alertMessage');
@@ -571,6 +497,9 @@
          return new Date(dateString).toLocaleString('id-ID');
       }
 
+      // ===========================================
+      // API FUNCTIONS
+      // ===========================================
       async function apiCall(endpoint, options = {}) {
          const defaultOptions = {
             method: 'GET',
@@ -581,32 +510,39 @@
          };
 
          try {
-            const response = await fetch(endpoint, { ...defaultOptions, ...options });
-            
+            const response = await fetch(`${endpoint}`, { ...defaultOptions, ...options });
+            const data = await response.json();
+
             if (!response.ok) {
-               const errorText = await response.text();
-               throw new Error(errorText);
+               throw new Error(data.message || 'API Error');
             }
 
-            return await response.json();
+            return data;
          } catch (error) {
             showAlert(error.message || 'Terjadi kesalahan', 'error');
             throw error;
          }
       }
 
+      // ===========================================
+      // NAVIGATION FUNCTIONS
+      // ===========================================
       function showSection(sectionId) {
+         // Hide all sections
          document.querySelectorAll('.page-section').forEach(section => {
             section.classList.remove('active');
          });
 
+         // Remove active class from nav items
          document.querySelectorAll('.nav-item').forEach(item => {
             item.classList.remove('active');
          });
 
+         // Show selected section
          document.getElementById(sectionId).classList.add('active');
          event.target.classList.add('active');
 
+         // Load data for specific sections
          switch (sectionId) {
             case 'materi-management':
                loadMateriList();
@@ -627,6 +563,9 @@
          }
       }
 
+      // ===========================================
+      // DASHBOARD FUNCTIONS
+      // ===========================================
       async function loadDashboardData() {
          try {
             const stats = await apiCall('/guru/dashboard/stats');
@@ -649,7 +588,7 @@
       function displayRecentActivity(activities) {
          const container = document.getElementById('recentActivity');
 
-         if (!activities || activities.length === 0) {
+         if (activities.length === 0) {
             container.innerHTML = '<div class="empty-state">Tidak ada aktivitas terbaru</div>';
             return;
          }
@@ -662,6 +601,9 @@
          `).join('');
       }
 
+      // ===========================================
+      // MATERI FUNCTIONS
+      // ===========================================
       async function loadMateriList() {
          const container = document.getElementById('materiListContainer');
 
@@ -677,37 +619,40 @@
       function displayMateriList(materiList) {
          const container = document.getElementById('materiListContainer');
 
-         if (!materiList || materiList.length === 0) {
+         if (materiList.length === 0) {
             container.innerHTML = '<div class="empty-state">Belum ada materi yang dibuat</div>';
             return;
          }
 
-         container.innerHTML = `
-            <table class="table">
-               <thead>
+         const table = document.createElement('table');
+         table.className = 'table';
+         table.innerHTML = `
+            <thead>
+               <tr>
+                  <th>Judul</th>
+                  <th>Deskripsi</th>
+                  <th>Tanggal Dibuat</th>
+                  <th>Aksi</th>
+               </tr>
+            </thead>
+            <tbody>
+               ${materiList.map(materi => `
                   <tr>
-                     <th>Judul</th>
-                     <th>Deskripsi</th>
-                     <th>Tanggal Dibuat</th>
-                     <th>Aksi</th>
+                     <td>${materi.judul}</td>
+                     <td>${materi.deskripsi || '-'}</td>
+                     <td>${formatDate(materi.created_at)}</td>
+                     <td>
+                        <button class="btn" onclick="viewMateri(${materi.id})" style="margin-right: 5px;">Lihat</button>
+                        <button class="btn btn-warning" onclick="editMateri(${materi.id})" style="margin-right: 5px;">Edit</button>
+                        <button class="btn btn-danger" onclick="deleteMateri(${materi.id})">Hapus</button>
+                     </td>
                   </tr>
-               </thead>
-               <tbody>
-                  ${materiList.map(materi => `
-                     <tr>
-                        <td>${materi.judul}</td>
-                        <td>${materi.deskripsi || '-'}</td>
-                        <td>${formatDate(materi.created_at)}</td>
-                        <td>
-                           <button class="btn" onclick="viewMateri(${materi.id})" style="margin-right: 5px;">Lihat</button>
-                           <button class="btn btn-warning" onclick="editMateri(${materi.id})" style="margin-right: 5px;">Edit</button>
-                           <button class="btn btn-danger" onclick="deleteMateri(${materi.id})">Hapus</button>
-                        </td>
-                     </tr>
-                  `).join('')}
-               </tbody>
-            </table>
+               `).join('')}
+            </tbody>
          `;
+
+         container.innerHTML = '';
+         container.appendChild(table);
       }
 
       async function loadMateriOptions() {
@@ -727,6 +672,9 @@
          }
       }
 
+      // ===========================================
+      // TUGAS FUNCTIONS
+      // ===========================================
       async function loadTugasList() {
          const container = document.getElementById('tugasListContainer');
 
@@ -742,7 +690,7 @@
       function displayTugasList(tugasList) {
          const container = document.getElementById('tugasListContainer');
 
-         if (!tugasList || tugasList.length === 0) {
+         if (tugasList.length === 0) {
             container.innerHTML = '<div class="empty-state">Belum ada tugas yang dibuat</div>';
             return;
          }
@@ -751,7 +699,7 @@
             <div class="tugas-item">
                <div class="tugas-header">
                   <h4>${tugas.judul}</h4>
-                  <span class="tugas-status ${tugas.submissions_count > 0 ? 'status-graded' : 'status-pending'}">
+                  <span class="tugas-status status-${tugas.submissions_count > 0 ? 'graded' : 'pending'}">
                      ${tugas.submissions_count || 0} Submission
                   </span>
                </div>
@@ -767,6 +715,9 @@
          `).join('');
       }
 
+      // ===========================================
+      // PENILAIAN FUNCTIONS
+      // ===========================================
       async function loadPendingSubmissions() {
          const container = document.getElementById('tugasPendingContainer');
 
@@ -781,7 +732,7 @@
       function displayPendingSubmissions(submissions) {
          const container = document.getElementById('tugasPendingContainer');
 
-         if (!submissions || submissions.length === 0) {
+         if (submissions.length === 0) {
             container.innerHTML = '<div class="empty-state">Tidak ada tugas yang perlu dinilai</div>';
             return;
          }
@@ -797,10 +748,8 @@
                <p><strong>Jawaban:</strong> ${submission.jawaban}</p>
                <div style="margin-top: 1rem;">
                   <input type="number" id="nilai-${submission.id}" placeholder="Nilai (0-100)" min="0" max="100" 
-                         class="nilai-input">
-                  <textarea id="feedback-${submission.id}" placeholder="Feedback untuk siswa..." 
-                            class="feedback-input"></textarea>
-                  <button class="btn" onclick="berikanNilai(${submission.id})" style="margin-top: 1rem;">Beri Nilai</button>
+                         style="width: 120px; margin-right: 10px;">
+                  <button class="btn" onclick="berikanNilai(${submission.id})">Beri Nilai</button>
                </div>
             </div>
          `).join('');
@@ -808,9 +757,7 @@
 
       async function berikanNilai(submissionId) {
          const nilaiInput = document.getElementById(`nilai-${submissionId}`);
-         const feedbackInput = document.getElementById(`feedback-${submissionId}`);
          const nilai = parseInt(nilaiInput.value);
-         const feedback = feedbackInput.value;
 
          if (!nilai || nilai < 0 || nilai > 100) {
             showAlert('Nilai harus antara 0-100', 'error');
@@ -820,17 +767,20 @@
          try {
             await apiCall(`/guru/submissions/${submissionId}/grade`, {
                method: 'POST',
-               body: JSON.stringify({ nilai, feedback })
+               body: JSON.stringify({ nilai })
             });
 
             showAlert('Nilai berhasil diberikan!');
             loadPendingSubmissions();
-            loadDashboardData();
+            loadDashboardData(); // Refresh dashboard stats
          } catch (error) {
             console.error('Error grading submission:', error);
          }
       }
 
+      // ===========================================
+      // SISWA PROGRESS FUNCTIONS
+      // ===========================================
       async function loadSiswaProgress() {
          const container = document.getElementById('siswaProgressContainer');
 
@@ -845,7 +795,7 @@
       function displaySiswaProgress(siswaList) {
          const container = document.getElementById('siswaProgressContainer');
 
-         if (!siswaList || siswaList.length === 0) {
+         if (siswaList.length === 0) {
             container.innerHTML = '<div class="empty-state">Tidak ada data progress siswa</div>';
             return;
          }
@@ -866,6 +816,9 @@
          `).join('');
       }
 
+      // ===========================================
+      // DISKUSI FUNCTIONS
+      // ===========================================
       async function loadDiskusi() {
          const container = document.getElementById('diskusiContainer');
 
@@ -880,7 +833,7 @@
       function displayDiskusi(diskusiList) {
          const container = document.getElementById('diskusiContainer');
 
-         if (!diskusiList || diskusiList.length === 0) {
+         if (diskusiList.length === 0) {
             container.innerHTML = '<div class="empty-state">Belum ada diskusi untuk materi Anda</div>';
             return;
          }
@@ -899,7 +852,11 @@
          `).join('');
       }
 
+      // ===========================================
+      // FORM HANDLERS
+      // ===========================================
       document.addEventListener('DOMContentLoaded', function () {
+         // Materi Form Handler
          document.getElementById('addMateriForm').addEventListener('submit', async function (e) {
             e.preventDefault();
 
@@ -925,6 +882,7 @@
             }
          });
 
+         // Tugas Form Handler
          document.getElementById('addTugasForm').addEventListener('submit', async function (e) {
             e.preventDefault();
 
@@ -951,89 +909,44 @@
             }
          });
 
+         // Load initial data
          loadDashboardData();
       });
 
+      // ===========================================
+      // ACTION FUNCTIONS
+      // ===========================================
       function viewMateri(id) {
          const materi = currentData.materi.find(m => m.id === id);
          if (materi) {
-            showMateriModal(materi);
+            alert(`Judul: ${materi.judul}\n\nKonten: ${materi.konten}`);
          }
-      }
-
-      function showMateriModal(materi) {
-         const modal = document.createElement('div');
-         modal.className = 'modal-overlay';
-         modal.innerHTML = `
-            <div class="modal-content">
-               <div class="modal-header">
-                  <h3>${materi.judul}</h3>
-                  <button class="modal-close" onclick="closeModal()">&times;</button>
-               </div>
-               <div class="modal-body">
-                  <p style="color: #666; margin-bottom: 1rem;">${materi.deskripsi || 'Tidak ada deskripsi'}</p>
-                  <div style="line-height: 1.6; color: #333; white-space: pre-wrap;">
-                     ${materi.konten}
-                  </div>
-               </div>
-            </div>
-         `;
-         document.body.appendChild(modal);
       }
 
       async function editMateri(id) {
          const materi = currentData.materi.find(m => m.id === id);
          if (!materi) return;
 
-         const modal = document.createElement('div');
-         modal.className = 'modal-overlay';
-         modal.innerHTML = `
-            <div class="modal-content">
-               <div class="modal-header">
-                  <h3>Edit Materi</h3>
-                  <button class="modal-close" onclick="closeModal()">&times;</button>
-               </div>
-               <div class="modal-body">
-                  <form id="editMateriForm">
-                     <div class="form-group">
-                        <label for="editJudul">Judul Materi</label>
-                        <input type="text" id="editJudul" value="${materi.judul}" required>
-                     </div>
-                     <div class="form-group">
-                        <label for="editDeskripsi">Deskripsi Materi</label>
-                        <textarea id="editDeskripsi" rows="3">${materi.deskripsi || ''}</textarea>
-                     </div>
-                     <div class="form-group">
-                        <label for="editKonten">Konten Materi</label>
-                        <textarea id="editKonten" rows="6" required>${materi.konten}</textarea>
-                     </div>
-                     <button type="submit" class="btn">Simpan Perubahan</button>
-                  </form>
-               </div>
-            </div>
-         `;
-         document.body.appendChild(modal);
+         const newJudul = prompt('Edit Judul Materi:', materi.judul);
+         if (!newJudul) return;
 
-         document.getElementById('editMateriForm').addEventListener('submit', async function (e) {
-            e.preventDefault();
-            
-            const judul = document.getElementById('editJudul').value;
-            const deskripsi = document.getElementById('editDeskripsi').value;
-            const konten = document.getElementById('editKonten').value;
+         const newKonten = prompt('Edit Konten Materi:', materi.konten);
+         if (!newKonten) return;
 
-            try {
-               await apiCall(`/guru/materi/${id}`, {
-                  method: 'PUT',
-                  body: JSON.stringify({ judul, konten, deskripsi })
-               });
+         try {
+            await apiCall(`/guru/materi/${id}`, {
+               method: 'PUT',
+               body: JSON.stringify({
+                  judul: newJudul,
+                  konten: newKonten
+               })
+            });
 
-               showAlert('Materi berhasil diupdate!');
-               closeModal();
-               loadMateriList();
-            } catch (error) {
-               console.error('Error updating materi:', error);
-            }
-         });
+            showAlert('Materi berhasil diupdate!');
+            loadMateriList();
+         } catch (error) {
+            console.error('Error updating materi:', error);
+         }
       }
 
       async function deleteMateri(id) {
@@ -1055,81 +968,34 @@
       function viewTugasDetail(id) {
          const tugas = currentData.tugas.find(t => t.id === id);
          if (tugas) {
-            showTugasModal(tugas);
+            alert(`Judul: ${tugas.judul}\n\nDeskripsi: ${tugas.deskripsi}\n\nDeadline: ${formatDate(tugas.deadline)}`);
          }
-      }
-
-      function showTugasModal(tugas) {
-         const modal = document.createElement('div');
-         modal.className = 'modal-overlay';
-         modal.innerHTML = `
-            <div class="modal-content">
-               <div class="modal-header">
-                  <h3>${tugas.judul}</h3>
-                  <button class="modal-close" onclick="closeModal()">&times;</button>
-               </div>
-               <div class="modal-body">
-                  <p><strong>Materi:</strong> ${tugas.materi_judul || '-'}</p>
-                  <p><strong>Deadline:</strong> ${formatDate(tugas.deadline)}</p>
-                  <p><strong>Jumlah Submission:</strong> ${tugas.submissions_count || 0}</p>
-                  <div style="margin-top: 1rem;">
-                     <strong>Deskripsi:</strong>
-                     <p style="margin-top: 0.5rem;">${tugas.deskripsi}</p>
-                  </div>
-               </div>
-            </div>
-         `;
-         document.body.appendChild(modal);
       }
 
       async function editTugas(id) {
          const tugas = currentData.tugas.find(t => t.id === id);
          if (!tugas) return;
 
-         const modal = document.createElement('div');
-         modal.className = 'modal-overlay';
-         modal.innerHTML = `
-            <div class="modal-content">
-               <div class="modal-header">
-                  <h3>Edit Tugas</h3>
-                  <button class="modal-close" onclick="closeModal()">&times;</button>
-               </div>
-               <div class="modal-body">
-                  <form id="editTugasForm">
-                     <div class="form-group">
-                        <label for="editTugasJudul">Judul Tugas</label>
-                        <input type="text" id="editTugasJudul" value="${tugas.judul}" required>
-                     </div>
-                     <div class="form-group">
-                        <label for="editTugasDeskripsi">Deskripsi Tugas</label>
-                        <textarea id="editTugasDeskripsi" rows="4" required>${tugas.deskripsi}</textarea>
-                     </div>
-                     <button type="submit" class="btn">Simpan Perubahan</button>
-                  </form>
-               </div>
-            </div>
-         `;
-         document.body.appendChild(modal);
+         const newJudul = prompt('Edit Judul Tugas:', tugas.judul);
+         if (!newJudul) return;
 
-         document.getElementById('editTugasForm').addEventListener('submit', async function (e) {
-            e.preventDefault();
-            
-            const judul = document.getElementById('editTugasJudul').value;
-            const deskripsi = document.getElementById('editTugasDeskripsi').value;
+         const newDeskripsi = prompt('Edit Deskripsi Tugas:', tugas.deskripsi);
+         if (!newDeskripsi) return;
 
-            try {
-               await apiCall(`/guru/tugas/${id}`, {
-                  method: 'PUT',
-                  body: JSON.stringify({ judul, deskripsi })
-               });
+         try {
+            await apiCall(`/guru/tugas/${id}`, {
+               method: 'PUT',
+               body: JSON.stringify({
+                  judul: newJudul,
+                  deskripsi: newDeskripsi
+               })
+            });
 
-               showAlert('Tugas berhasil diupdate!');
-               closeModal();
-               loadTugasList();
-            } catch (error) {
-               console.error('Error updating tugas:', error);
-            }
-         });
+            showAlert('Tugas berhasil diupdate!');
+            loadTugasList();
+         } catch (error) {
+            console.error('Error updating tugas:', error);
+         }
       }
 
       async function deleteTugas(id) {
@@ -1149,7 +1015,8 @@
       }
 
       function detailSiswaProgress(id) {
-         alert('Fitur detail progress siswa akan segera tersedia');
+         // Navigate to detailed student progress page
+         window.location.href = `/guru/siswa/${id}/progress/view`;
       }
 
       async function replyDiskusi(diskusiId) {
@@ -1169,25 +1036,12 @@
          }
       }
 
-      function closeModal() {
-         const modal = document.querySelector('.modal-overlay');
-         if (modal) {
-            modal.remove();
-         }
-      }
-
-      document.addEventListener('click', function (e) {
-         if (e.target.classList.contains('modal-overlay')) {
-            closeModal();
-         }
-      });
-
+      // ===========================================
+      // AUTH FUNCTIONS
+      // ===========================================
       async function logout() {
          try {
-            await fetch('/logout', {
-               method: 'POST',
-               credentials: 'include'
-            });
+            await apiCall('/auth/logout', { method: 'POST' });
             window.location.href = '/login';
          } catch (error) {
             window.location.href = '/login';
