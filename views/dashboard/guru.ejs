@@ -719,15 +719,37 @@
       
       
       async function loadPendingSubmissions() {
-         const container = document.getElementById('tugasPendingContainer');
+  const container = document.getElementById('tugasPendingContainer');
+  container.innerHTML = '<div class="loading">Memuat tugas pending...</div>';
 
-         try {
-            const response = await apiCall('/guru/submissions/pending');
-            displayPendingSubmissions(response.data);
-         } catch (error) {
-            container.innerHTML = '<div class="empty-state">Gagal memuat submission pending</div>';
-         }
-      }
+  try {
+    const response = await fetch('/guru/submissions/pending', {
+      method: 'GET',
+      credentials: 'include'
+    });
+
+    const result = await response.json();
+    
+    if (result.success) {
+      displayPendingSubmissions(result.data);
+    } else {
+      container.innerHTML = `
+        <div class="empty-state">
+          <p>${result.error || 'Gagal memuat submission pending'}</p>
+          <button class="btn" onclick="loadPendingSubmissions()">Coba Lagi</button>
+        </div>
+      `;
+    }
+  } catch (error) {
+    console.error('Error loading pending submissions:', error);
+    container.innerHTML = `
+      <div class="empty-state">
+        <p>Terjadi kesalahan jaringan</p>
+        <button class="btn" onclick="loadPendingSubmissions()">Coba Lagi</button>
+      </div>
+    `;
+  }
+}
 
       function displayPendingSubmissions(submissions) {
   const container = document.getElementById('tugasPendingContainer');
