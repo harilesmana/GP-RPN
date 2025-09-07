@@ -206,5 +206,41 @@ export const siswaRoutes = new Elysia()
       total_tugas,
       progress_tugas,
       rata_nilai
-    };
+    }
+  
+.post("/siswa/kelas/daftar", async ({ body, user }) => {
+  const { kelas_id } = body as any;
+  const siswaId = user.userId;
+  
+  
+  
+  
+  const kelasItem = kelas.find(k => k.id === parseInt(kelas_id));
+  if (!kelasItem) {
+    throw new Error("Kelas tidak ditemukan");
+  }
+  
+  
+  
+  
+  return { 
+    message: "Pendaftaran kelas berhasil", 
+    kelas: {
+      id: kelasItem.id,
+      nama: kelasItem.nama,
+      tingkat: kelasItem.tingkat,
+      wali_kelas: users.find(u => u.id === kelasItem.wali_kelas_id)?.nama || "Unknown"
+    }
+  };
+})
+.get("/siswa/kelas/tersedia", () => {
+  return kelas.map(k => ({
+    id: k.id,
+    nama: k.nama,
+    tingkat: k.tingkat,
+    wali_kelas: users.find(u => u.id === k.wali_kelas_id)?.nama || "Unknown",
+    jumlah_siswa: Math.floor(Math.random() * 30) + 10 
+  }));
+});
+  
   });
