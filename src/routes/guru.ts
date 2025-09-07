@@ -354,42 +354,73 @@ export const guruRoutes = new Elysia({ prefix: "/guru" })
     };
   })
 
-  .post("/submissions/:id/grade", async ({ user, params, body, set }) => {
+.post("/submissions/:id/grade", async ({ user, params, body, set }) => {
+  try {
     const guruId = user.userId;
     const submissionId = parseInt(params.id);
     
     if (isNaN(submissionId)) {
       set.status = 400;
-      return { error: "ID submission tidak valid" };
+      return { success: false, error: "ID submission tidak valid" };
     }
     
     const submissionIndex = submissions.findIndex(s => s.id === submissionId);
     if (submissionIndex === -1) {
       set.status = 404;
-      return { error: "Submission tidak ditemukan" };
+      return { success: false, error: "Submission tidak ditemukan" };
     }
     
-    const tugasItem = tugasDetail.find(t => t.id === submissions[submissionIndex].tugas_id);
-    if (!tugasItem || tugasItem.guru_id !== guruId) {
+    const submission = submissions[submissionIndex];
+    const tugasItem = tugasDetail.find(t => t.id === submission.tugas_id);
+    
+    if (!tugasItem) {
+      set.status = 404;
+      return { success: false, error: "Tugas tidak ditemukan" };
+    }
+    
+    // Cek apakah guru memiliki akses ke tugas ini
+    if (tugasItem.guru_id !== guruId) {
       set.status = 403;
-      return { error: "Anda tidak memiliki akses untuk menilai submission ini" };
+      return { success: false, error: "Anda tidak memiliki akses untuk menilai submission ini" };
     }
     
     const { nilai, feedback } = body as any;
-    if (nilai === undefined || nilai < 0 || nilai > 100) {
+    
+    // Validasi nilai
+    if (nilai === undefined || nilai === null) {
       set.status = 400;
-      return { error: "Nilai harus antara 0-100" };
+      return { success: false, error: "Nilai harus diisi" };
     }
     
-    submissions[submissionIndex].nilai = parseInt(nilai);
+    const numericNilai = parseInt(nilai);
+    if (isNaN(numericNilai) || numericNilai < 0 || numericNilai > 100) {
+      set.status = 400;
+      return { success: false, error: "Nilai harus berupa angka antara 0-100" };
+    }
+    
+    // Update submission
+    submissions[submissionIndex].nilai = numericNilai;
     submissions[submissionIndex].feedback = feedback?.trim() || "";
     submissions[submissionIndex].graded_at = new Date();
     
+    console.log(`Nilai diberikan: Submission ${submissionId}, Nilai: ${numericNilai}`);
+    
     return {
       success: true,
-      message: "Nilai berhasil diberikan"
+      message: "Nilai berhasil diberikan",
+      data: {
+        submission_id: submissionId,
+        nilai: numericNilai,
+        feedback: feedback?.trim() || ""
+      }
     };
-  })
+    
+  } catch (error) {
+    console.error("Error grading submission:", error);
+    set.status = 500;
+    return { success: false, error: "Terjadi kesalahan server saat memberikan nilai" };
+  }
+})
 
   .get("/siswa/progress", async ({ user }) => {
     const guruId = user.userId;
