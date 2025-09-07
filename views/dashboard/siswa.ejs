@@ -793,23 +793,40 @@ function displayMateriGrid() {
 
       // Load tugas saya
       async function loadTugasSaya() {
-         try {
-            const response = await fetch('/siswa/tugas', {
-               method: 'GET',
-               credentials: 'include'
-            });
+  const container = document.getElementById('tugasGrid');
+  container.innerHTML = '<div class="loading">Memuat daftar tugas...</div>';
 
-            if (response.ok) {
-               tugasData = await response.json();
-               displayTugasGrid();
-            } else {
-               showAlert('Error loading tugas', 'error');
-            }
-         } catch (error) {
-            console.error('Error loading tugas:', error);
-            showAlert('Terjadi kesalahan saat memuat tugas', 'error');
-         }
-      }
+  try {
+    const response = await fetch('/siswa/tugas', {
+      method: 'GET',
+      credentials: 'include'
+    });
+
+    const result = await response.json();
+    
+    if (result.success) {
+      tugasData = result.data;
+      displayTugasGrid();
+    } else {
+      showAlert(result.error || 'Error loading tugas', 'error');
+      container.innerHTML = `
+        <div style="text-align: center; padding: 2rem; color: #666;">
+          <p>${result.error || 'Tidak dapat memuat tugas'}</p>
+          <button class="btn" onclick="loadTugasSaya()">Coba Lagi</button>
+        </div>
+      `;
+    }
+  } catch (error) {
+    console.error('Error loading tugas:', error);
+    showAlert('Terjadi kesalahan saat memuat tugas', 'error');
+    container.innerHTML = `
+      <div style="text-align: center; padding: 2rem; color: #666;">
+        <p>Terjadi kesalahan jaringan</p>
+        <button class="btn" onclick="loadTugasSaya()">Coba Lagi</button>
+      </div>
+    `;
+  }
+}
 
       // Display tugas grid
       function displayTugasGrid() {
