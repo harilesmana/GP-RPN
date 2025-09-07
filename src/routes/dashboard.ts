@@ -52,7 +52,7 @@ export const dashboardRoutes = new Elysia()
     set.headers["Content-Type"] = "text/html; charset=utf-8";
     
     try {
-        // Fetch progress data from API
+        
         const response = await fetch(`http://localhost:${process.env.PORT || 3000}/guru/siswa/${params.id}/progress`, {
             method: 'GET',
             headers: {
