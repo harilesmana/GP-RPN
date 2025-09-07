@@ -1,5 +1,6 @@
 import { Elysia } from "elysia";
 import { authMiddleware } from "../middleware/auth";
+import { users } from "../db";
 
 export const dashboardRoutes = new Elysia()
   .use(authMiddleware)
@@ -33,11 +34,16 @@ export const dashboardRoutes = new Elysia()
     set.headers["Content-Type"] = "text/html";
     
     
-    const { users } = await import("../db");
     const userDetail = users.find(u => u.id === user.userId);
     
-    return Bun.file("views/dashboard/kepsek.ejs").text()
-      .then(content => content.replace("<%= user.nama %>", userDetail?.nama || "Kepala Sekolah"));
+    try {
+      const template = await Bun.file("views/dashboard/kepsek.ejs").text();
+      return template.replace("<%= user.nama %>", userDetail?.nama || "Kepala Sekolah");
+    } catch (error) {
+      console.error("Error loading kepsek template:", error);
+      set.status = 500;
+      return "Error loading dashboard";
+    }
   })
   .get("/dashboard/guru", async ({ user, set }) => {
     if (!user || user.role !== "guru") {
@@ -48,11 +54,16 @@ export const dashboardRoutes = new Elysia()
     set.headers["Content-Type"] = "text/html";
     
     
-    const { users } = await import("../db");
     const userDetail = users.find(u => u.id === user.userId);
     
-    return Bun.file("views/dashboard/guru.ejs").text()
-      .then(content => content.replace("<%= user.nama %>", userDetail?.nama || "Guru"));
+    try {
+      const template = await Bun.file("views/dashboard/guru.ejs").text();
+      return template.replace("<%= user.nama %>", userDetail?.nama || "Guru");
+    } catch (error) {
+      console.error("Error loading guru template:", error);
+      set.status = 500;
+      return "Error loading dashboard";
+    }
   })
   .get("/dashboard/siswa", async ({ user, set }) => {
     if (!user || user.role !== "siswa") {
@@ -63,9 +74,14 @@ export const dashboardRoutes = new Elysia()
     set.headers["Content-Type"] = "text/html";
     
     
-    const { users } = await import("../db");
     const userDetail = users.find(u => u.id === user.userId);
     
-    return Bun.file("views/dashboard/siswa.ejs").text()
-      .then(content => content.replace("<%= user.nama %>", userDetail?.nama || "Siswa"));
+    try {
+      const template = await Bun.file("views/dashboard/siswa.ejs").text();
+      return template.replace("<%= user.nama %>", userDetail?.nama || "Siswa");
+    } catch (error) {
+      console.error("Error loading siswa template:", error);
+      set.status = 500;
+      return "Error loading dashboard";
+    }
   });
