@@ -19,7 +19,7 @@ export const authRoutes = new Elysia()
       const formData = await parseFormData();
       const validatedData = loginSchema.parse(formData);
 
-      // Check login attempts
+      
       const attemptKey = `${validatedData.email}_${new Date().toISOString().split('T')[0]}`;
       const attempt = loginAttempts.get(attemptKey) || { count: 0, unlockTime: 0 };
 
@@ -29,7 +29,7 @@ export const authRoutes = new Elysia()
         return `Terlalu banyak percobaan login. Coba lagi dalam ${minutesLeft} menit.`;
       }
 
-      // Find user
+      
       const user = users.find(u => u.email === validatedData.email && u.status === 'active');
       if (!user) {
         incrementLoginAttempt(attemptKey);
@@ -37,7 +37,7 @@ export const authRoutes = new Elysia()
         return "Email atau password salah";
       }
 
-      // Verify password
+      
       const isValid = await verifyPassword(validatedData.password, user.password_hash);
       if (!isValid) {
         incrementLoginAttempt(attemptKey);
@@ -45,15 +45,15 @@ export const authRoutes = new Elysia()
         return "Email atau password salah";
       }
 
-      // Reset login attempts on success
+      
       loginAttempts.delete(attemptKey);
 
-      // Update user login info
+      
       user.last_login = new Date();
       user.login_count = (user.login_count || 0) + 1;
       user.last_activity = new Date();
 
-      // Create session
+      
       const secret = process.env.SESSION_SECRET || "dev_secret_change_me";
       const sessionData = {
         userId: user.id,
@@ -62,15 +62,15 @@ export const authRoutes = new Elysia()
       };
       const token = signSession(sessionData, secret);
 
-      // Set cookie
+      
       cookie.session.set({
         value: token,
         httpOnly: true,
-        maxAge: 7 * 24 * 60 * 60, // 1 week
+        maxAge: 7 * 24 * 60 * 60, 
         path: "/"
       });
 
-      // Redirect based on role
+      
       switch (user.role) {
         case "kepsek":
           set.redirect = "/dashboard/kepsek";
@@ -96,23 +96,23 @@ export const authRoutes = new Elysia()
     try {
       const validatedData = registerSchema.parse(body);
 
-      // Check if passwords match
+      
       if (validatedData.password !== validatedData.confirmPassword) {
         set.status = 400;
         return "Password dan konfirmasi password tidak cocok";
       }
 
-      // Check if email already exists
+      
       const existingUser = users.find(u => u.email === validatedData.email);
       if (existingUser) {
         set.status = 400;
         return "Email sudah terdaftar";
       }
 
-      // Hash password
+      
       const hashedPassword = await hashPassword(validatedData.password);
 
-      // Create new user (default role: siswa)
+      
       const newUser = {
         id: users.length > 0 ? Math.max(...users.map(u => u.id)) + 1 : 1,
         nama: validatedData.nama,
@@ -153,7 +153,7 @@ function incrementLoginAttempt(key: string) {
   attempt.count++;
   
   if (attempt.count >= 5) {
-    attempt.unlockTime = now + 15 * 60 * 1000; // Lock for 15 minutes
+    attempt.unlockTime = now + 15 * 60 * 1000; 
   }
   
   loginAttempts.set(key, attempt);
