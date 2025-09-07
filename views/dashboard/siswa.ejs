@@ -869,23 +869,45 @@ function displayMateriGrid() {
 
       // Load nilai saya
       async function loadNilaiSaya() {
-         try {
-            const response = await fetch('/siswa/nilai', {
-               method: 'GET',
-               credentials: 'include'
-            });
+  const container = document.getElementById('nilaiSummary');
+  const detailContainer = document.getElementById('detailNilai');
+  
+  container.innerHTML = '<div class="loading">Memuat ringkasan nilai...</div>';
+  detailContainer.innerHTML = '<div class="loading">Memuat detail nilai...</div>';
 
-            if (response.ok) {
-               nilaiData = await response.json();
-               displayNilai();
-            } else {
-               showAlert('Error loading nilai', 'error');
-            }
-         } catch (error) {
-            console.error('Error loading nilai:', error);
-            showAlert('Terjadi kesalahan saat memuat nilai', 'error');
-         }
-      }
+  try {
+    const response = await fetch('/siswa/nilai', {
+      method: 'GET',
+      credentials: 'include'
+    });
+
+    const result = await response.json();
+    
+    if (result.success) {
+      nilaiData = result.data;
+      displayNilai();
+    } else {
+      showAlert(result.error || 'Error loading nilai', 'error');
+      container.innerHTML = `
+        <div style="text-align: center; padding: 2rem; color: #666;">
+          <p>${result.error || 'Tidak dapat memuat nilai'}</p>
+          <button class="btn" onclick="loadNilaiSaya()">Coba Lagi</button>
+        </div>
+      `;
+      detailContainer.innerHTML = '';
+    }
+  } catch (error) {
+    console.error('Error loading nilai:', error);
+    showAlert('Terjadi kesalahan saat memuat nilai', 'error');
+    container.innerHTML = `
+      <div style="text-align: center; padding: 2rem; color: #666;">
+        <p>Terjadi kesalahan jaringan</p>
+        <button class="btn" onclick="loadNilaiSaya()">Coba Lagi</button>
+      </div>
+    `;
+    detailContainer.innerHTML = '';
+  }
+}
 
       // Display nilai
       function displayNilai() {
