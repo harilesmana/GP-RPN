@@ -992,90 +992,170 @@ function displayMateriGrid() {
 
       // Load diskusi
       async function loadDiskusi() {
-         try {
-            // Load diskusi kelas
-            const kelasResponse = await fetch('/siswa/diskusi-kelas', {
-               method: 'GET',
-               credentials: 'include'
-            });
+  try {
+    // Load diskusi kelas
+    await loadDiskusiKelas();
+    
+    // Load diskusi materi
+    await loadDiskusiMateri();
+    
+  } catch (error) {
+    console.error('Error loading diskusi:', error);
+    showAlert('Terjadi kesalahan saat memuat diskusi', 'error');
+  }
+}
 
-            if (kelasResponse.ok) {
-               const diskusiKelas = await kelasResponse.json();
-               displayDiskusiKelas(diskusiKelas);
-            }
+      async function loadDiskusiKelas() {
+  const container = document.getElementById('diskusiKelas');
+  container.innerHTML = '<div class="loading">Memuat diskusi kelas...</div>';
 
-            // Load diskusi materi
-            const materiResponse = await fetch('/siswa/diskusi-materi', {
-               method: 'GET',
-               credentials: 'include'
-            });
+  try {
+    const response = await fetch('/siswa/diskusi-kelas', {
+      method: 'GET',
+      credentials: 'include'
+    });
 
-            if (materiResponse.ok) {
-               const diskusiMateri = await materiResponse.json();
-               displayDiskusiMateri(diskusiMateri);
-            }
-         } catch (error) {
-            console.error('Error loading diskusi:', error);
-            showAlert('Terjadi kesalahan saat memuat diskusi', 'error');
-         }
-      }
+    const result = await response.json();
+    
+    if (result.success) {
+      displayDiskusiKelas(result.data);
+    } else {
+      container.innerHTML = `
+        <div style="text-align: center; padding: 2rem; color: #666;">
+          <p>${result.error || 'Tidak dapat memuat diskusi kelas'}</p>
+          <button class="btn" onclick="loadDiskusiKelas()">Coba Lagi</button>
+        </div>
+      `;
+    }
+  } catch (error) {
+    console.error('Error loading diskusi kelas:', error);
+    container.innerHTML = `
+      <div style="text-align: center; padding: 2rem; color: #666;">
+        <p>Terjadi kesalahan jaringan</p>
+        <button class="btn" onclick="loadDiskusiKelas()">Coba Lagi</button>
+      </div>
+    `;
+  }
+}
 
+      async function loadDiskusiMateri() {
+  const container = document.getElementById('diskusiMateri');
+  container.innerHTML = '<div class="loading">Memuat diskusi materi...</div>';
+
+  try {
+    const response = await fetch('/siswa/diskusi-materi', {
+      method: 'GET',
+      credentials: 'include'
+    });
+
+    const result = await response.json();
+    
+    if (result.success) {
+      displayDiskusiMateri(result.data);
+    } else {
+      container.innerHTML = `
+        <div style="text-align: center; padding: 2rem; color: #666;">
+          <p>${result.error || 'Tidak dapat memuat diskusi materi'}</p>
+          <button class="btn" onclick="loadDiskusiMateri()">Coba Lagi</button>
+        </div>
+      `;
+    }
+  } catch (error) {
+    console.error('Error loading diskusi materi:', error);
+    container.innerHTML = `
+      <div style="text-align: center; padding: 2rem; color: #666;">
+        <p>Terjadi kesalahan jaringan</p>
+        <button class="btn" onclick="loadDiskusiMateri()">Coba Lagi</button>
+      </div>
+    `;
+  }
+}
+      
       // Display diskusi kelas
       function displayDiskusiKelas(diskusiKelas) {
-         const container = document.getElementById('diskusiKelas');
+  const container = document.getElementById('diskusiKelas');
 
-         if (diskusiKelas.length === 0) {
-            container.innerHTML = '<p>Belum ada diskusi kelas</p>';
-            return;
-         }
+  if (!diskusiKelas || diskusiKelas.length === 0) {
+    container.innerHTML = `
+      <div style="text-align: center; padding: 2rem; color: #666;">
+        <p>Belum ada diskusi di kelas Anda</p>
+        <button class="btn" onclick="tambahDiskusiKelas()" style="margin-top: 1rem;">
+          Mulai Diskusi
+        </button>
+      </div>
+    `;
+    return;
+  }
 
-         container.innerHTML = diskusiKelas.map(diskusi => `
-            <div class="diskusi-item">
-               <div class="diskusi-header">
-                  <span class="diskusi-user">${diskusi.user_name}</span>
-                  <span class="diskusi-date">${new Date(diskusi.created_at).toLocaleDateString('id-ID')}</span>
-               </div>
-               <div class="diskusi-content">${diskusi.isi}</div>
-            </div>
-         `).join('');
-      }
+  container.innerHTML = `
+    <div style="margin-bottom: 1.5rem;">
+      <button class="btn" onclick="tambahDiskusiKelas()">
+        + Tambah Diskusi Kelas
+      </button>
+    </div>
+    ${diskusiKelas.map(diskusi => `
+      <div class="diskusi-item">
+        <div class="diskusi-header">
+          <span class="diskusi-user">${diskusi.user_name} (${diskusi.user_role})</span>
+          <span class="diskusi-date">${new Date(diskusi.created_at).toLocaleString('id-ID')}</span>
+        </div>
+        <div class="diskusi-content">${diskusi.isi}</div>
+        <div style="font-size: 0.8rem; color: #666; margin-top: 0.5rem;">
+          Kelas: ${diskusi.kelas}
+        </div>
+      </div>
+    `).join('')}
+  `;
+}
 
       // Display diskusi materi
       function displayDiskusiMateri(diskusiMateri) {
-         const container = document.getElementById('diskusiMateri');
+  const container = document.getElementById('diskusiMateri');
 
-         if (diskusiMateri.length === 0) {
-            container.innerHTML = '<p>Belum ada diskusi materi</p>';
-            return;
-         }
+  if (!diskusiMateri || diskusiMateri.length === 0) {
+    container.innerHTML = `
+      <div style="text-align: center; padding: 2rem; color: #666;">
+        <p>Belum ada diskusi untuk materi Anda</p>
+        <p style="font-size: 0.9rem; margin-top: 0.5rem;">
+          Silakan pilih materi untuk berdiskusi
+        </p>
+      </div>
+    `;
+    return;
+  }
 
-         // Group by materi
-         const groupedDiskusi = diskusiMateri.reduce((acc, diskusi) => {
-            if (!acc[diskusi.materi_judul]) {
-               acc[diskusi.materi_judul] = [];
-            }
-            acc[diskusi.materi_judul].push(diskusi);
-            return acc;
-         }, {});
+  // Group by materi
+  const groupedDiskusi = diskusiMateri.reduce((acc, diskusi) => {
+    if (!acc[diskusi.materi_judul]) {
+      acc[diskusi.materi_judul] = [];
+    }
+    acc[diskusi.materi_judul].push(diskusi);
+    return acc;
+  }, {});
 
-         container.innerHTML = Object.entries(groupedDiskusi).map(([materiJudul, diskusiList]) => `
-            <div class="diskusi-container">
-               <h3 style="color: #3498db; margin-bottom: 1rem;">${materiJudul}</h3>
-               ${diskusiList.map(diskusi => `
-                  <div class="diskusi-item">
-                     <div class="diskusi-header">
-                        <span class="diskusi-user">${diskusi.user_name}</span>
-                        <span class="diskusi-date">${new Date(diskusi.created_at).toLocaleDateString('id-ID')}</span>
-                     </div>
-                     <div class="diskusi-content">${diskusi.isi}</div>
-                  </div>
-               `).join('')}
-               <button class="btn" onclick="tambahDiskusiMateri(${diskusiList[0].materi_id})" style="margin-top: 1rem;">
-                  Tambah Komentar
-               </button>
+  container.innerHTML = Object.entries(groupedDiskusi).map(([materiJudul, diskusiList]) => `
+    <div class="diskusi-container">
+      <h3 style="color: #3498db; margin-bottom: 1rem;">${materiJudul}</h3>
+      ${diskusiList.map(diskusi => `
+        <div class="diskusi-item">
+          <div class="diskusi-header">
+            <span class="diskusi-user">${diskusi.user_name} (${diskusi.user_role})</span>
+            <span class="diskusi-date">${new Date(diskusi.created_at).toLocaleString('id-ID')}</span>
+          </div>
+          <div class="diskusi-content">${diskusi.isi}</div>
+          ${diskusi.parent_id ? `
+            <div style="font-size: 0.8rem; color: #666; margin-top: 0.5rem;">
+              ↪ Balasan untuk diskusi #${diskusi.parent_id}
             </div>
-         `).join('');
-      }
+          ` : ''}
+        </div>
+      `).join('')}
+      <button class="btn" onclick="tambahDiskusiMateri('${diskusiList[0].materi_id}', '${materiJudul}')" style="margin-top: 1rem;">
+        Tambah Komentar
+      </button>
+    </div>
+  `).join('');
+}
 
       // Load progress detail
       async function loadProgressDetail() {
