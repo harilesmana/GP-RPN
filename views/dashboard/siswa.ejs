@@ -1,347 +1,1307 @@
-import { Elysia } from "elysia";
-import { authMiddleware } from "../middleware/auth";
-import { 
-  users, kelas, materi, diskusi, tugas, 
-  tugasDetail, submissions, diskusiMateri,
-  User, Kelas, Materi, TugasDetail, Submission, DiskusiMateri
-} from "../db";
+<!DOCTYPE html>
+<html lang="id">
 
-export const siswaRoutes = new Elysia({ prefix: "/siswa" })
-  .derive(authMiddleware as any)
-  
-  .onBeforeHandle(({ user, set }) => {
-    if (!user || !user.userId) {
-      set.status = 401;
-      return "Silakan login terlebih dahulu";
-    }
-    
-    if (user.role !== "siswa") {
-      set.status = 403;
-      return "Akses ditolak. Hanya siswa yang dapat mengakses endpoint ini.";
-    }
-  })
-
-  
-  .get("/dashboard-stats", async ({ user }) => {
-    const siswaId = user.userId;
-    
-    const semuaTugas = tugasDetail.length;
-    const tugasDikerjakan = submissions.filter(s => s.siswa_id === siswaId).length;
-    const tugasSelesai = submissions.filter(s => 
-      s.siswa_id === siswaId && s.nilai !== undefined
-    ).length;
-    
-    const nilaiSiswa = submissions
-      .filter(s => s.siswa_id === siswaId && s.nilai !== undefined)
-      .map(s => s.nilai as number);
-    
-    const rataNilai = nilaiSiswa.length > 0 
-      ? Math.round(nilaiSiswa.reduce((a, b) => a + b, 0) / nilaiSiswa.length)
-      : 0;
-    
-    const progress = semuaTugas > 0 
-      ? Math.round((tugasDikerjakan / semuaTugas) * 100)
-      : 0;
-    
-    return {
-      success: true,
-      data: {
-        total_materi: materi.length,
-        total_tugas: semuaTugas,
-        tugas_selesai: tugasSelesai,
-        tugas_pending: tugasDikerjakan - tugasSelesai,
-        rata_nilai: rataNilai,
-        overall_progress: progress
+<head>
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <title>Dashboard Siswa - E-Learning</title>
+   <style>
+      * {
+         margin: 0;
+         padding: 0;
+         box-sizing: border-box;
       }
-    };
-  })
 
-  
-  .get("/materi", async ({ user }) => {
-    const siswa = users.find(u => u.id === user.userId);
-    const kelasSiswa = siswa?.kelas_id || 1;
-    
-    const materiSiswa = materi
-      .filter(m => m.kelas_id === kelasSiswa)
-      .map(m => {
-        const guru = users.find(u => u.id === m.guru_id);
-        return {
-          id: m.id,
-          judul: m.judul,
-          deskripsi: m.deskripsi,
-          konten: m.konten.substring(0, 200) + (m.konten.length > 200 ? "..." : ""),
-          guru_nama: guru?.nama || "Tidak diketahui",
-          created_at: m.created_at
-        };
-      });
-    
-    return {
-      success: true,
-      data: materiSiswa
-    };
-  })
-
-  
-  .get("/tugas", async ({ user }) => {
-    const siswaId = user.userId;
-    const siswa = users.find(u => u.id === siswaId);
-    const kelasSiswa = siswa?.kelas_id || 1;
-    
-    const tugasSiswa = tugasDetail
-      .filter(t => {
-        const materiItem = materi.find(m => m.id === t.materi_id);
-        return materiItem && materiItem.kelas_id === kelasSiswa;
-      })
-      .map(t => {
-        const submission = submissions.find(s => 
-          s.tugas_id === t.id && s.siswa_id === siswaId
-        );
-        const materiItem = materi.find(m => m.id === t.materi_id);
-        
-        return {
-          id: t.id,
-          judul: t.judul,
-          deskripsi: t.deskripsi,
-          materi_judul: materiItem?.judul || "Tidak diketahui",
-          deadline: t.deadline,
-          status: submission ? "dikerjakan" : "belum_dikerjakan",
-          nilai: submission?.nilai,
-          feedback: submission?.feedback,
-          jawaban: submission?.jawaban,
-          submitted_at: submission?.submitted_at
-        };
-      });
-    
-    return {
-      success: true,
-      data: tugasSiswa
-    };
-  })
-
-  
-  .get("/tugas-recent", async ({ user }) => {
-    const siswaId = user.userId;
-    
-    const tugasSiswa = await fetch(`/siswa/tugas`, {
-      method: 'GET',
-      headers: { 'Accept': 'application/json' },
-      credentials: 'include'
-    }).then(res => res.json());
-    
-    return {
-      success: true,
-      data: tugasSiswa.data.slice(0, 5) 
-    };
-  })
-
-  
-  .post("/tugas/:id/submit", async ({ user, params, body, set }) => {
-    const siswaId = user.userId;
-    const tugasId = parseInt(params.id);
-    
-    if (isNaN(tugasId)) {
-      set.status = 400;
-      return { error: "ID tugas tidak valid" };
-    }
-    
-    const tugasItem = tugasDetail.find(t => t.id === tugasId);
-    if (!tugasItem) {
-      set.status = 404;
-      return { error: "Tugas tidak ditemukan" };
-    }
-    
-    const { jawaban } = body as any;
-    if (!jawaban || jawaban.trim().length === 0) {
-      set.status = 400;
-      return { error: "Jawaban tidak boleh kosong" };
-    }
-    
-    
-    const existingSubmissionIndex = submissions.findIndex(s => 
-      s.tugas_id === tugasId && s.siswa_id === siswaId
-    );
-    
-    if (existingSubmissionIndex !== -1) {
-      
-      submissions[existingSubmissionIndex].jawaban = jawaban.trim();
-      submissions[existingSubmissionIndex].submitted_at = new Date();
-      submissions[existingSubmissionIndex].nilai = undefined;
-      submissions[existingSubmissionIndex].feedback = undefined;
-      submissions[existingSubmissionIndex].graded_at = undefined;
-    } else {
-      
-      const newSubmission: Submission = {
-        id: submissions.length + 1,
-        tugas_id: tugasId,
-        siswa_id: siswaId,
-        jawaban: jawaban.trim(),
-        submitted_at: new Date()
-      };
-      submissions.push(newSubmission);
-    }
-    
-    return {
-      success: true,
-      message: "Tugas berhasil dikumpulkan"
-    };
-  })
-
-  
-  .get("/nilai", async ({ user }) => {
-    const siswaId = user.userId;
-    
-    const nilaiSiswa = submissions
-      .filter(s => s.siswa_id === siswaId)
-      .map(s => {
-        const tugasItem = tugasDetail.find(t => t.id === s.tugas_id);
-        const materiItem = materi.find(m => m.id === tugasItem?.materi_id);
-        
-        return {
-          id: s.id,
-          tugas_id: s.tugas_id,
-          tugas_judul: tugasItem?.judul || "Tugas tidak ditemukan",
-          materi_judul: materiItem?.judul || "Materi tidak ditemukan",
-          nilai: s.nilai,
-          feedback: s.feedback,
-          submitted_at: s.submitted_at,
-          graded_at: s.graded_at
-        };
-      });
-    
-    return {
-      success: true,
-      data: nilaiSiswa
-    };
-  })
-
-  
-  .get("/diskusi-kelas", async ({ user }) => {
-    const siswa = users.find(u => u.id === user.userId);
-    const kelasSiswa = kelas.find(k => k.id === siswa?.kelas_id);
-    
-    const diskusiKelasSiswa = diskusi
-      .filter(d => d.kelas === (kelasSiswa?.nama || "Umum"))
-      .map(d => {
-        const userDiskusi = users.find(u => u.id === d.user_id);
-        return {
-          id: d.id,
-          kelas: d.kelas,
-          isi: d.isi,
-          user_name: userDiskusi?.nama || "Tidak diketahui",
-          user_role: d.user_role,
-          created_at: d.created_at
-        };
-      });
-    
-    return {
-      success: true,
-      data: diskusiKelasSiswa
-    };
-  })
-
-  
-  .get("/diskusi-materi", async ({ user }) => {
-    const siswa = users.find(u => u.id === user.userId);
-    const kelasSiswa = siswa?.kelas_id || 1;
-    
-    const materiSiswa = materi.filter(m => m.kelas_id === kelasSiswa);
-    const diskusiSiswa = diskusiMateri
-      .filter(d => materiSiswa.some(m => m.id === d.materi_id))
-      .map(d => {
-        const userDiskusi = users.find(u => u.id === d.user_id);
-        const materiItem = materi.find(m => m.id === d.materi_id);
-        
-        return {
-          id: d.id,
-          materi_id: d.materi_id,
-          materi_judul: materiItem?.judul || "Materi tidak ditemukan",
-          isi: d.isi,
-          user_name: userDiskusi?.nama || "Tidak diketahui",
-          user_role: d.user_role,
-          created_at: d.created_at
-        };
-      });
-    
-    return {
-      success: true,
-      data: diskusiSiswa
-    };
-  })
-
-  
-  .post("/diskusi-materi", async ({ user, body, set }) => {
-    const siswaId = user.userId;
-    const { materi_id, isi } = body as any;
-    
-    if (!materi_id || !isi) {
-      set.status = 400;
-      return { error: "Materi dan isi diskusi harus diisi" };
-    }
-    
-    if (isi.length < 5) {
-      set.status = 400;
-      return { error: "Isi diskusi terlalu pendek" };
-    }
-    
-    const newDiskusi: DiskusiMateri = {
-      id: diskusiMateri.length + 1,
-      materi_id: parseInt(materi_id),
-      user_id: siswaId,
-      user_role: "siswa",
-      isi: isi.trim(),
-      created_at: new Date()
-    };
-    
-    diskusiMateri.push(newDiskusi);
-    
-    return {
-      success: true,
-      message: "Diskusi berhasil ditambahkan"
-    };
-  })
-
-  
-  .get("/progress-detail", async ({ user }) => {
-    const siswaId = user.userId;
-    const siswa = users.find(u => u.id === siswaId);
-    const kelasSiswa = siswa?.kelas_id || 1;
-    
-    const materiSiswa = materi.filter(m => m.kelas_id === kelasSiswa);
-    const tugasSiswa = tugasDetail.filter(t => 
-      materiSiswa.some(m => m.id === t.materi_id)
-    );
-    
-    const submissionsSiswa = submissions.filter(s => 
-      s.siswa_id === siswaId && 
-      tugasSiswa.some(t => t.id === s.tugas_id)
-    );
-    
-    const nilaiSiswa = submissionsSiswa
-      .filter(s => s.nilai !== undefined)
-      .map(s => s.nilai as number);
-    
-    return {
-      success: true,
-      data: {
-        total_materi: materiSiswa.length,
-        materi_dipelajari: new Set(submissionsSiswa.map(s => {
-          const tugasItem = tugasDetail.find(t => t.id === s.tugas_id);
-          return tugasItem?.materi_id;
-        })).size,
-        total_tugas: tugasSiswa.length,
-        tugas_selesai: submissionsSiswa.length,
-        rata_nilai: nilaiSiswa.length > 0 
-          ? Math.round(nilaiSiswa.reduce((a, b) => a + b, 0) / nilaiSiswa.length)
-          : 0,
-        progress_materi: materiSiswa.length > 0 
-          ? Math.round((new Set(submissionsSiswa.map(s => {
-            const tugasItem = tugasDetail.find(t => t.id === s.tugas_id);
-            return tugasItem?.materi_id;
-          })).size / materiSiswa.length) * 100)
-          : 0,
-        progress_tugas: tugasSiswa.length > 0 
-          ? Math.round((submissionsSiswa.length / tugasSiswa.length) * 100)
-          : 0
+      body {
+         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+         background: #f5f7fa;
+         min-height: 100vh;
       }
-    };
-  });
+
+      .header {
+         background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+         color: white;
+         padding: 1rem 2rem;
+         display: flex;
+         justify-content: space-between;
+         align-items: center;
+         box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .user-info {
+         display: flex;
+         align-items: center;
+         gap: 1rem;
+      }
+
+      .logout-btn {
+         background: rgba(255, 255, 255, 0.2);
+         border: 1px solid rgba(255, 255, 255, 0.3);
+         color: white;
+         padding: 0.5rem 1rem;
+         border-radius: 5px;
+         cursor: pointer;
+         transition: background 0.3s;
+      }
+
+      .logout-btn:hover {
+         background: rgba(255, 255, 255, 0.3);
+      }
+
+      .main-content {
+         display: grid;
+         grid-template-columns: 250px 1fr;
+         min-height: calc(100vh - 80px);
+      }
+
+      .sidebar {
+         background: white;
+         box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+         padding: 2rem 0;
+      }
+
+      .nav-item {
+         padding: 1rem 2rem;
+         cursor: pointer;
+         transition: all 0.3s;
+         border-left: 3px solid transparent;
+      }
+
+      .nav-item:hover,
+      .nav-item.active {
+         background: #f0f8ff;
+         border-left-color: #3498db;
+         color: #3498db;
+      }
+
+      .content-area {
+         padding: 2rem;
+      }
+
+      .page-section {
+         display: none;
+      }
+
+      .page-section.active {
+         display: block;
+      }
+
+      .stats-grid {
+         display: grid;
+         grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+         gap: 1.5rem;
+         margin-bottom: 2rem;
+      }
+
+      .stat-card {
+         background: white;
+         padding: 2rem;
+         border-radius: 10px;
+         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+         text-align: center;
+      }
+
+      .stat-value {
+         font-size: 2.5rem;
+         font-weight: bold;
+         color: #3498db;
+         margin-bottom: 0.5rem;
+      }
+
+      .stat-label {
+         color: #666;
+         font-size: 0.9rem;
+      }
+
+      .card {
+         background: white;
+         border-radius: 10px;
+         padding: 2rem;
+         margin-bottom: 1.5rem;
+         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      }
+
+      .card-title {
+         font-size: 1.2rem;
+         font-weight: 600;
+         color: #333;
+         margin-bottom: 1rem;
+      }
+
+      .btn {
+         background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+         color: white;
+         border: none;
+         padding: 0.75rem 1.5rem;
+         border-radius: 5px;
+         cursor: pointer;
+         font-weight: 600;
+         transition: transform 0.2s;
+         text-decoration: none;
+         display: inline-block;
+      }
+
+      .btn:hover {
+         transform: translateY(-2px);
+      }
+
+      .btn-success {
+         background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+      }
+
+      .btn-warning {
+         background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+      }
+
+      .btn-danger {
+         background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+      }
+
+      .alert {
+         padding: 1rem;
+         border-radius: 5px;
+         margin-bottom: 1rem;
+         display: none;
+      }
+
+      .alert-success {
+         background: #d4edda;
+         color: #155724;
+         border: 1px solid #c3e6cb;
+      }
+
+      .alert-error {
+         background: #f8d7da;
+         color: #721c24;
+         border: 1px solid #f5c6cb;
+      }
+
+      /* Materi Cards */
+      .materi-grid {
+         display: grid;
+         grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+         gap: 1.5rem;
+         margin-top: 1rem;
+      }
+
+      .materi-card {
+         background: white;
+         border-radius: 10px;
+         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+         padding: 1.5rem;
+         transition: transform 0.2s, box-shadow 0.2s;
+      }
+
+      .materi-card:hover {
+         transform: translateY(-2px);
+         box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+      }
+
+      .materi-title {
+         color: #3498db;
+         font-size: 1.1rem;
+         font-weight: 600;
+         margin-bottom: 0.75rem;
+      }
+
+      .materi-guru {
+         color: #666;
+         font-size: 0.9rem;
+         margin-bottom: 1rem;
+      }
+
+      .materi-content {
+         color: #333;
+         line-height: 1.5;
+         margin-bottom: 1.5rem;
+         display: -webkit-box;
+         -webkit-line-clamp: 3;
+         line-clamp: 3;
+         -webkit-box-orient: vertical;
+         overflow: hidden;
+      }
+
+      /* Tugas Cards */
+      .tugas-grid {
+         display: grid;
+         grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+         gap: 1.5rem;
+         margin-top: 1rem;
+      }
+
+      .tugas-card {
+         background: white;
+         border-radius: 10px;
+         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+         padding: 1.5rem;
+         border-left: 4px solid #3498db;
+      }
+
+      .tugas-header {
+         display: flex;
+         justify-content: space-between;
+         align-items: flex-start;
+         margin-bottom: 1rem;
+      }
+
+      .tugas-title {
+         color: #333;
+         font-size: 1.1rem;
+         font-weight: 600;
+      }
+
+      .tugas-status {
+         padding: 0.25rem 0.75rem;
+         border-radius: 15px;
+         font-size: 0.8rem;
+         font-weight: 600;
+         text-transform: capitalize;
+      }
+
+      .status-belum_dikerjakan {
+         background: #ffeaa7;
+         color: #d63031;
+      }
+
+      .status-dikerjakan {
+         background: #74b9ff;
+         color: white;
+      }
+
+      .status-selesai {
+         background: #00b894;
+         color: white;
+      }
+
+      .tugas-materi {
+         color: #3498db;
+         font-size: 0.9rem;
+         margin-bottom: 0.5rem;
+      }
+
+      .tugas-deadline {
+         color: #e74c3c;
+         font-size: 0.9rem;
+         margin-bottom: 1rem;
+      }
+
+      .tugas-description {
+         color: #666;
+         line-height: 1.5;
+         margin-bottom: 1.5rem;
+      }
+
+      .tugas-nilai {
+         background: #f8f9ff;
+         padding: 1rem;
+         border-radius: 5px;
+         margin-bottom: 1rem;
+      }
+
+      /* Progress Bar */
+      .progress-container {
+         background: #f8f9ff;
+         border-radius: 10px;
+         padding: 1.5rem;
+         margin-bottom: 1.5rem;
+      }
+
+      .progress-bar {
+         background: #e1e5e9;
+         border-radius: 10px;
+         height: 20px;
+         margin: 1rem 0;
+         overflow: hidden;
+      }
+
+      .progress-fill {
+         height: 100%;
+         background: linear-gradient(90deg, #3498db, #2980b9);
+         transition: width 0.3s ease;
+         display: flex;
+         align-items: center;
+         justify-content: center;
+         color: white;
+         font-weight: 600;
+         font-size: 0.8rem;
+      }
+
+      /* Modal Styles */
+      .modal-overlay {
+         position: fixed;
+         top: 0;
+         left: 0;
+         width: 100%;
+         height: 100%;
+         background: rgba(0, 0, 0, 0.5);
+         display: flex;
+         justify-content: center;
+         align-items: center;
+         z-index: 1000;
+      }
+
+      .modal-content {
+         background: white;
+         border-radius: 10px;
+         width: 90%;
+         max-width: 600px;
+         max-height: 80vh;
+         overflow-y: auto;
+         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+      }
+
+      .modal-header {
+         display: flex;
+         justify-content: space-between;
+         align-items: center;
+         padding: 1.5rem;
+         border-bottom: 1px solid #e1e5e9;
+      }
+
+      .modal-header h3 {
+         margin: 0;
+         color: #333;
+      }
+
+      .modal-close {
+         background: none;
+         border: none;
+         font-size: 1.5rem;
+         cursor: pointer;
+         color: #666;
+         padding: 0;
+         width: 30px;
+         height: 30px;
+         display: flex;
+         align-items: center;
+         justify-content: center;
+      }
+
+      .modal-close:hover {
+         color: #333;
+      }
+
+      .modal-body {
+         padding: 1.5rem;
+      }
+
+      .form-group {
+         margin-bottom: 1rem;
+      }
+
+      .form-group label {
+         display: block;
+         margin-bottom: 0.5rem;
+         color: #333;
+         font-weight: 500;
+      }
+
+      .form-group input,
+      .form-group textarea {
+         width: 100%;
+         padding: 0.75rem;
+         border: 2px solid #e1e5e9;
+         border-radius: 5px;
+         font-size: 1rem;
+      }
+
+      .form-group textarea {
+         resize: vertical;
+         min-height: 100px;
+      }
+
+      /* Diskusi Styles */
+      .diskusi-container {
+         background: #f8f9ff;
+         border-radius: 10px;
+         padding: 1.5rem;
+         margin-bottom: 1.5rem;
+      }
+
+      .diskusi-item {
+         background: white;
+         border-radius: 8px;
+         padding: 1rem;
+         margin-bottom: 1rem;
+         border-left: 3px solid #3498db;
+      }
+
+      .diskusi-header {
+         display: flex;
+         justify-content: space-between;
+         align-items: center;
+         margin-bottom: 0.75rem;
+      }
+
+      .diskusi-user {
+         color: #3498db;
+         font-weight: 600;
+         font-size: 0.9rem;
+      }
+
+      .diskusi-date {
+         color: #666;
+         font-size: 0.8rem;
+      }
+
+      .diskusi-content {
+         color: #333;
+         line-height: 1.5;
+      }
+
+      .nilai-badge {
+         display: inline-block;
+         background: linear-gradient(135deg, #3498db, #2980b9);
+         color: white;
+         padding: 0.5rem 1rem;
+         border-radius: 20px;
+         font-weight: 600;
+         font-size: 1.1rem;
+      }
+   </style>
+</head>
+
+<body>
+   <div class="header">
+      <div>
+         <h1>Dashboard Siswa</h1>
+         <p>Sistem Pembelajaran E-Learning</p>
+      </div>
+      <div class="user-info">
+         <span>Selamat datang, <%= user.nama %></span>
+         <button class="logout-btn" onclick="logout()">Logout</button>
+      </div>
+   </div>
+
+   <div class="main-content">
+      <div class="sidebar">
+         <div class="nav-item active" onclick="showSection('dashboard')">📊 Dashboard</div>
+         <div class="nav-item" onclick="showSection('materi-pembelajaran')">📚 Materi Pembelajaran</div>
+         <div class="nav-item" onclick="showSection('tugas-saya')">📝 Tugas Saya</div>
+         <div class="nav-item" onclick="showSection('nilai-saya')">🎯 Nilai Saya</div>
+         <div class="nav-item" onclick="showSection('diskusi')">💬 Diskusi</div>
+         <div class="nav-item" onclick="showSection('progress')">📈 Progress Belajar</div>
+      </div>
+
+      <div class="content-area">
+         <div id="alert" class="alert">
+            <span id="alertMessage"></span>
+         </div>
+
+         <!-- Dashboard Section -->
+         <div id="dashboard" class="page-section active">
+            <h2>Ringkasan Pembelajaran</h2>
+
+            <div class="stats-grid">
+               <div class="stat-card">
+                  <div class="stat-value" id="totalMateri">0</div>
+                  <div class="stat-label">Materi Tersedia</div>
+               </div>
+               <div class="stat-card">
+                  <div class="stat-value" id="tugasSelesai">0</div>
+                  <div class="stat-label">Tugas Selesai</div>
+               </div>
+               <div class="stat-card">
+                  <div class="stat-value" id="tugasPending">0</div>
+                  <div class="stat-label">Tugas Pending</div>
+               </div>
+               <div class="stat-card">
+                  <div class="stat-value" id="rataRataNilai">0</div>
+                  <div class="stat-label">Rata-rata Nilai</div>
+               </div>
+            </div>
+
+            <!-- Progress Pembelajaran -->
+            <div class="progress-container">
+               <h3 style="color: #3498db; margin-bottom: 1rem;">Progress Pembelajaran Anda</h3>
+               <div class="progress-bar">
+                  <div class="progress-fill" id="overallProgress" style="width: 0%">0%</div>
+               </div>
+               <p style="color: #666; margin-top: 0.5rem;">Terus semangat belajar!</p>
+            </div>
+
+            <!-- Tugas Terbaru -->
+            <div class="card">
+               <div class="card-title">Tugas Terbaru</div>
+               <div id="recentTugas">
+                  <p>Loading tugas terbaru...</p>
+               </div>
+            </div>
+         </div>
+
+         <!-- Materi Pembelajaran Section -->
+         <div id="materi-pembelajaran" class="page-section">
+            <h2>Materi Pembelajaran</h2>
+
+            <div class="materi-grid" id="materiGrid">
+               <!-- Materi akan dimuat di sini -->
+            </div>
+         </div>
+
+         <!-- Tugas Saya Section -->
+         <div id="tugas-saya" class="page-section">
+            <h2>Daftar Tugas</h2>
+
+            <div class="tugas-grid" id="tugasGrid">
+               <!-- Tugas akan dimuat di sini -->
+            </div>
+         </div>
+
+         <!-- Nilai Saya Section -->
+         <div id="nilai-saya" class="page-section">
+            <h2>Nilai dan Hasil Pembelajaran</h2>
+
+            <div class="card">
+               <div class="card-title">Ringkasan Nilai</div>
+               <div id="nilaiSummary">
+                  <!-- Summary nilai akan ditampilkan di sini -->
+               </div>
+            </div>
+
+            <div class="card">
+               <div class="card-title">Detail Nilai per Tugas</div>
+               <div id="detailNilai">
+                  <!-- Detail nilai akan ditampilkan di sini -->
+               </div>
+            </div>
+         </div>
+
+         <!-- Diskusi Section -->
+         <div id="diskusi" class="page-section">
+            <h2>Diskusi Pembelajaran</h2>
+
+            <div class="card">
+               <div class="card-title">Diskusi Kelas</div>
+               <div id="diskusiKelas">
+                  <!-- Diskusi kelas akan dimuat di sini -->
+               </div>
+            </div>
+
+            <div class="card">
+               <div class="card-title">Diskusi Materi</div>
+               <div id="diskusiMateri">
+                  <!-- Diskusi materi akan dimuat di sini -->
+               </div>
+            </div>
+         </div>
+
+         <!-- Progress Section -->
+         <div id="progress" class="page-section">
+            <h2>Progress Belajar Detail</h2>
+
+            <div class="card">
+               <div class="card-title">Statistik Pembelajaran</div>
+               <div id="progressDetail">
+                  <!-- Progress detail akan dimuat di sini -->
+               </div>
+            </div>
+         </div>
+      </div>
+   </div>
+
+   <script>
+      let currentUser = null;
+      let materiData = [];
+      let tugasData = [];
+      let nilaiData = [];
+
+      // Show alert function
+      function showAlert(message, type = 'success') {
+         const alert = document.getElementById('alert');
+         const alertMessage = document.getElementById('alertMessage');
+
+         alert.className = `alert alert-${type}`;
+         alertMessage.textContent = message;
+         alert.style.display = 'block';
+
+         setTimeout(() => {
+            alert.style.display = 'none';
+         }, 5000);
+      }
+
+      // Show section function
+      function showSection(sectionId) {
+         document.querySelectorAll('.page-section').forEach(section => {
+            section.classList.remove('active');
+         });
+         document.querySelectorAll('.nav-item').forEach(item => {
+            item.classList.remove('active');
+         });
+
+         document.getElementById(sectionId).classList.add('active');
+         event.target.classList.add('active');
+
+         // Load data untuk section tertentu
+         if (sectionId === 'materi-pembelajaran') {
+            loadMateriPembelajaran();
+         } else if (sectionId === 'tugas-saya') {
+            loadTugasSaya();
+         } else if (sectionId === 'nilai-saya') {
+            loadNilaiSaya();
+         } else if (sectionId === 'diskusi') {
+            loadDiskusi();
+         } else if (sectionId === 'progress') {
+            loadProgressDetail();
+         }
+      }
+
+      // Load dashboard data
+      async function loadDashboardData() {
+         try {
+            const response = await fetch('/siswa/dashboard-stats', {
+               method: 'GET',
+               credentials: 'include'
+            });
+
+            if (response.ok) {
+               const stats = await response.json();
+               updateDashboardStats(stats);
+            }
+
+            // Load recent tugas
+            loadRecentTugas();
+         } catch (error) {
+            console.error('Error loading dashboard:', error);
+            showAlert('Terjadi kesalahan saat memuat dashboard', 'error');
+         }
+      }
+
+      // Update dashboard stats
+      function updateDashboardStats(stats) {
+         document.getElementById('totalMateri').textContent = stats.total_materi || 0;
+         document.getElementById('tugasSelesai').textContent = stats.tugas_selesai || 0;
+         document.getElementById('tugasPending').textContent = stats.tugas_pending || 0;
+         document.getElementById('rataRataNilai').textContent = Math.round(stats.rata_nilai || 0);
+
+         // Update progress bar
+         const progress = stats.overall_progress || 0;
+         const progressBar = document.getElementById('overallProgress');
+         progressBar.style.width = progress + '%';
+         progressBar.textContent = Math.round(progress) + '%';
+      }
+
+      // Load recent tugas
+      async function loadRecentTugas() {
+         try {
+            const response = await fetch('/siswa/tugas-recent', {
+               method: 'GET',
+               credentials: 'include'
+            });
+
+            if (response.ok) {
+               const recentTugas = await response.json();
+               displayRecentTugas(recentTugas);
+            }
+         } catch (error) {
+            document.getElementById('recentTugas').innerHTML = '<p>Tidak ada tugas terbaru</p>';
+         }
+      }
+
+      // Display recent tugas
+      function displayRecentTugas(recentTugas) {
+         const container = document.getElementById('recentTugas');
+
+         if (recentTugas.length === 0) {
+            container.innerHTML = '<p>Tidak ada tugas terbaru</p>';
+            return;
+         }
+
+         container.innerHTML = recentTugas.slice(0, 3).map(tugas => `
+            <div style="background: #f8f9ff; padding: 1rem; margin-bottom: 1rem; border-radius: 8px; border-left: 3px solid #3498db;">
+               <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <h4 style="color: #333; margin: 0;">${tugas.judul}</h4>
+                  <span class="tugas-status status-${tugas.status}">${tugas.status.replace('_', ' ')}</span>
+               </div>
+               <p style="color: #666; margin: 0.5rem 0; font-size: 0.9rem;">Materi: ${tugas.materi_judul}</p>
+               <p style="color: #e74c3c; margin: 0; font-size: 0.8rem;">Deadline: ${new Date(tugas.deadline).toLocaleDateString('id-ID')}</p>
+            </div>
+         `).join('');
+      }
+
+      // Load materi pembelajaran
+      async function loadMateriPembelajaran() {
+         try {
+            const response = await fetch('/siswa/materi', {
+               method: 'GET',
+               credentials: 'include'
+            });
+
+            if (response.ok) {
+               materiData = await response.json();
+               displayMateriGrid();
+            } else {
+               showAlert('Error loading materi', 'error');
+            }
+         } catch (error) {
+            console.error('Error loading materi:', error);
+            showAlert('Terjadi kesalahan saat memuat materi', 'error');
+         }
+      }
+
+      // Display materi grid
+      function displayMateriGrid() {
+         const container = document.getElementById('materiGrid');
+
+         if (materiData.length === 0) {
+            container.innerHTML = '<p>Belum ada materi pembelajaran tersedia</p>';
+            return;
+         }
+
+         container.innerHTML = materiData.map(materi => `
+            <div class="materi-card">
+               <div class="materi-title">${materi.judul}</div>
+               <div class="materi-guru">Guru: ${materi.guru_nama}</div>
+               <div class="materi-content">${materi.konten}</div>
+               <div style="display: flex; gap: 10px;">
+                  <button class="btn" onclick="bacaMateri(${materi.id})">Baca Materi</button>
+                  <button class="btn btn-warning" onclick="lihatDiskusiMateri(${materi.id})">Diskusi</button>
+               </div>
+            </div>
+         `).join('');
+      }
+
+      // Load tugas saya
+      async function loadTugasSaya() {
+         try {
+            const response = await fetch('/siswa/tugas', {
+               method: 'GET',
+               credentials: 'include'
+            });
+
+            if (response.ok) {
+               tugasData = await response.json();
+               displayTugasGrid();
+            } else {
+               showAlert('Error loading tugas', 'error');
+            }
+         } catch (error) {
+            console.error('Error loading tugas:', error);
+            showAlert('Terjadi kesalahan saat memuat tugas', 'error');
+         }
+      }
+
+      // Display tugas grid
+      function displayTugasGrid() {
+         const container = document.getElementById('tugasGrid');
+
+         if (tugasData.length === 0) {
+            container.innerHTML = '<p>Belum ada tugas yang tersedia</p>';
+            return;
+         }
+
+         container.innerHTML = tugasData.map(tugas => `
+            <div class="tugas-card">
+               <div class="tugas-header">
+                  <div class="tugas-title">${tugas.judul}</div>
+                  <span class="tugas-status status-${tugas.status}">${tugas.status.replace('_', ' ')}</span>
+               </div>
+               <div class="tugas-materi">Materi: ${tugas.materi_judul}</div>
+               <div class="tugas-deadline">Deadline: ${new Date(tugas.deadline).toLocaleDateString('id-ID')}</div>
+               <div class="tugas-description">${tugas.deskripsi}</div>
+               
+               ${tugas.nilai ? `
+                  <div class="tugas-nilai">
+                     <span class="nilai-badge">Nilai: ${tugas.nilai}/100</span>
+                     ${tugas.feedback ? `<p style="margin-top: 0.5rem; color: #666; font-style: italic;">${tugas.feedback}</p>` : ''}
+                  </div>
+               ` : ''}
+               
+               <div style="display: flex; gap: 10px; margin-top: 1rem;">
+                  ${tugas.status === 'belum_dikerjakan' ?
+               `<button class="btn btn-success" onclick="kerjakanTugas(${tugas.id})">Kerjakan</button>` :
+               tugas.status === 'dikerjakan' ?
+                  `<button class="btn btn-warning" onclick="editJawaban(${tugas.id})">Edit Jawaban</button>` :
+                  `<button class="btn" onclick="lihatJawaban(${tugas.id})">Lihat Jawaban</button>`
+            }
+                  <button class="btn" onclick="lihatDetailTugas(${tugas.id})">Detail</button>
+               </div>
+            </div>
+         `).join('');
+      }
+
+      // Load nilai saya
+      async function loadNilaiSaya() {
+         try {
+            const response = await fetch('/siswa/nilai', {
+               method: 'GET',
+               credentials: 'include'
+            });
+
+            if (response.ok) {
+               nilaiData = await response.json();
+               displayNilai();
+            } else {
+               showAlert('Error loading nilai', 'error');
+            }
+         } catch (error) {
+            console.error('Error loading nilai:', error);
+            showAlert('Terjadi kesalahan saat memuat nilai', 'error');
+         }
+      }
+
+      // Display nilai
+      function displayNilai() {
+         // Summary
+         const summaryContainer = document.getElementById('nilaiSummary');
+         const totalTugas = nilaiData.length;
+         const tugasDinilai = nilaiData.filter(n => n.nilai !== null).length;
+         const rataRata = tugasDinilai > 0 ?
+            nilaiData.filter(n => n.nilai !== null).reduce((sum, n) => sum + n.nilai, 0) / tugasDinilai : 0;
+
+         summaryContainer.innerHTML = `
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+               <div style="text-align: center; background: #f8f9ff; padding: 1rem; border-radius: 8px;">
+                  <div style="font-size: 2rem; font-weight: bold; color: #3498db;">${totalTugas}</div>
+                  <div style="color: #666;">Total Tugas</div>
+               </div>
+               <div style="text-align: center; background: #f8f9ff; padding: 1rem; border-radius: 8px;">
+                  <div style="font-size: 2rem; font-weight: bold; color: #3498db;">${tugasDinilai}</div>
+                  <div style="color: #666;">Sudah Dinilai</div>
+               </div>
+               <div style="text-align: center; background: #f8f9ff; padding: 1rem; border-radius: 8px;">
+                  <div style="font-size: 2rem; font-weight: bold; color: #3498db;">${Math.round(rataRata)}</div>
+                  <div style="color: #666;">Rata-rata</div>
+               </div>
+            </div>
+         `;
+
+         // Detail
+         const detailContainer = document.getElementById('detailNilai');
+         if (nilaiData.length === 0) {
+            detailContainer.innerHTML = '<p>Belum ada tugas dengan nilai</p>';
+            return;
+         }
+
+         detailContainer.innerHTML = nilaiData.map(nilai => `
+            <div style="background: #f8f9ff; padding: 1rem; margin-bottom: 1rem; border-radius: 8px; border-left: 3px solid ${nilai.nilai ? '#3498db' : '#e74c3c'};">
+               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                  <h4 style="margin: 0; color: #333;">${nilai.tugas_judul}</h4>
+                  ${nilai.nilai ?
+               `<span class="nilai-badge">${nilai.nilai}/100</span>` :
+               `<span style="color: #e74c3c; font-weight: 600;">Belum Dinilai</span>`
+            }
+               </div>
+               <p style="color: #666; margin: 0.25rem 0; font-size: 0.9rem;">Materi: ${nilai.materi_judul}</p>
+               <p style="color: #666; margin: 0.25rem 0; font-size: 0.9rem;">Dikumpulkan: ${new Date(nilai.submitted_at).toLocaleDateString('id-ID')}</p>
+               ${nilai.feedback ? `<p style="color: #555; margin-top: 0.5rem; font-style: italic; background: white; padding: 0.5rem; border-radius: 4px;">${nilai.feedback}</p>` : ''}
+            </div>
+         `).join('');
+      }
+
+      // Load diskusi
+      async function loadDiskusi() {
+         try {
+            // Load diskusi kelas
+            const kelasResponse = await fetch('/siswa/diskusi-kelas', {
+               method: 'GET',
+               credentials: 'include'
+            });
+
+            if (kelasResponse.ok) {
+               const diskusiKelas = await kelasResponse.json();
+               displayDiskusiKelas(diskusiKelas);
+            }
+
+            // Load diskusi materi
+            const materiResponse = await fetch('/siswa/diskusi-materi', {
+               method: 'GET',
+               credentials: 'include'
+            });
+
+            if (materiResponse.ok) {
+               const diskusiMateri = await materiResponse.json();
+               displayDiskusiMateri(diskusiMateri);
+            }
+         } catch (error) {
+            console.error('Error loading diskusi:', error);
+            showAlert('Terjadi kesalahan saat memuat diskusi', 'error');
+         }
+      }
+
+      // Display diskusi kelas
+      function displayDiskusiKelas(diskusiKelas) {
+         const container = document.getElementById('diskusiKelas');
+
+         if (diskusiKelas.length === 0) {
+            container.innerHTML = '<p>Belum ada diskusi kelas</p>';
+            return;
+         }
+
+         container.innerHTML = diskusiKelas.map(diskusi => `
+            <div class="diskusi-item">
+               <div class="diskusi-header">
+                  <span class="diskusi-user">${diskusi.user_name}</span>
+                  <span class="diskusi-date">${new Date(diskusi.created_at).toLocaleDateString('id-ID')}</span>
+               </div>
+               <div class="diskusi-content">${diskusi.isi}</div>
+            </div>
+         `).join('');
+      }
+
+      // Display diskusi materi
+      function displayDiskusiMateri(diskusiMateri) {
+         const container = document.getElementById('diskusiMateri');
+
+         if (diskusiMateri.length === 0) {
+            container.innerHTML = '<p>Belum ada diskusi materi</p>';
+            return;
+         }
+
+         // Group by materi
+         const groupedDiskusi = diskusiMateri.reduce((acc, diskusi) => {
+            if (!acc[diskusi.materi_judul]) {
+               acc[diskusi.materi_judul] = [];
+            }
+            acc[diskusi.materi_judul].push(diskusi);
+            return acc;
+         }, {});
+
+         container.innerHTML = Object.entries(groupedDiskusi).map(([materiJudul, diskusiList]) => `
+            <div class="diskusi-container">
+               <h3 style="color: #3498db; margin-bottom: 1rem;">${materiJudul}</h3>
+               ${diskusiList.map(diskusi => `
+                  <div class="diskusi-item">
+                     <div class="diskusi-header">
+                        <span class="diskusi-user">${diskusi.user_name}</span>
+                        <span class="diskusi-date">${new Date(diskusi.created_at).toLocaleDateString('id-ID')}</span>
+                     </div>
+                     <div class="diskusi-content">${diskusi.isi}</div>
+                  </div>
+               `).join('')}
+               <button class="btn" onclick="tambahDiskusiMateri(${diskusiList[0].materi_id})" style="margin-top: 1rem;">
+                  Tambah Komentar
+               </button>
+            </div>
+         `).join('');
+      }
+
+      // Load progress detail
+      async function loadProgressDetail() {
+         try {
+            const response = await fetch('/siswa/progress-detail', {
+               method: 'GET',
+               credentials: 'include'
+            });
+
+            if (response.ok) {
+               const progressData = await response.json();
+               displayProgressDetail(progressData);
+            }
+         } catch (error) {
+            console.error('Error loading progress detail:', error);
+         }
+      }
+
+      // Display progress detail
+      function displayProgressDetail(progressData) {
+         const container = document.getElementById('progressDetail');
+
+         container.innerHTML = `
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem;">
+               <div style="background: #f8f9ff; padding: 1.5rem; border-radius: 10px; text-align: center;">
+                  <h4 style="color: #3498db; margin-bottom: 1rem;">Materi Dipelajari</h4>
+                  <div style="font-size: 2.5rem; font-weight: bold; color: #3498db; margin-bottom: 0.5rem;">
+                     ${progressData.materi_dipelajari || 0}
+                  </div>
+                  <div style="color: #666;">dari ${progressData.total_materi || 0} materi</div>
+                  <div class="progress-bar" style="margin-top: 1rem;">
+                     <div class="progress-fill" style="width: ${progressData.progress_materi || 0}%">
+                        ${Math.round(progressData.progress_materi || 0)}%
+                     </div>
+                  </div>
+               </div>
+               
+               <div style="background: #f8f9ff; padding: 1.5rem; border-radius: 10px; text-align: center;">
+                  <h4 style="color: #3498db; margin-bottom: 1rem;">Tugas Selesai</h4>
+                  <div style="font-size: 2.5rem; font-weight: bold; color: #3498db; margin-bottom: 0.5rem;">
+                     ${progressData.tugas_selesai || 0}
+                  </div>
+                  <div style="color: #666;">dari ${progressData.total_tugas || 0} tugas</div>
+                  <div class="progress-bar" style="margin-top: 1rem;">
+                     <div class="progress-fill" style="width: ${progressData.progress_tugas || 0}%">
+                        ${Math.round(progressData.progress_tugas || 0)}%
+                     </div>
+                  </div>
+               </div>
+               
+               <div style="background: #f8f9ff; padding: 1.5rem; border-radius: 10px; text-align: center;">
+                  <h4 style="color: #3498db; margin-bottom: 1rem;">Nilai Rata-rata</h4>
+                  <div style="font-size: 2.5rem; font-weight: bold; color: #3498db; margin-bottom: 0.5rem;">
+                     ${Math.round(progressData.rata_nilai || 0)}
+                  </div>
+                  <div style="color: #666;">dari 100</div>
+                  <div class="progress-bar" style="margin-top: 1rem;">
+                     <div class="progress-fill" style="width: ${progressData.rata_nilai || 0}%">
+                        ${Math.round(progressData.rata_nilai || 0)}%
+                     </div>
+                  </div>
+               </div>
+            </div>
+         `;
+      }
+
+      // Action functions
+      function bacaMateri(materiId) {
+         const materi = materiData.find(m => m.id === materiId);
+         if (materi) {
+            showMateriModal(materi);
+         }
+      }
+
+      function showMateriModal(materi) {
+         const modal = document.createElement('div');
+         modal.className = 'modal-overlay';
+         modal.innerHTML = `
+            <div class="modal-content">
+               <div class="modal-header">
+                  <h3>${materi.judul}</h3>
+                  <button class="modal-close" onclick="closeModal()">&times;</button>
+               </div>
+               <div class="modal-body">
+                  <p style="color: #666; margin-bottom: 1rem;">Guru: ${materi.guru_nama}</p>
+                  <div style="line-height: 1.6; color: #333;">
+                     ${materi.konten.replace(/\n/g, '<br>')}
+                  </div>
+               </div>
+            </div>
+         `;
+         document.body.appendChild(modal);
+      }
+
+      function kerjakanTugas(tugasId) {
+         const tugas = tugasData.find(t => t.id === tugasId);
+         if (tugas) {
+            showTugasModal(tugas, 'kerjakan');
+         }
+      }
+
+      function editJawaban(tugasId) {
+         const tugas = tugasData.find(t => t.id === tugasId);
+         if (tugas) {
+            showTugasModal(tugas, 'edit');
+         }
+      }
+
+      function showTugasModal(tugas, mode) {
+         const modal = document.createElement('div');
+         modal.className = 'modal-overlay';
+         modal.innerHTML = `
+            <div class="modal-content">
+               <div class="modal-header">
+                  <h3>${mode === 'kerjakan' ? 'Kerjakan' : 'Edit'} Tugas: ${tugas.judul}</h3>
+                  <button class="modal-close" onclick="closeModal()">&times;</button>
+               </div>
+               <div class="modal-body">
+                  <p style="color: #666; margin-bottom: 1rem;"><strong>Materi:</strong> ${tugas.materi_judul}</p>
+                  <p style="color: #e74c3c; margin-bottom: 1rem;"><strong>Deadline:</strong> ${new Date(tugas.deadline).toLocaleDateString('id-ID')}</p>
+                  <div style="background: #f8f9ff; padding: 1rem; border-radius: 5px; margin-bottom: 1rem;">
+                     <strong>Deskripsi Tugas:</strong><br>
+                     ${tugas.deskripsi}
+                  </div>
+                  
+                  <form id="tugasForm">
+                     <div class="form-group">
+                        <label for="tugasJawaban">Jawaban Anda:</label>
+                        <textarea id="tugasJawaban" name="jawaban" placeholder="Masukkan jawaban Anda di sini..." required>${tugas.jawaban || ''}</textarea>
+                     </div>
+                     <div style="text-align: right; margin-top: 1rem;">
+                        <button type="button" onclick="closeModal()" style="margin-right: 10px; background: #95a5a6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 5px; cursor: pointer;">Batal</button>
+                        <button type="submit" class="btn">Simpan Jawaban</button>
+                     </div>
+                  </form>
+               </div>
+            </div>
+         `;
+         document.body.appendChild(modal);
+
+         // Handle form submission
+         document.getElementById('tugasForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+            const jawaban = document.getElementById('tugasJawaban').value;
+
+            try {
+               const response = await fetch(`/siswa/tugas/${tugas.id}/submit`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  credentials: 'include',
+                  body: JSON.stringify({ jawaban })
+               });
+
+               if (response.ok) {
+                  showAlert('Jawaban berhasil disimpan!');
+                  closeModal();
+                  loadTugasSaya();
+                  loadDashboardData();
+               } else {
+                  const error = await response.text();
+                  showAlert('Error: ' + error, 'error');
+               }
+            } catch (error) {
+               console.error('Error submitting tugas:', error);
+               showAlert('Terjadi kesalahan saat menyimpan jawaban', 'error');
+            }
+         });
+      }
+
+      function lihatJawaban(tugasId) {
+         const tugas = tugasData.find(t => t.id === tugasId);
+         if (tugas) {
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay';
+            modal.innerHTML = `
+               <div class="modal-content">
+                  <div class="modal-header">
+                     <h3>Jawaban Tugas: ${tugas.judul}</h3>
+                     <button class="modal-close" onclick="closeModal()">&times;</button>
+                  </div>
+                  <div class="modal-body">
+                     <p style="color: #666; margin-bottom: 1rem;"><strong>Status:</strong> ${tugas.status.replace('_', ' ')}</p>
+                     ${tugas.nilai ? `<p style="margin-bottom: 1rem;"><span class="nilai-badge">Nilai: ${tugas.nilai}/100</span></p>` : ''}
+                     
+                     <div style="background: #f8f9ff; padding: 1rem; border-radius: 5px; margin-bottom: 1rem;">
+                        <strong>Jawaban Anda:</strong><br>
+                        <div style="margin-top: 0.5rem; line-height: 1.5;">${tugas.jawaban || 'Tidak ada jawaban'}</div>
+                     </div>
+                     
+                     ${tugas.feedback ? `
+                        <div style="background: #fff8e1; padding: 1rem; border-radius: 5px; border-left: 3px solid #ffc107;">
+                           <strong>Feedback Guru:</strong><br>
+                           <div style="margin-top: 0.5rem; line-height: 1.5;">${tugas.feedback}</div>
+                        </div>
+                     ` : ''}
+                  </div>
+               </div>
+            `;
+            document.body.appendChild(modal);
+         }
+      }
+
+      function lihatDetailTugas(tugasId) {
+         const tugas = tugasData.find(t => t.id === tugasId);
+         if (tugas) {
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay';
+            modal.innerHTML = `
+               <div class="modal-content">
+                  <div class="modal-header">
+                     <h3>Detail Tugas: ${tugas.judul}</h3>
+                     <button class="modal-close" onclick="closeModal()">&times;</button>
+                  </div>
+                  <div class="modal-body">
+                     <div style="margin-bottom: 1rem;">
+                        <strong>Materi:</strong> ${tugas.materi_judul}<br>
+                        <strong>Deadline:</strong> ${new Date(tugas.deadline).toLocaleDateString('id-ID')}<br>
+                        <strong>Status:</strong> <span class="tugas-status status-${tugas.status}">${tugas.status.replace('_', ' ')}</span>
+                     </div>
+                     
+                     <div style="background: #f8f9ff; padding: 1rem; border-radius: 5px; margin-bottom: 1rem;">
+                        <strong>Deskripsi:</strong><br>
+                        <div style="margin-top: 0.5rem; line-height: 1.5;">${tugas.deskripsi}</div>
+                     </div>
+                     
+                     <div style="text-align: right;">
+                        ${tugas.status === 'belum_dikerjakan' ?
+                  `<button class="btn btn-success" onclick="closeModal(); kerjakanTugas(${tugas.id})">Kerjakan Sekarang</button>` :
+                  `<button class="btn" onclick="closeModal(); lihatJawaban(${tugas.id})">Lihat Jawaban</button>`
+               }
+                     </div>
+                  </div>
+               </div>
+            `;
+            document.body.appendChild(modal);
+         }
+      }
+
+      function lihatDiskusiMateri(materiId) {
+         // This will load and show discussions for specific material
+         showAlert('Fitur diskusi materi akan segera tersedia');
+      }
+
+      function tambahDiskusiMateri(materiId) {
+         const modal = document.createElement('div');
+         modal.className = 'modal-overlay';
+         modal.innerHTML = `
+            <div class="modal-content">
+               <div class="modal-header">
+                  <h3>Tambah Komentar</h3>
+                  <button class="modal-close" onclick="closeModal()">&times;</button>
+               </div>
+               <div class="modal-body">
+                  <form id="diskusiForm">
+                     <div class="form-group">
+                        <label for="diskusiIsi">Komentar/Pertanyaan:</label>
+                        <textarea id="diskusiIsi" name="isi" placeholder="Tulis komentar atau pertanyaan Anda..." required></textarea>
+                     </div>
+                     <div style="text-align: right; margin-top: 1rem;">
+                        <button type="button" onclick="closeModal()" style="margin-right: 10px; background: #95a5a6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 5px; cursor: pointer;">Batal</button>
+                        <button type="submit" class="btn">Kirim</button>
+                     </div>
+                  </form>
+               </div>
+            </div>
+         `;
+         document.body.appendChild(modal);
+
+         // Handle form submission
+         document.getElementById('diskusiForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+            const isi = document.getElementById('diskusiIsi').value;
+
+            try {
+               const response = await fetch('/siswa/diskusi-materi', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  credentials: 'include',
+                  body: JSON.stringify({ materi_id: materiId, isi })
+               });
+
+               if (response.ok) {
+                  showAlert('Komentar berhasil ditambahkan!');
+                  closeModal();
+                  loadDiskusi();
+               } else {
+                  const error = await response.text();
+                  showAlert('Error: ' + error, 'error');
+               }
+            } catch (error) {
+               console.error('Error adding diskusi:', error);
+               showAlert('Terjadi kesalahan saat menambah komentar', 'error');
+            }
+         });
+      }
+
+      // Close modal function
+      function closeModal() {
+         const modal = document.querySelector('.modal-overlay');
+         if (modal) {
+            modal.remove();
+         }
+      }
+
+      // Logout function
+      async function logout() {
+         try {
+            await fetch('/logout', { method: 'POST', credentials: 'include' });
+            window.location.href = '/login';
+         } catch (error) {
+            console.error('Logout error:', error);
+            window.location.href = '/login';
+         }
+      }
+
+      // Load data saat halaman dimuat
+      document.addEventListener('DOMContentLoaded', function () {
+         loadDashboardData();
+         loadMateriPembelajaran();
+      });
+
+      // Close modal when clicking outside
+      document.addEventListener('click', function (e) {
+         if (e.target.classList.contains('modal-overlay')) {
+            closeModal();
+         }
+      });
+   </script>
+</body>
+
+</html>
