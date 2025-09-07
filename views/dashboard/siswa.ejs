@@ -643,7 +643,7 @@
       let tugasData = [];
       let nilaiData = [];
 
-      // Show alert function
+      
       function showAlert(message, type = 'success') {
          const alert = document.getElementById('alert');
          const alertMessage = document.getElementById('alertMessage');
@@ -657,7 +657,7 @@
          }, 5000);
       }
 
-      // Show section function
+      
       function showSection(sectionId) {
          document.querySelectorAll('.page-section').forEach(section => {
             section.classList.remove('active');
@@ -669,7 +669,7 @@
          document.getElementById(sectionId).classList.add('active');
          event.target.classList.add('active');
 
-         // Load data untuk section tertentu
+         
          if (sectionId === 'materi-pembelajaran') {
             loadMateriPembelajaran();
          } else if (sectionId === 'tugas-saya') {
@@ -683,7 +683,7 @@
          }
       }
 
-      // Load dashboard data
+      
       async function loadDashboardData() {
          try {
             const response = await fetch('/siswa/dashboard-stats', {
@@ -696,7 +696,7 @@
                updateDashboardStats(stats);
             }
 
-            // Load recent tugas
+            
             loadRecentTugas();
          } catch (error) {
             console.error('Error loading dashboard:', error);
@@ -704,21 +704,21 @@
          }
       }
 
-      // Update dashboard stats
+      
       function updateDashboardStats(stats) {
          document.getElementById('totalMateri').textContent = stats.total_materi || 0;
          document.getElementById('tugasSelesai').textContent = stats.tugas_selesai || 0;
          document.getElementById('tugasPending').textContent = stats.tugas_pending || 0;
          document.getElementById('rataRataNilai').textContent = Math.round(stats.rata_nilai || 0);
 
-         // Update progress bar
+         
          const progress = stats.overall_progress || 0;
          const progressBar = document.getElementById('overallProgress');
          progressBar.style.width = progress + '%';
          progressBar.textContent = Math.round(progress) + '%';
       }
 
-      // Load recent tugas
+      
       async function loadRecentTugas() {
          try {
             const response = await fetch('/siswa/tugas-recent', {
@@ -735,7 +735,7 @@
          }
       }
 
-      // Display recent tugas
+      
       function displayRecentTugas(recentTugas) {
          const container = document.getElementById('recentTugas');
 
@@ -756,8 +756,8 @@
          `).join('');
       }
 
-      // Load materi pembelajaran
-      // Load materi pembelajaran
+      
+      
 async function loadMateriPembelajaran() {
   try {
     const response = await fetch('/siswa/materi', {
@@ -791,8 +791,8 @@ async function loadMateriPembelajaran() {
   }
 }
 
-      // Display materi grid
-      // Display materi grid
+      
+      
 function displayMateriGrid() {
   const container = document.getElementById('materiGrid');
 
@@ -829,7 +829,7 @@ function displayMateriGrid() {
   `).join('');
 }
 
-      // Load tugas saya
+      
       async function loadTugasSaya() {
   const container = document.getElementById('tugasGrid');
   container.innerHTML = '<div class="loading">Memuat daftar tugas...</div>';
@@ -866,7 +866,7 @@ function displayMateriGrid() {
   }
 }
 
-      // Display tugas grid
+      
       function displayTugasGrid() {
   const container = document.getElementById('tugasGrid');
 
@@ -920,7 +920,7 @@ function displayMateriGrid() {
   `).join('');
 }
 
-      // Load nilai saya
+      
       async function loadNilaiSaya() {
   const container = document.getElementById('nilaiSummary');
   const detailContainer = document.getElementById('detailNilai');
@@ -962,7 +962,7 @@ function displayMateriGrid() {
   }
 }
 
-      // Display nilai
+      
       function displayNilai() {
   const summaryContainer = document.getElementById('nilaiSummary');
   const detailContainer = document.getElementById('detailNilai');
@@ -981,7 +981,7 @@ function displayMateriGrid() {
     return;
   }
 
-  // Summary
+  
   const totalTugas = nilaiData.length;
   const tugasDinilai = nilaiData.filter(n => n.nilai !== undefined && n.nilai !== null).length;
   const rataRata = tugasDinilai > 0 ?
@@ -1005,7 +1005,7 @@ function displayMateriGrid() {
     </div>
   `;
 
-  // Detail
+  
   detailContainer.innerHTML = nilaiData.map(nilai => `
     <div style="background: #f8f9ff; padding: 1rem; margin-bottom: 1rem; border-radius: 8px; border-left: 3px solid ${nilai.nilai ? '#3498db' : '#e74c3c'};">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
@@ -1028,13 +1028,13 @@ function displayMateriGrid() {
   `).join('');
 }
 
-      // Load diskusi
+      
       async function loadDiskusi() {
   try {
-    // Load diskusi kelas
+    
     await loadDiskusiKelas();
     
-    // Load diskusi materi
+    
     await loadDiskusiMateri();
     
   } catch (error) {
@@ -1136,7 +1136,7 @@ function displayMateriGrid() {
   }
 }
       async function tambahDiskusiMateri(materiId, materiJudul) {
-  // Jika tidak ada materi yang dipilih, tampilkan pilihan
+  
   if (!materiId) {
     const materiResponse = await fetch('/siswa/materi', {
       method: 'GET',
@@ -1195,7 +1195,7 @@ function displayMateriGrid() {
   }
 }
 
-      // Display diskusi kelas
+      
       function displayDiskusiKelas(diskusiKelas) {
   const container = document.getElementById('diskusiKelas');
 
@@ -1232,7 +1232,7 @@ function displayMateriGrid() {
   `;
 }
 
-      // Display diskusi materi
+      
       function displayDiskusiMateri(diskusiMateri) {
   const container = document.getElementById('diskusiMateri');
 
@@ -1248,7 +1248,7 @@ function displayMateriGrid() {
     return;
   }
 
-  // Group by materi
+  
   const groupedDiskusi = diskusiMateri.reduce((acc, diskusi) => {
     if (!acc[diskusi.materi_judul]) {
       acc[diskusi.materi_judul] = [];
@@ -1281,7 +1281,7 @@ function displayMateriGrid() {
   `).join('');
 }
 
-      // Load progress detail
+      
       async function loadProgressDetail() {
          try {
             const response = await fetch('/siswa/progress-detail', {
@@ -1298,7 +1298,7 @@ function displayMateriGrid() {
          }
       }
 
-      // Display progress detail
+      
       function displayProgressDetail(progressData) {
          const container = document.getElementById('progressDetail');
 
@@ -1346,13 +1346,13 @@ function displayMateriGrid() {
          `;
       }
 
-      // Action functions
+      
       function bacaMateri(materiId) {
   const materi = materiData.find(m => m.id === materiId);
   if (materi) {
     showMateriModal(materi);
   } else {
-    // Jika tidak ditemukan di cache, coba load dari server
+    
     fetch(`/siswa/materi/${materiId}`, {
       method: 'GET',
       credentials: 'include'
@@ -1449,7 +1449,7 @@ function displayMateriGrid() {
          `;
          document.body.appendChild(modal);
 
-         // Handle form submission
+         
          document.getElementById('tugasForm').addEventListener('submit', async function (e) {
             e.preventDefault();
             const jawaban = document.getElementById('tugasJawaban').value;
@@ -1548,7 +1548,7 @@ function displayMateriGrid() {
       }
 
       function lihatDiskusiMateri(materiId) {
-         // This will load and show discussions for specific material
+         
          showAlert('Fitur diskusi materi akan segera tersedia');
       }
 
@@ -1577,7 +1577,7 @@ function displayMateriGrid() {
          `;
          document.body.appendChild(modal);
 
-         // Handle form submission
+         
          document.getElementById('diskusiForm').addEventListener('submit', async function (e) {
             e.preventDefault();
             const isi = document.getElementById('diskusiIsi').value;
@@ -1605,7 +1605,7 @@ function displayMateriGrid() {
          });
       }
 
-      // Close modal function
+      
       function closeModal() {
          const modal = document.querySelector('.modal-overlay');
          if (modal) {
@@ -1613,7 +1613,7 @@ function displayMateriGrid() {
          }
       }
 
-      // Logout function
+      
       async function logout() {
          try {
             await fetch('/logout', { method: 'POST', credentials: 'include' });
@@ -1624,13 +1624,13 @@ function displayMateriGrid() {
          }
       }
 
-      // Load data saat halaman dimuat
+      
       document.addEventListener('DOMContentLoaded', function () {
          loadDashboardData();
          loadMateriPembelajaran();
       });
 
-      // Close modal when clicking outside
+      
       document.addEventListener('click', function (e) {
          if (e.target.classList.contains('modal-overlay')) {
             closeModal();
