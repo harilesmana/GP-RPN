@@ -24,23 +24,19 @@ export const updateUserStatusSchema = z.object({
   status: z.enum(["active", "inactive"])
 });
 
-
-
-
-export const inputValidation = new Elysia()
-  .onParse(async ({ request, contentType }) => {
-    
-    if (contentType === 'multipart/form-data') {
-      const formData = await request.formData();
-      const body: Record<string, any> = {};
-      
-      for (const [key, value] of formData.entries()) {
-        body[key] = value;
-      }
-      
-      return body;
+export const inputValidation = new Elysia().derive(async ({ request }) => {
+  async function parseFormData() {
+    const ct = request.headers.get("content-type") || "";
+    if (ct.includes("multipart/form-data")) {
+      const fd = await request.formData();
+      return Object.fromEntries(fd.entries());
+    } else if (ct.includes("application/x-www-form-urlencoded")) {
+      const text = await request.text();
+      return Object.fromEntries(new URLSearchParams(text).entries());
+    } else if (ct.includes("application/json")) {
+      return await request.json();
     }
-    
-    
-    return undefined;
-  });
+    return {};
+  }
+  return { parseFormData };
+});
