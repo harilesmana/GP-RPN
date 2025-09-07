@@ -16,8 +16,7 @@ export const registerSchema = z.object({
 export const addGuruSchema = z.object({
   nama: z.string().min(2),
   email: z.string().email(),
-  password: z.string().min(6),
-  bidang: z.string().min(2)
+  password: z.string().min(6)
 });
 
 export const updateUserStatusSchema = z.object({
@@ -26,27 +25,22 @@ export const updateUserStatusSchema = z.object({
 });
 
 
-export async function parseFormData(request: Request) {
-  const ct = request.headers.get("content-type") || "";
-  
-  if (ct.includes("multipart/form-data")) {
-    const fd = await request.formData();
-    return Object.fromEntries(fd.entries());
-  } else if (ct.includes("application/x-www-form-urlencoded")) {
-    const text = await request.text();
-    return Object.fromEntries(new URLSearchParams(text).entries());
-  } else if (ct.includes("application/json")) {
-    return await request.json();
-  }
-  return {};
-}
 
 
 export const inputValidation = new Elysia()
-  .derive(async ({ request }) => {
-    return {
-      async parseFormData() {
-        return await parseFormData(request);
+  .onParse(async ({ request, contentType }) => {
+    
+    if (contentType === 'multipart/form-data') {
+      const formData = await request.formData();
+      const body: Record<string, any> = {};
+      
+      for (const [key, value] of formData.entries()) {
+        body[key] = value;
       }
-    };
+      
+      return body;
+    }
+    
+    
+    return undefined;
   });
