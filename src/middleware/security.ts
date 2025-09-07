@@ -1,7 +1,7 @@
 import type { Elysia } from "elysia";
 
-export const securityHeaders = (app: Elysia) => 
-  app.onAfterHandle(({ set }) => {
+export function securityHeaders(app: Elysia) {
+  return app.onAfterHandle(({ set }) => {
     set.headers["X-Content-Type-Options"] = "nosniff";
     set.headers["X-Frame-Options"] = "DENY";
     set.headers["X-XSS-Protection"] = "0"; 
@@ -14,3 +14,4 @@ export const securityHeaders = (app: Elysia) =>
     set.headers["Content-Security-Policy"] =
       "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline';";
   });
+}
