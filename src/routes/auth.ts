@@ -1,5 +1,5 @@
 import { Elysia } from "elysia";
-import { loginSchema, registerSchema, inputValidation } from "../middleware/inputValidadation";
+import { loginSchema, registerSchema, inputValidation } from "../middleware/inputValidation";
 import { hashPassword, verifyPassword } from "../utils/hash";
 import { signSession } from "../utils/session";
 import { users, loginAttempts, Role } from "../db";
