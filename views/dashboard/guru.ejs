@@ -616,44 +616,55 @@
          }
       }
 
-      function displayMateriList(materiList) {
-         const container = document.getElementById('materiListContainer');
+      // Display materi list
+function displayMateriList(materiList) {
+  const container = document.getElementById('materiListContainer');
 
-         if (materiList.length === 0) {
-            container.innerHTML = '<div class="empty-state">Belum ada materi yang dibuat</div>';
-            return;
-         }
+  if (!materiList || materiList.length === 0) {
+    container.innerHTML = '<div class="empty-state">Belum ada materi yang dibuat</div>';
+    return;
+  }
 
-         const table = document.createElement('table');
-         table.className = 'table';
-         table.innerHTML = `
-            <thead>
-               <tr>
-                  <th>Judul</th>
-                  <th>Deskripsi</th>
-                  <th>Tanggal Dibuat</th>
-                  <th>Aksi</th>
-               </tr>
-            </thead>
-            <tbody>
-               ${materiList.map(materi => `
-                  <tr>
-                     <td>${materi.judul}</td>
-                     <td>${materi.deskripsi || '-'}</td>
-                     <td>${formatDate(materi.created_at)}</td>
-                     <td>
-                        <button class="btn" onclick="viewMateri(${materi.id})" style="margin-right: 5px;">Lihat</button>
-                        <button class="btn btn-warning" onclick="editMateri(${materi.id})" style="margin-right: 5px;">Edit</button>
-                        <button class="btn btn-danger" onclick="deleteMateri(${materi.id})">Hapus</button>
-                     </td>
-                  </tr>
-               `).join('')}
-            </tbody>
-         `;
+  const table = document.createElement('table');
+  table.className = 'table';
+  table.innerHTML = `
+    <thead>
+      <tr>
+        <th>Judul</th>
+        <th>Deskripsi</th>
+        <th>Konten Preview</th>
+        <th>Tanggal Dibuat</th>
+        <th>Aksi</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${materiList.map(materi => `
+        <tr>
+          <td>${materi.judul}</td>
+          <td>${materi.deskripsi}</td>
+          <td>
+            ${materi.konten ? 
+              (materi.konten.length > 100 ? 
+                materi.konten.substring(0, 100) + '...' : 
+                materi.konten
+              ) : 
+              'Tidak ada konten'
+            }
+          </td>
+          <td>${materi.created_at ? new Date(materi.created_at).toLocaleDateString('id-ID') : '-'}</td>
+          <td>
+            <button class="btn" onclick="viewMateri(${materi.id})" style="margin-right: 5px;">Lihat</button>
+            <button class="btn btn-warning" onclick="editMateri(${materi.id})" style="margin-right: 5px;">Edit</button>
+            <button class="btn btn-danger" onclick="deleteMateri(${materi.id})">Hapus</button>
+          </td>
+        </tr>
+      `).join('')}
+    </tbody>
+  `;
 
-         container.innerHTML = '';
-         container.appendChild(table);
-      }
+  container.innerHTML = '';
+  container.appendChild(table);
+}
 
       async function loadMateriOptions() {
          const select = document.getElementById('tugasMateri');
