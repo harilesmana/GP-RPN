@@ -4,7 +4,9 @@
 <head>
    <meta charset="UTF-8">
    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-   <title><%= title %></title>
+   <title>
+      <%= title %>
+   </title>
    <style>
       * {
          margin: 0;
@@ -829,7 +831,7 @@
       }
 
       document.addEventListener('DOMContentLoaded', function () {
-         
+
          document.getElementById('addMateriForm').addEventListener('submit', async function (e) {
             e.preventDefault();
 
@@ -855,7 +857,7 @@
             }
          });
 
-         
+
          document.getElementById('addTugasForm').addEventListener('submit', async function (e) {
             e.preventDefault();
 
@@ -882,7 +884,7 @@
             }
          });
 
-         
+
          document.getElementById('gradingForm').addEventListener('submit', async function (e) {
             e.preventDefault();
 
@@ -905,11 +907,11 @@
             }
          });
 
-         
+
          loadDashboardData();
       });
 
-      
+
       function viewMateri(id) {
          const materi = currentData.materi.find(m => m.id === id);
          if (materi) {
@@ -1049,7 +1051,7 @@
          }
       }
 
-      
+
       window.addEventListener('click', function (e) {
          const modal = document.getElementById('gradingModal');
          if (e.target === modal) {

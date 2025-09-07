@@ -3,7 +3,7 @@ const encoder = new TextEncoder();
 function hmacSHA256(key: string, data: string) {
   const keyData = encoder.encode(key);
   const dataBytes = encoder.encode(data);
-  
+
   const mac = new Bun.CryptoHasher("sha256", keyData);
   mac.update(dataBytes);
   return mac.digest("base64url");

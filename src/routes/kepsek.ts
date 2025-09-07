@@ -1,11 +1,31 @@
 import { Elysia, t } from "elysia";
-import { authMiddleware } from "../middleware/auth";
+import { verifySession } from "../utils/session";
 import { addGuruSchema, updateUserStatusSchema } from "../middleware/inputValidation";
 import { hashPassword } from "../utils/hash";
 import { users, kelas, materi, diskusi, diskusiMateri, tugas, submissions, Role } from "../db";
 
 export const kepsekRoutes = new Elysia({ prefix: "/kepsek" })
-  .use(authMiddleware)
+  // .use(authMiddleware)
+  .derive(({ cookie, set, request }) => {
+    const token = cookie?.session?.value;
+    if (!token) {
+      return { user: null };
+    }
+
+    const secret = process.env.SESSION_SECRET || "dev_secret_change_me";
+    const data = verifySession(token, secret);
+    if (!data) {
+      if (cookie?.session) cookie.session.set({ value: "", maxAge: 0 });
+      return { user: null };
+    }
+
+    const user = {
+      userId: data.userId,
+      role: data.role,
+    }
+
+    return { user };
+  })
   .derive(({ user }) => {
     if (!user || user.role !== "kepsek") {
       throw new Error("Unauthorized");
@@ -66,10 +86,10 @@ export const kepsekRoutes = new Elysia({ prefix: "/kepsek" })
     };
 
     users.push(newGuru);
-    return { 
-      success: true, 
-      message: "Guru berhasil ditambahkan", 
-      data: newGuru 
+    return {
+      success: true,
+      message: "Guru berhasil ditambahkan",
+      data: newGuru
     };
   })
   .patch("/guru/:id/status", async ({ params, body }) => {
@@ -82,16 +102,16 @@ export const kepsekRoutes = new Elysia({ prefix: "/kepsek" })
     }
 
     user.status = status;
-    return { 
-      success: true, 
-      message: "Status guru berhasil diubah", 
-      data: user 
+    return {
+      success: true,
+      message: "Status guru berhasil diubah",
+      data: user
     };
   })
   .delete("/guru/:id", async ({ params }) => {
     const { id } = params;
     const index = users.findIndex(u => u.id === parseInt(id) && u.role === "guru");
-    
+
     if (index === -1) {
       return { success: false, error: "Guru tidak ditemukan" };
     }
@@ -174,10 +194,10 @@ export const kepsekRoutes = new Elysia({ prefix: "/kepsek" })
     };
 
     diskusi.push(newDiskusi);
-    return { 
-      success: true, 
-      message: "Diskusi berhasil ditambahkan", 
-      data: newDiskusi 
+    return {
+      success: true,
+      message: "Diskusi berhasil ditambahkan",
+      data: newDiskusi
     };
   })
   .get("/diskusi-materi/:id", async ({ params }) => {

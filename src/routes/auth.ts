@@ -26,7 +26,7 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
       }
 
       const user = users.find(u => u.email === email && u.status === 'active');
-      
+
       if (!user || !(await verifyPassword(password, user.password_hash))) {
         attempt.count++;
         if (attempt.count >= 5) {
@@ -34,7 +34,7 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
           attempt.count = 0;
         }
         loginAttempts.set(attemptKey, attempt);
-        
+
         set.status = 401;
         return { error: "Email atau password salah" };
       }
@@ -47,25 +47,25 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
       const secret = process.env.SESSION_SECRET || "dev_secret_change_me";
       const sessionData = {
         userId: user.id,
+        name: user.nama,
         role: user.role as Role,
         issuedAt: Date.now()
       };
-      
+
       const token = signSession(sessionData, secret);
-      
+
       cookie.session.set({
         value: token,
         httpOnly: true,
+        sameSite: 'lax',
         maxAge: 7 * 24 * 60 * 60,
         path: "/"
       });
 
-      return { 
-        success: true, 
+      return {
+        success: true,
         message: "Login berhasil",
-        redirect: user.role === "kepsek" ? "/dashboard/kepsek" :
-                 user.role === "guru" ? "/dashboard/guru" :
-                 user.role === "siswa" ? "/dashboard/siswa" : "/dashboard"
+        redirect: "/dashboard"
       };
     } catch (error) {
       console.error("Login error:", error);

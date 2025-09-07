@@ -1,9 +1,29 @@
 import { Elysia, t } from "elysia";
-import { authMiddleware } from "../middleware/auth";
+import { verifySession } from "../utils/session";
 import { users, materi, tugas, tugasDetail, submissions, diskusi, diskusiMateri, kelas, Role } from "../db";
 
 export const siswaRoutes = new Elysia({ prefix: "/siswa" })
-  .use(authMiddleware)
+  // .use(authMiddleware)
+  .derive(({ cookie, set, request }) => {
+    const token = cookie?.session?.value;
+    if (!token) {
+      return { user: null };
+    }
+
+    const secret = process.env.SESSION_SECRET || "dev_secret_change_me";
+    const data = verifySession(token, secret);
+    if (!data) {
+      if (cookie?.session) cookie.session.set({ value: "", maxAge: 0 });
+      return { user: null };
+    }
+
+    const user = {
+      userId: data.userId,
+      role: data.role,
+    }
+
+    return { user };
+  })
   .derive(({ user }) => {
     if (!user || user.role !== "siswa") {
       throw new Error("Unauthorized");
@@ -12,19 +32,19 @@ export const siswaRoutes = new Elysia({ prefix: "/siswa" })
   })
   .get("/dashboard/stats", async ({ user }) => {
     const siswaId = user.userId;
-    
+
     const totalMateri = materi.length;
     const tugasSiswa = tugas.filter(t => t.siswa_id === siswaId);
     const tugasSelesai = tugasSiswa.filter(t => t.status === "selesai").length;
     const tugasPending = tugasSiswa.filter(t => t.status !== "selesai").length;
-    
+
     const nilaiTugas = tugasSiswa.filter(t => t.nilai).map(t => t.nilai || 0);
-    const rataNilai = nilaiTugas.length > 0 
-      ? nilaiTugas.reduce((sum, nilai) => sum + nilai, 0) / nilaiTugas.length 
+    const rataNilai = nilaiTugas.length > 0
+      ? nilaiTugas.reduce((sum, nilai) => sum + nilai, 0) / nilaiTugas.length
       : 0;
 
-    const overallProgress = totalMateri > 0 
-      ? Math.round((tugasSelesai / totalMateri) * 100) 
+    const overallProgress = totalMateri > 0
+      ? Math.round((tugasSelesai / totalMateri) * 100)
       : 0;
 
     return {
@@ -40,7 +60,7 @@ export const siswaRoutes = new Elysia({ prefix: "/siswa" })
   })
   .get("/tugas/recent", async ({ user }) => {
     const siswaId = user.userId;
-    
+
     const recentTugas = tugas
       .filter(t => t.siswa_id === siswaId)
       .sort((a, b) => b.created_at.getTime() - a.created_at.getTime())
@@ -76,13 +96,13 @@ export const siswaRoutes = new Elysia({ prefix: "/siswa" })
   })
   .get("/tugas", async ({ user }) => {
     const siswaId = user.userId;
-    
+
     const tugasList = tugas
       .filter(t => t.siswa_id === siswaId)
       .map(t => {
         const detail = tugasDetail.find(td => td.id === t.materi_id);
         const submission = submissions.find(s => s.tugas_id === t.id && s.siswa_id === siswaId);
-        
+
         return {
           id: t.id,
           judul: detail?.judul || "Unknown",
@@ -114,7 +134,7 @@ export const siswaRoutes = new Elysia({ prefix: "/siswa" })
       return { success: false, error: "Tugas tidak ditemukan" };
     }
 
-    let submission = submissions.find(s => 
+    let submission = submissions.find(s =>
       s.tugas_id === tugasId && s.siswa_id === siswaId
     );
 
@@ -132,7 +152,7 @@ export const siswaRoutes = new Elysia({ prefix: "/siswa" })
       submissions.push(submission);
     }
 
-    let tugasSiswa = tugas.find(t => 
+    let tugasSiswa = tugas.find(t =>
       t.materi_id === tugasId && t.siswa_id === siswaId
     );
 
@@ -151,9 +171,9 @@ export const siswaRoutes = new Elysia({ prefix: "/siswa" })
       tugas.push(tugasSiswa);
     }
 
-    return { 
+    return {
       success: true,
-      message: "Jawaban berhasil disimpan", 
+      message: "Jawaban berhasil disimpan",
       data: {
         submission,
         tugas: tugasSiswa
@@ -162,13 +182,13 @@ export const siswaRoutes = new Elysia({ prefix: "/siswa" })
   })
   .get("/nilai", async ({ user }) => {
     const siswaId = user.userId;
-    
+
     const nilaiList = submissions
       .filter(s => s.siswa_id === siswaId && s.nilai !== null)
       .map(s => {
         const t = tugasDetail.find(t => t.id === s.tugas_id);
         const m = materi.find(m => m.id === (t?.materi_id || 0));
-        
+
         return {
           id: s.id,
           tugas_id: s.tugas_id,
@@ -240,31 +260,31 @@ export const siswaRoutes = new Elysia({ prefix: "/siswa" })
     };
 
     diskusiMateri.push(newDiskusi);
-    return { 
-      success: true, 
-      message: "Diskusi berhasil ditambahkan", 
-      data: newDiskusi 
+    return {
+      success: true,
+      message: "Diskusi berhasil ditambahkan",
+      data: newDiskusi
     };
   })
   .get("/progress/detail", async ({ user }) => {
     const siswaId = user.userId;
-    
+
     const totalMateri = materi.length;
     const materiDipelajari = new Set(
       tugas.filter(t => t.siswa_id === siswaId).map(t => t.materi_id)
     ).size;
 
     const totalTugas = tugasDetail.length;
-    const tugasSelesai = tugas.filter(t => 
+    const tugasSelesai = tugas.filter(t =>
       t.siswa_id === siswaId && t.status === "selesai"
     ).length;
 
-    const nilaiTugas = tugas.filter(t => 
+    const nilaiTugas = tugas.filter(t =>
       t.siswa_id === siswaId && t.nilai
     ).map(t => t.nilai || 0);
 
-    const rataNilai = nilaiTugas.length > 0 
-      ? nilaiTugas.reduce((sum, nilai) => sum + nilai, 0) / nilaiTugas.length 
+    const rataNilai = nilaiTugas.length > 0
+      ? nilaiTugas.reduce((sum, nilai) => sum + nilai, 0) / nilaiTugas.length
       : 0;
 
     return {
