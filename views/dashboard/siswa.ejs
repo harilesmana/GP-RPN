@@ -1070,7 +1070,34 @@ function displayMateriGrid() {
     `;
   }
 }
-      
+      async function tambahDiskusiKelas() {
+  const isi = prompt('Masukkan isi diskusi kelas:');
+  if (!isi) return;
+
+  try {
+    const response = await fetch('/siswa/diskusi-kelas', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({ isi })
+    });
+
+    const result = await response.json();
+    
+    if (result.success) {
+      showAlert('Diskusi kelas berhasil ditambahkan!');
+      loadDiskusiKelas();
+    } else {
+      showAlert(result.error || 'Gagal menambah diskusi', 'error');
+    }
+  } catch (error) {
+    console.error('Error adding diskusi kelas:', error);
+    showAlert('Terjadi kesalahan saat menambah diskusi', 'error');
+  }
+}
+
       // Display diskusi kelas
       function displayDiskusiKelas(diskusiKelas) {
   const container = document.getElementById('diskusiKelas');
