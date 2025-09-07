@@ -293,118 +293,156 @@ export const siswaRoutes = new Elysia({ prefix: "/siswa" })
 
   
   .get("/diskusi-kelas", async ({ user }) => {
-    try {
-      const siswaId = user.userId;
-      const siswa = users.find(u => u.id === siswaId);
-      
-      if (!siswa) {
-        return { success: false, error: "Siswa tidak ditemukan" };
-      }
-      
-      const kelasSiswa = kelas.find(k => k.id === siswa.kelas_id);
-      const namaKelas = kelasSiswa?.nama || "Umum";
-      
-      const diskusiKelasSiswa = diskusi
-        .filter(d => d.kelas === namaKelas)
-        .map(d => {
-          const userDiskusi = users.find(u => u.id === d.user_id);
-          return {
-            id: d.id,
-            kelas: d.kelas,
-            isi: d.isi,
-            user_name: userDiskusi?.nama || "Tidak diketahui",
-            user_role: d.user_role,
-            created_at: d.created_at
-          };
-        });
-      
-      return {
-        success: true,
-        data: diskusiKelasSiswa
-      };
-      
-    } catch (error) {
-      console.error("Error loading diskusi kelas:", error);
-      return { success: false, error: "Terjadi kesalahan saat memuat diskusi kelas" };
+  try {
+    const siswaId = user.userId;
+    const siswa = users.find(u => u.id === siswaId);
+    
+    if (!siswa) {
+      return { success: false, error: "Siswa tidak ditemukan" };
     }
-  })
+    
+    // Dapatkan nama kelas siswa
+    const kelasSiswa = kelas.find(k => k.id === siswa.kelas_id);
+    const namaKelas = kelasSiswa?.nama || "Kelas 1A"; // Default value
+    
+    console.log(`Loading diskusi untuk kelas: ${namaKelas}`);
+    console.log(`Total diskusi: ${diskusi.length}`);
+    
+    const diskusiKelasSiswa = diskusi
+      .filter(d => d.kelas === namaKelas)
+      .map(d => {
+        const userDiskusi = users.find(u => u.id === d.user_id);
+        return {
+          id: d.id,
+          kelas: d.kelas,
+          isi: d.isi,
+          user_name: userDiskusi?.nama || "Tidak diketahui",
+          user_role: d.user_role,
+          created_at: d.created_at
+        };
+      });
+    
+    console.log(`Diskusi ditemukan: ${diskusiKelasSiswa.length} items`);
+    
+    return {
+      success: true,
+      data: diskusiKelasSiswa
+    };
+    
+  } catch (error) {
+    console.error("Error loading diskusi kelas:", error);
+    return { success: false, error: "Terjadi kesalahan saat memuat diskusi kelas" };
+  }
+})
 
   
   .get("/diskusi-materi", async ({ user }) => {
-    try {
-      const siswaId = user.userId;
-      const siswa = users.find(u => u.id === siswaId);
-      
-      if (!siswa) {
-        return { success: false, error: "Siswa tidak ditemukan" };
-      }
-      
-      const kelasSiswa = siswa.kelas_id || 1;
-      
-      const materiSiswa = materi.filter(m => m.kelas_id === kelasSiswa);
-      const diskusiSiswa = diskusiMateri
-        .filter(d => materiSiswa.some(m => m.id === d.materi_id))
-        .map(d => {
-          const userDiskusi = users.find(u => u.id === d.user_id);
-          const materiItem = materi.find(m => m.id === d.materi_id);
-          
-          return {
-            id: d.id,
-            materi_id: d.materi_id,
-            materi_judul: materiItem?.judul || "Materi tidak ditemukan",
-            isi: d.isi,
-            user_name: userDiskusi?.nama || "Tidak diketahui",
-            user_role: d.user_role,
-            created_at: d.created_at
-          };
-        });
-      
-      return {
-        success: true,
-        data: diskusiSiswa
-      };
-      
-    } catch (error) {
-      console.error("Error loading diskusi materi:", error);
-      return { success: false, error: "Terjadi kesalahan saat memuat diskusi materi" };
+  try {
+    const siswaId = user.userId;
+    const siswa = users.find(u => u.id === siswaId);
+    
+    if (!siswa) {
+      return { success: false, error: "Siswa tidak ditemukan" };
     }
-  })
+    
+    const kelasSiswa = siswa.kelas_id || 1;
+    
+    console.log(`Loading diskusi materi untuk kelas: ${kelasSiswa}`);
+    console.log(`Total diskusi materi: ${diskusiMateri.length}`);
+    console.log(`Total materi: ${materi.length}`);
+    
+    // Dapatkan materi yang sesuai dengan kelas siswa
+    const materiSiswa = materi.filter(m => m.kelas_id === kelasSiswa);
+    console.log(`Materi untuk kelas ${kelasSiswa}: ${materiSiswa.length} items`);
+    
+    const diskusiSiswa = diskusiMateri
+      .filter(d => {
+        const materiItem = materi.find(m => m.id === d.materi_id);
+        return materiItem && materiSiswa.some(m => m.id === materiItem.id);
+      })
+      .map(d => {
+        const userDiskusi = users.find(u => u.id === d.user_id);
+        const materiItem = materi.find(m => m.id === d.materi_id);
+        
+        return {
+          id: d.id,
+          materi_id: d.materi_id,
+          materi_judul: materiItem?.judul || "Materi tidak ditemukan",
+          isi: d.isi,
+          user_name: userDiskusi?.nama || "Tidak diketahui",
+          user_role: d.user_role,
+          created_at: d.created_at,
+          parent_id: d.parent_id
+        };
+      });
+    
+    console.log(`Diskusi materi ditemukan: ${diskusiSiswa.length} items`);
+    
+    return {
+      success: true,
+      data: diskusiSiswa
+    };
+    
+  } catch (error) {
+    console.error("Error loading diskusi materi:", error);
+    return { success: false, error: "Terjadi kesalahan saat memuat diskusi materi" };
+  }
+})
 
   
   .post("/diskusi-materi", async ({ user, body }) => {
-    try {
-      const siswaId = user.userId;
-      const { materi_id, isi } = body as any;
-      
-      if (!materi_id || !isi) {
-        return { success: false, error: "Materi dan isi diskusi harus diisi" };
-      }
-      
-      if (isi.length < 5) {
-        return { success: false, error: "Isi diskusi terlalu pendek" };
-      }
-      
-      const newDiskusi = {
-        id: diskusiMateri.length + 1,
-        materi_id: parseInt(materi_id),
-        user_id: siswaId,
-        user_role: "siswa",
-        isi: isi.trim(),
-        created_at: new Date()
-      };
-      
-      diskusiMateri.push(newDiskusi);
-      
-      return {
-        success: true,
-        message: "Diskusi berhasil ditambahkan"
-      };
-      
-    } catch (error) {
-      console.error("Error adding diskusi:", error);
-      return { success: false, error: "Terjadi kesalahan saat menambah diskusi" };
+  try {
+    const siswaId = user.userId;
+    const { materi_id, isi } = body as any;
+    
+    if (!materi_id) {
+      return { success: false, error: "Materi harus dipilih" };
     }
-  })
+    
+    if (!isi || isi.trim().length === 0) {
+      return { success: false, error: "Isi diskusi tidak boleh kosong" };
+    }
+    
+    if (isi.trim().length < 5) {
+      return { success: false, error: "Isi diskusi terlalu pendek (minimal 5 karakter)" };
+    }
+    
+    // Validasi materi exists
+    const materiItem = materi.find(m => m.id === parseInt(materi_id));
+    if (!materiItem) {
+      return { success: false, error: "Materi tidak ditemukan" };
+    }
+    
+    // Validasi siswa boleh mengakses materi ini
+    const siswa = users.find(u => u.id === siswaId);
+    if (materiItem.kelas_id !== (siswa?.kelas_id || 1)) {
+      return { success: false, error: "Anda tidak memiliki akses ke materi ini" };
+    }
+    
+    const newDiskusi = {
+      id: diskusiMateri.length + 1,
+      materi_id: parseInt(materi_id),
+      user_id: siswaId,
+      user_role: "siswa",
+      isi: isi.trim(),
+      created_at: new Date()
+    };
+    
+    diskusiMateri.push(newDiskusi);
+    
+    console.log(`Diskusi baru ditambahkan: ${newDiskusi.id}`);
+    
+    return {
+      success: true,
+      message: "Diskusi berhasil ditambahkan",
+      data: { id: newDiskusi.id }
+    };
+    
+  } catch (error) {
+    console.error("Error adding diskusi:", error);
+    return { success: false, error: "Terjadi kesalahan saat menambah diskusi" };
+  }
+})
 
   
   .get("/progress-detail", async ({ user }) => {
@@ -463,6 +501,49 @@ export const siswaRoutes = new Elysia({ prefix: "/siswa" })
       return { success: false, error: "Terjadi kesalahan saat memuat detail progress" };
     }
   })
+  
+  post("/diskusi-kelas", async ({ user, body }) => {
+  try {
+    const siswaId = user.userId;
+    const { isi } = body as any;
+    
+    if (!isi || isi.trim().length === 0) {
+      return { success: false, error: "Isi diskusi tidak boleh kosong" };
+    }
+    
+    if (isi.trim().length < 5) {
+      return { success: false, error: "Isi diskusi terlalu pendek (minimal 5 karakter)" };
+    }
+    
+    // Dapatkan kelas siswa
+    const siswa = users.find(u => u.id === siswaId);
+    const kelasSiswa = kelas.find(k => k.id === siswa?.kelas_id);
+    const namaKelas = kelasSiswa?.nama || "Kelas 1A";
+    
+    const newDiskusi = {
+      id: diskusi.length + 1,
+      kelas: namaKelas,
+      isi: isi.trim(),
+      user_id: siswaId,
+      user_role: "siswa",
+      created_at: new Date()
+    };
+    
+    diskusi.push(newDiskusi);
+    
+    console.log(`Diskusi kelas baru ditambahkan: ${newDiskusi.id}`);
+    
+    return {
+      success: true,
+      message: "Diskusi kelas berhasil ditambahkan",
+      data: { id: newDiskusi.id }
+    };
+    
+  } catch (error) {
+    console.error("Error adding diskusi kelas:", error);
+    return { success: false, error: "Terjadi kesalahan saat menambah diskusi kelas" };
+  }
+})
 
   
   .get("/materi/:id", async ({ user, params }) => {
