@@ -617,7 +617,7 @@
     const result = await response.json();
     
     if (result.success) {
-      // Pastikan semua materi memiliki konten yang valid
+      
       currentData.materi = result.data.map(m => ({
         ...m,
         konten: m.konten || "Tidak ada konten yang tersedia"
@@ -643,7 +643,7 @@
   }
 }
 
-      // Display materi list
+      
 function displayMateriList(materiList) {
   const container = document.getElementById('materiListContainer');
 
@@ -1044,30 +1044,80 @@ function displayMateriList(materiList) {
 }
 
       async function editMateri(id) {
-         const materi = currentData.materi.find(m => m.id === id);
-         if (!materi) return;
+  
+  try {
+    const response = await fetch(`/guru/materi/${id}/detail`, {
+      method: 'GET',
+      credentials: 'include'
+    });
 
-         const newJudul = prompt('Edit Judul Materi:', materi.judul);
-         if (!newJudul) return;
-
-         const newKonten = prompt('Edit Konten Materi:', materi.konten);
-         if (!newKonten) return;
-
-         try {
-            await apiCall(`/guru/materi/${id}`, {
-               method: 'PUT',
-               body: JSON.stringify({
-                  judul: newJudul,
-                  konten: newKonten
-               })
-            });
-
-            showAlert('Materi berhasil diupdate!');
-            loadMateriList();
-         } catch (error) {
-            console.error('Error updating materi:', error);
-         }
+    const result = await response.json();
+    
+    if (result.success) {
+      const materi = result.data;
+      editMateriModal(materi);
+    } else {
+      
+      const materi = currentData.materi.find(m => m.id === id);
+      if (materi) {
+        editMateriModal(materi);
+      } else {
+        showAlert('Materi tidak ditemukan', 'error');
       }
+    }
+  } catch (error) {
+    console.error('Error loading materi detail:', error);
+    const materi = currentData.materi.find(m => m.id === id);
+    if (materi) {
+      editMateriModal(materi);
+    } else {
+      showAlert('Materi tidak ditemukan', 'error');
+    }
+  }
+}
+
+function editMateriModal(materi) {
+  const newJudul = prompt('Edit Judul Materi:', materi.judul || '');
+  if (!newJudul) return;
+
+  const newKonten = prompt('Edit Konten Materi:', materi.konten || '');
+  if (!newKonten) return;
+
+  
+  const newDeskripsi = prompt('Edit Deskripsi Materi:', materi.deskripsi || '');
+
+  try {
+    
+    fetch(`/guru/materi/${materi.id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        judul: newJudul,
+        konten: newKonten,
+        deskripsi: newDeskripsi || ''
+      })
+    })
+    .then(response => response.json())
+    .then(result => {
+      if (result.success) {
+        showAlert('Materi berhasil diupdate!');
+        loadMateriList();
+      } else {
+        showAlert(result.error || 'Gagal mengupdate materi', 'error');
+      }
+    })
+    .catch(error => {
+      console.error('Error updating materi:', error);
+      showAlert('Terjadi kesalahan saat mengupdate materi', 'error');
+    });
+  } catch (error) {
+    console.error('Error updating materi:', error);
+    showAlert('Terjadi kesalahan saat mengupdate materi', 'error');
+  }
+}
 
       async function deleteMateri(id) {
          if (!confirm('Yakin ingin menghapus materi ini?')) return;
