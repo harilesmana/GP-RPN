@@ -1073,11 +1073,29 @@ function displayMateriGrid() {
 
       // Action functions
       function bacaMateri(materiId) {
-         const materi = materiData.find(m => m.id === materiId);
-         if (materi) {
-            showMateriModal(materi);
-         }
+  const materi = materiData.find(m => m.id === materiId);
+  if (materi) {
+    showMateriModal(materi);
+  } else {
+    // Jika tidak ditemukan di cache, coba load dari server
+    fetch(`/siswa/materi/${materiId}`, {
+      method: 'GET',
+      credentials: 'include'
+    })
+    .then(response => response.json())
+    .then(result => {
+      if (result.success) {
+        showMateriModal(result.data);
+      } else {
+        showAlert('Materi tidak ditemukan', 'error');
       }
+    })
+    .catch(error => {
+      console.error('Error loading materi detail:', error);
+      showAlert('Terjadi kesalahan saat memuat materi', 'error');
+    });
+  }
+}
 
       function showMateriModal(materi) {
          const modal = document.createElement('div');
