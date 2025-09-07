@@ -14,10 +14,9 @@ export const authRoutes = new Elysia()
     set.headers["Content-Type"] = "text/html";
     return Bun.file("views/register.ejs").text();
   })
-  .post("/login", async ({ body, set, cookie }) => { 
-    try {
-      
-      const validatedData = loginSchema.parse(body);
+  .post("/login", async ({ body, set, cookie }) => {
+  try {
+    const validatedData = loginSchema.parse(body);
 
       
       const attemptKey = `${validatedData.email}_${new Date().toISOString().split('T')[0]}`;
@@ -64,28 +63,22 @@ export const authRoutes = new Elysia()
 
       
       cookie.session.set({
-        value: token,
-        httpOnly: true,
-        maxAge: 7 * 24 * 60 * 60, 
-        path: "/"
+      value: token,
+      httpOnly: true,
+      maxAge: 7 * 24 * 60 * 60,
+      path: "/"
+    });
       });
 
       
-      switch (user.role) {
-        case "kepsek":
-          set.redirect = "/dashboard/kepsek";
-          break;
-        case "guru":
-          set.redirect = "/dashboard/guru";
-          break;
-        case "siswa":
-          set.redirect = "/dashboard/siswa";
-          break;
-        default:
-          set.redirect = "/dashboard";
-      }
-
-      return "Login berhasil";
+      set.status = 200;
+    return {
+      success: true,
+      message: "Login berhasil",
+      redirect: user.role === "kepsek" ? "/dashboard/kepsek" :
+               user.role === "guru" ? "/dashboard/guru" :
+               user.role === "siswa" ? "/dashboard/siswa" : "/dashboard"
+    };
     } catch (error) {
       console.error("Login error:", error);
       set.status = 400;
