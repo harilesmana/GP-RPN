@@ -353,7 +353,42 @@ export const guruRoutes = new Elysia({ prefix: "/guru" })
       data: pendingSubmissions
     };
   })
-
+.get("/submissions/pending", async ({ user }) => {
+  try {
+    const guruId = user.userId;
+    
+    const pendingSubmissions = submissions
+      .filter(s => {
+        const tugasItem = tugasDetail.find(t => t.id === s.tugas_id);
+        return tugasItem && 
+               tugasItem.guru_id === guruId && 
+               (s.nilai === undefined || s.nilai === null);
+      })
+      .map(s => {
+        const tugasItem = tugasDetail.find(t => t.id === s.tugas_id);
+        const siswa = users.find(u => u.id === s.siswa_id);
+        
+        return {
+          id: s.id,
+          tugas_id: s.tugas_id,
+          tugas_judul: tugasItem?.judul || "Tugas tidak ditemukan",
+          siswa_id: s.siswa_id,
+          siswa_nama: siswa?.nama || "Tidak diketahui",
+          jawaban: s.jawaban,
+          submitted_at: s.submitted_at
+        };
+      });
+    
+    return {
+      success: true,
+      data: pendingSubmissions
+    };
+    
+  } catch (error) {
+    console.error("Error loading pending submissions:", error);
+    return { success: false, error: "Terjadi kesalahan saat memuat submission pending" };
+  }
+})
 .post("/submissions/:id/grade", async ({ user, params, body, set }) => {
   try {
     const guruId = user.userId;
@@ -378,7 +413,7 @@ export const guruRoutes = new Elysia({ prefix: "/guru" })
       return { success: false, error: "Tugas tidak ditemukan" };
     }
     
-    // Cek apakah guru memiliki akses ke tugas ini
+    
     if (tugasItem.guru_id !== guruId) {
       set.status = 403;
       return { success: false, error: "Anda tidak memiliki akses untuk menilai submission ini" };
@@ -386,7 +421,7 @@ export const guruRoutes = new Elysia({ prefix: "/guru" })
     
     const { nilai, feedback } = body as any;
     
-    // Validasi nilai
+    
     if (nilai === undefined || nilai === null) {
       set.status = 400;
       return { success: false, error: "Nilai harus diisi" };
@@ -398,7 +433,7 @@ export const guruRoutes = new Elysia({ prefix: "/guru" })
       return { success: false, error: "Nilai harus berupa angka antara 0-100" };
     }
     
-    // Update submission
+    
     submissions[submissionIndex].nilai = numericNilai;
     submissions[submissionIndex].feedback = feedback?.trim() || "";
     submissions[submissionIndex].graded_at = new Date();
