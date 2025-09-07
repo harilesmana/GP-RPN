@@ -719,24 +719,39 @@
       }
 
       // Load materi pembelajaran
-      async function loadMateriPembelajaran() {
-         try {
-            const response = await fetch('/siswa/materi', {
-               method: 'GET',
-               credentials: 'include'
-            });
+      // Load materi pembelajaran
+async function loadMateriPembelajaran() {
+  try {
+    const response = await fetch('/siswa/materi', {
+      method: 'GET',
+      credentials: 'include'
+    });
 
-            if (response.ok) {
-               materiData = await response.json();
-               displayMateriGrid();
-            } else {
-               showAlert('Error loading materi', 'error');
-            }
-         } catch (error) {
-            console.error('Error loading materi:', error);
-            showAlert('Terjadi kesalahan saat memuat materi', 'error');
-         }
-      }
+    const result = await response.json();
+    
+    if (result.success) {
+      materiData = result.data;
+      displayMateriGrid();
+    } else {
+      showAlert(result.error || 'Error loading materi', 'error');
+      document.getElementById('materiGrid').innerHTML = `
+        <div style="text-align: center; padding: 2rem; color: #666;">
+          <p>${result.error || 'Tidak dapat memuat materi'}</p>
+          <button class="btn" onclick="loadMateriPembelajaran()">Coba Lagi</button>
+        </div>
+      `;
+    }
+  } catch (error) {
+    console.error('Error loading materi:', error);
+    showAlert('Terjadi kesalahan saat memuat materi', 'error');
+    document.getElementById('materiGrid').innerHTML = `
+      <div style="text-align: center; padding: 2rem; color: #666;">
+        <p>Terjadi kesalahan jaringan</p>
+        <button class="btn" onclick="loadMateriPembelajaran()">Coba Lagi</button>
+      </div>
+    `;
+  }
+}
 
       // Display materi grid
       function displayMateriGrid() {
