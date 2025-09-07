@@ -502,7 +502,7 @@ export const siswaRoutes = new Elysia({ prefix: "/siswa" })
     }
   })
   
-  post("/diskusi-kelas", async ({ user, body }) => {
+ .post("/diskusi-kelas", async ({ user, body }) => {
   try {
     const siswaId = user.userId;
     const { isi } = body as any;
