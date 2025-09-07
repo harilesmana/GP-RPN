@@ -101,7 +101,51 @@ export const siswaRoutes = new Elysia({ prefix: "/siswa" })
         return { success: false, error: "Terjadi kesalahan saat memuat materi" };
       }
     })
-
+ // Detail materi
+.get("/materi/:id", async ({ user, params, set }) => {
+  try {
+    const siswaId = user.userId;
+    const materiId = parseInt(params.id);
+    
+    if (isNaN(materiId)) {
+      set.status = 400;
+      return { success: false, error: "ID materi tidak valid" };
+    }
+    
+    const materiItem = materi.find(m => m.id === materiId);
+    if (!materiItem) {
+      set.status = 404;
+      return { success: false, error: "Materi tidak ditemukan" };
+    }
+    
+    // Cek apakah siswa boleh mengakses materi ini
+    const siswa = users.find(u => u.id === siswaId);
+    if (materiItem.kelas_id !== (siswa?.kelas_id || 1)) {
+      set.status = 403;
+      return { success: false, error: "Anda tidak memiliki akses ke materi ini" };
+    }
+    
+    const guru = users.find(u => u.id === materiItem.guru_id);
+    
+    return {
+      success: true,
+      data: {
+        id: materiItem.id,
+        judul: materiItem.judul,
+        deskripsi: materiItem.deskripsi,
+        konten: materiItem.konten,
+        guru_nama: guru?.nama || "Tidak diketahui",
+        created_at: materiItem.created_at,
+        updated_at: materiItem.updated_at
+      }
+    };
+    
+  } catch (error) {
+    console.error("Error loading materi detail:", error);
+    set.status = 500;
+    return { success: false, error: "Terjadi kesalahan saat memuat detail materi" };
+  }
+})
   
   .get("/tugas", async ({ user }) => {
     const siswaId = user.userId;
