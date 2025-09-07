@@ -200,7 +200,7 @@
    </div>
 
  <script>
-   document.getElementById('loginForm').addEventListener('submit', async function (e) {
+      document.getElementById('loginForm').addEventListener('submit', async function (e) {
       e.preventDefault();
 
       const submitBtn = document.getElementById('submitBtn');
@@ -221,7 +221,7 @@
       submitBtn.textContent = 'Memproses...';
       loading.style.display = 'block';
 
-      // Buat FormData dari form
+      // Buat data dari form
       const formData = new FormData(this);
       const data = Object.fromEntries(formData.entries());
 
@@ -234,21 +234,18 @@
             body: JSON.stringify(data)
          });
 
-         if (response.redirected) {
-            window.location.href = response.url;
-            return;
-         }
+         const result = await response.json();
 
-         const responseText = await response.text();
-
-         if (response.ok) {
-            generalSuccess.textContent = responseText;
+         if (response.ok && result.success) {
+            generalSuccess.textContent = result.message;
             generalSuccess.style.display = 'block';
+            
+            // Redirect manual setelah login berhasil
             setTimeout(() => {
-               window.location.href = '/dashboard';
+               window.location.href = result.redirect;
             }, 1000);
          } else {
-            generalError.textContent = responseText;
+            generalError.textContent = result.message || 'Login gagal';
             generalError.style.display = 'block';
          }
       } catch (error) {
@@ -262,11 +259,6 @@
          loading.style.display = 'none';
       }
    });
-
-   // ... kode lainnya tetap sama
-
-
-      
       document.getElementById('email').addEventListener('blur', function () {
          const email = this.value.trim();
          const emailError = document.getElementById('emailError');
