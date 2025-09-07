@@ -605,16 +605,43 @@
       
       
       async function loadMateriList() {
-         const container = document.getElementById('materiListContainer');
+  const container = document.getElementById('materiListContainer');
+  container.innerHTML = '<div class="loading">Memuat daftar materi...</div>';
 
-         try {
-            const response = await apiCall('/guru/materi');
-            currentData.materi = response.data;
-            displayMateriList(response.data);
-         } catch (error) {
-            container.innerHTML = '<div class="empty-state">Gagal memuat daftar materi</div>';
-         }
-      }
+  try {
+    const response = await fetch('/guru/materi', {
+      method: 'GET',
+      credentials: 'include'
+    });
+
+    const result = await response.json();
+    
+    if (result.success) {
+      // Pastikan semua materi memiliki konten yang valid
+      currentData.materi = result.data.map(m => ({
+        ...m,
+        konten: m.konten || "Tidak ada konten yang tersedia"
+      }));
+      
+      displayMateriList(currentData.materi);
+    } else {
+      container.innerHTML = `
+        <div class="empty-state">
+          <p>${result.error || 'Gagal memuat daftar materi'}</p>
+          <button class="btn" onclick="loadMateriList()">Coba Lagi</button>
+        </div>
+      `;
+    }
+  } catch (error) {
+    console.error('Error loading materi list:', error);
+    container.innerHTML = `
+      <div class="empty-state">
+        <p>Terjadi kesalahan jaringan</p>
+        <button class="btn" onclick="loadMateriList()">Coba Lagi</button>
+      </div>
+    `;
+  }
+}
 
       // Display materi list
 function displayMateriList(materiList) {
