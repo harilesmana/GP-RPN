@@ -43,7 +43,6 @@ export const dashboardRoutes = new Elysia()
         return;
     }
     
-    
     if (user.role !== "guru") {
         set.status = 302;
         set.headers.Location = "/dashboard?error=Akses ditolak. Hanya guru yang dapat mengakses halaman ini.";
@@ -53,7 +52,7 @@ export const dashboardRoutes = new Elysia()
     set.headers["Content-Type"] = "text/html; charset=utf-8";
     
     try {
-        
+        // Fetch progress data from API
         const response = await fetch(`http://localhost:${process.env.PORT || 3000}/guru/siswa/${params.id}/progress`, {
             method: 'GET',
             headers: {
@@ -74,7 +73,7 @@ export const dashboardRoutes = new Elysia()
                 error = result.error || 'Gagal memuat data progress';
             }
         } else {
-            error = await response.text();
+            error = 'Gagal terhubung ke server';
         }
         
         return render("views/dashboard/siswa-progress.ejs", { 
