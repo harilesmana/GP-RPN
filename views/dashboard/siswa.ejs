@@ -1097,6 +1097,65 @@ function displayMateriGrid() {
     showAlert('Terjadi kesalahan saat menambah diskusi', 'error');
   }
 }
+      async function tambahDiskusiMateri(materiId, materiJudul) {
+  // Jika tidak ada materi yang dipilih, tampilkan pilihan
+  if (!materiId) {
+    const materiResponse = await fetch('/siswa/materi', {
+      method: 'GET',
+      credentials: 'include'
+    });
+    
+    const materiResult = await materiResponse.json();
+    
+    if (materiResult.success && materiResult.data.length > 0) {
+      let pilihan = "Pilih materi untuk diskusi:\n\n";
+      materiResult.data.forEach((m, i) => {
+        pilihan += `${i + 1}. ${m.judul}\n`;
+      });
+      
+      const pilihanIndex = prompt(pilihan);
+      if (!pilihanIndex) return;
+      
+      const selectedIndex = parseInt(pilihanIndex) - 1;
+      if (selectedIndex >= 0 && selectedIndex < materiResult.data.length) {
+        materiId = materiResult.data[selectedIndex].id;
+        materiJudul = materiResult.data[selectedIndex].judul;
+      } else {
+        showAlert('Pilihan tidak valid', 'error');
+        return;
+      }
+    } else {
+      showAlert('Tidak ada materi yang tersedia', 'error');
+      return;
+    }
+  }
+  
+  const isi = prompt(`Masukkan komentar untuk materi "${materiJudul}":`);
+  if (!isi) return;
+
+  try {
+    const response = await fetch('/siswa/diskusi-materi', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({ materi_id: materiId, isi })
+    });
+
+    const result = await response.json();
+    
+    if (result.success) {
+      showAlert('Komentar berhasil ditambahkan!');
+      loadDiskusiMateri();
+    } else {
+      showAlert(result.error || 'Gagal menambah komentar', 'error');
+    }
+  } catch (error) {
+    console.error('Error adding diskusi materi:', error);
+    showAlert('Terjadi kesalahan saat menambah komentar', 'error');
+  }
+}
 
       // Display diskusi kelas
       function displayDiskusiKelas(diskusiKelas) {
