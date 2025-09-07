@@ -461,9 +461,9 @@
    </div>
 
    <script>
-      // ===========================================
-      // GLOBAL VARIABLES
-      // ===========================================
+      
+      
+      
       let currentData = {
          materi: [],
          tugas: [],
@@ -471,9 +471,9 @@
          diskusi: []
       };
 
-      // ===========================================
-      // UTILITY FUNCTIONS
-      // ===========================================
+      
+      
+      
       function showAlert(message, type = 'success') {
          const alert = document.getElementById('alert');
          const alertMessage = document.getElementById('alertMessage');
@@ -497,9 +497,9 @@
          return new Date(dateString).toLocaleString('id-ID');
       }
 
-      // ===========================================
-      // API FUNCTIONS
-      // ===========================================
+      
+      
+      
       async function apiCall(endpoint, options = {}) {
          const defaultOptions = {
             method: 'GET',
@@ -524,25 +524,25 @@
          }
       }
 
-      // ===========================================
-      // NAVIGATION FUNCTIONS
-      // ===========================================
+      
+      
+      
       function showSection(sectionId) {
-         // Hide all sections
+         
          document.querySelectorAll('.page-section').forEach(section => {
             section.classList.remove('active');
          });
 
-         // Remove active class from nav items
+         
          document.querySelectorAll('.nav-item').forEach(item => {
             item.classList.remove('active');
          });
 
-         // Show selected section
+         
          document.getElementById(sectionId).classList.add('active');
          event.target.classList.add('active');
 
-         // Load data for specific sections
+         
          switch (sectionId) {
             case 'materi-management':
                loadMateriList();
@@ -563,9 +563,9 @@
          }
       }
 
-      // ===========================================
-      // DASHBOARD FUNCTIONS
-      // ===========================================
+      
+      
+      
       async function loadDashboardData() {
          try {
             const stats = await apiCall('/guru/dashboard/stats');
@@ -601,9 +601,9 @@
          `).join('');
       }
 
-      // ===========================================
-      // MATERI FUNCTIONS
-      // ===========================================
+      
+      
+      
       async function loadMateriList() {
          const container = document.getElementById('materiListContainer');
 
@@ -672,9 +672,9 @@
          }
       }
 
-      // ===========================================
-      // TUGAS FUNCTIONS
-      // ===========================================
+      
+      
+      
       async function loadTugasList() {
          const container = document.getElementById('tugasListContainer');
 
@@ -715,9 +715,9 @@
          `).join('');
       }
 
-      // ===========================================
-      // PENILAIAN FUNCTIONS
-      // ===========================================
+      
+      
+      
       async function loadPendingSubmissions() {
          const container = document.getElementById('tugasPendingContainer');
 
@@ -772,15 +772,15 @@
 
             showAlert('Nilai berhasil diberikan!');
             loadPendingSubmissions();
-            loadDashboardData(); // Refresh dashboard stats
+            loadDashboardData(); 
          } catch (error) {
             console.error('Error grading submission:', error);
          }
       }
 
-      // ===========================================
-      // SISWA PROGRESS FUNCTIONS
-      // ===========================================
+      
+      
+      
       async function loadSiswaProgress() {
          const container = document.getElementById('siswaProgressContainer');
 
@@ -816,9 +816,9 @@
          `).join('');
       }
 
-      // ===========================================
-      // DISKUSI FUNCTIONS
-      // ===========================================
+      
+      
+      
       async function loadDiskusi() {
          const container = document.getElementById('diskusiContainer');
 
@@ -852,11 +852,11 @@
          `).join('');
       }
 
-      // ===========================================
-      // FORM HANDLERS
-      // ===========================================
+      
+      
+      
       document.addEventListener('DOMContentLoaded', function () {
-         // Materi Form Handler
+         
          document.getElementById('addMateriForm').addEventListener('submit', async function (e) {
             e.preventDefault();
 
@@ -882,7 +882,7 @@
             }
          });
 
-         // Tugas Form Handler
+         
          document.getElementById('addTugasForm').addEventListener('submit', async function (e) {
             e.preventDefault();
 
@@ -909,13 +909,13 @@
             }
          });
 
-         // Load initial data
+         
          loadDashboardData();
       });
 
-      // ===========================================
-      // ACTION FUNCTIONS
-      // ===========================================
+      
+      
+      
       function viewMateri(id) {
          const materi = currentData.materi.find(m => m.id === id);
          if (materi) {
@@ -1015,7 +1015,7 @@
       }
 
       function detailSiswaProgress(id) {
-         // Navigate to detailed student progress page
+         
          window.location.href = `/guru/siswa/${id}/progress/view`;
       }
 
@@ -1036,9 +1036,9 @@
          }
       }
 
-      // ===========================================
-      // AUTH FUNCTIONS
-      // ===========================================
+      
+      
+      
       async function logout() {
          try {
             await apiCall('/auth/logout', { method: 'POST' });
