@@ -57,29 +57,50 @@ export const siswaRoutes = new Elysia({ prefix: "/siswa" })
   })
 
   
-  .get("/materi", async ({ user }) => {
-    const siswa = users.find(u => u.id === user.userId);
-    const kelasSiswa = siswa?.kelas_id || 1;
-    
-    const materiSiswa = materi
-      .filter(m => m.kelas_id === kelasSiswa)
-      .map(m => {
-        const guru = users.find(u => u.id === m.guru_id);
+
+    .get("/materi", async ({ user, set }) => {
+      try {
+        const siswaId = user.userId;
+        const siswa = users.find(u => u.id === siswaId);
+        
+        if (!siswa) {
+          set.status = 404;
+          return { success: false, error: "Siswa tidak ditemukan" };
+        }
+        
+        const kelasSiswa = siswa.kelas_id || 1;
+        
+        console.log(`Loading materi untuk siswa ${siswaId}, kelas ${kelasSiswa}`);
+        console.log(`Total materi: ${materi.length}`);
+        
+        const materiSiswa = materi
+          .filter(m => m.kelas_id === kelasSiswa)
+          .map(m => {
+            const guru = users.find(u => u.id === m.guru_id);
+            return {
+              id: m.id,
+              judul: m.judul,
+              deskripsi: m.deskripsi,
+              konten: m.konten.length > 200 ? m.konten.substring(0, 200) + "..." : m.konten,
+              guru_nama: guru?.nama || "Tidak diketahui",
+              created_at: m.created_at,
+              updated_at: m.updated_at
+            };
+          });
+        
+        console.log(`Materi ditemukan: ${materiSiswa.length} items`);
+        
         return {
-          id: m.id,
-          judul: m.judul,
-          deskripsi: m.deskripsi,
-          konten: m.konten.substring(0, 200) + (m.konten.length > 200 ? "..." : ""),
-          guru_nama: guru?.nama || "Tidak diketahui",
-          created_at: m.created_at
+          success: true,
+          data: materiSiswa
         };
-      });
-    
-    return {
-      success: true,
-      data: materiSiswa
-    };
-  })
+        
+      } catch (error) {
+        console.error("Error loading materi:", error);
+        set.status = 500;
+        return { success: false, error: "Terjadi kesalahan saat memuat materi" };
+      }
+    })
 
   
   .get("/tugas", async ({ user }) => {
