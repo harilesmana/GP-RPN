@@ -406,14 +406,13 @@
     </div>
 
     <script>
-        // Auto reload jika ada error
+        
         if (window.location.search.includes('error')) {
             setTimeout(() => {
                 window.location.reload();
             }, 3000);
         }
 
-        // Handle back button
         function goBack() {
             if (window.history.length > 1) {
                 window.history.back();
