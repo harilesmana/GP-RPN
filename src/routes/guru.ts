@@ -1,50 +1,37 @@
 import { Elysia } from "elysia";
 import { authMiddleware } from "../middleware/auth";
-import { 
-  users, kelas, materi, diskusi, tugas, 
-  tugasDetail, submissions, diskusiMateri,
-  User, Kelas, Materi, TugasDetail, Submission, DiskusiMateri
-} from "../db";
-import { z } from "zod";
+import { users, kelas, materi, diskusi, tugas, diskusiMateri } from "../db";
 
 export const guruRoutes = new Elysia({ prefix: "/guru" })
   .derive(authMiddleware as any)
   
-
   .onBeforeHandle(({ user, set }) => {
     if (!user || !user.userId) {
-        set.status = 401;
-        return "Silakan login terlebih dahulu";
+      set.status = 401;
+      return { success: false, error: "Silakan login terlebih dahulu" };
     }
     
     if (user.role !== "guru") {
-        set.status = 403;
-        return "Akses ditolak. Hanya guru yang dapat mengakses endpoint ini.";
+      set.status = 403;
+      return { success: false, error: "Akses ditolak. Hanya guru yang dapat mengakses endpoint ini." };
     }
-})
+  })
 
   .get("/dashboard/stats", async ({ user }) => {
     const guruId = user.userId;
     
     const totalMateri = materi.filter(m => m.guru_id === guruId).length;
-    const totalTugas = tugasDetail.filter(t => t.guru_id === guruId).length;
+    const totalTugas = tugas.filter(t => t.guru_id === guruId && !t.siswa_id).length;
     
-    const tugasPerluDinilai = tugasDetail
-      .filter(t => t.guru_id === guruId)
-      .map(t => {
-        const ungraded = submissions.filter(s => 
-          s.tugas_id === t.id && s.nilai === undefined
-        ).length;
-        return { tugasId: t.id, ungraded };
-      })
-      .reduce((total, curr) => total + curr.ungraded, 0);
+    const tugasPerluDinilai = tugas.filter(t => 
+      t.guru_id === guruId && 
+      t.siswa_id && 
+      t.nilai === undefined
+    ).length;
     
-    const semuaNilai = submissions
-      .filter(s => {
-        const tugasItem = tugasDetail.find(t => t.id === s.tugas_id);
-        return tugasItem && tugasItem.guru_id === guruId && s.nilai !== undefined;
-      })
-      .map(s => s.nilai as number);
+    const semuaNilai = tugas
+      .filter(t => t.guru_id === guruId && t.siswa_id && t.nilai !== undefined)
+      .map(t => t.nilai as number);
     
     const rataNilai = semuaNilai.length > 0 
       ? Math.round(semuaNilai.reduce((a, b) => a + b, 0) / semuaNilai.length) 
@@ -75,8 +62,8 @@ export const guruRoutes = new Elysia({ prefix: "/guru" })
         created_at: m.created_at
       }));
     
-    const aktivitasTugas = tugasDetail
-      .filter(t => t.guru_id === guruId)
+    const aktivitasTugas = tugas
+      .filter(t => t.guru_id === guruId && !t.siswa_id)
       .slice(-5)
       .map(t => ({
         type: "tugas",
@@ -85,19 +72,16 @@ export const guruRoutes = new Elysia({ prefix: "/guru" })
         created_at: t.created_at
       }));
     
-    const aktivitasNilai = submissions
-      .filter(s => {
-        const tugasItem = tugasDetail.find(t => t.id === s.tugas_id);
-        return tugasItem && tugasItem.guru_id === guruId && s.graded_at;
-      })
+    const aktivitasNilai = tugas
+      .filter(t => t.guru_id === guruId && t.siswa_id && t.graded_at)
       .slice(-5)
-      .map(s => {
-        const siswa = users.find(u => u.id === s.siswa_id);
+      .map(t => {
+        const siswa = users.find(u => u.id === t.siswa_id);
         return {
           type: "nilai",
           title: `Nilai diberikan untuk ${siswa?.nama || "siswa"}`,
-          description: `Nilai: ${s.nilai}`,
-          created_at: s.graded_at as Date
+          description: `Nilai: ${t.nilai}`,
+          created_at: t.graded_at as Date
         };
       });
     
@@ -115,51 +99,31 @@ export const guruRoutes = new Elysia({ prefix: "/guru" })
     };
   })
 
-  
-.get("/materi", async ({ user }) => {
-  try {
+  .get("/materi", async ({ user }) => {
     const guruId = user.userId;
-    
-    console.log(`Loading materi untuk guru ${guruId}`);
-    console.log(`Total materi di database: ${materi.length}`);
-    
-    const materiGuru = materi
-      .filter(m => m.guru_id === guruId)
-      .map(m => {
-        
-        return {
-          id: m.id,
-          judul: m.judul || "Judul tidak tersedia",
-          deskripsi: m.deskripsi || "Tidak ada deskripsi",
-          konten: m.konten || "Tidak ada konten yang tersedia",
-          created_at: m.created_at || new Date(),
-          updated_at: m.updated_at || m.created_at || new Date()
-        };
-      });
-    
-    console.log(`Materi ditemukan untuk guru ${guruId}: ${materiGuru.length} items`);
+    const materiGuru = materi.filter(m => m.guru_id === guruId);
     
     return {
       success: true,
-      data: materiGuru
+      data: materiGuru.map(m => ({
+        id: m.id,
+        judul: m.judul || "Judul tidak tersedia",
+        deskripsi: m.deskripsi || "Tidak ada deskripsi",
+        created_at: m.created_at,
+        updated_at: m.updated_at
+      }))
     };
-    
-  } catch (error) {
-    console.error("Error loading materi guru:", error);
-    return { success: false, error: "Terjadi kesalahan saat memuat materi" };
-  }
-})
+  })
 
-  .post("/materi", async ({ user, body, set }) => {
+  .post("/materi", async ({ user, body }) => {
     const guruId = user.userId;
     const { judul, deskripsi, konten, kelas_id } = body as any;
     
     if (!judul || !konten) {
-      set.status = 400;
-      return { error: "Judul dan konten materi harus diisi" };
+      return { success: false, error: "Judul dan konten materi harus diisi" };
     }
     
-    const newMateri: Materi = {
+    const newMateri = {
       id: materi.length + 1,
       judul: judul.trim(),
       deskripsi: deskripsi?.trim() || "",
@@ -181,8 +145,8 @@ export const guruRoutes = new Elysia({ prefix: "/guru" })
       }
     };
   })
-.get("/materi/:id/detail", async ({ user, params }) => {
-  try {
+
+  .put("/materi/:id", async ({ user, params, body }) => {
     const guruId = user.userId;
     const materiId = parseInt(params.id);
     
@@ -190,47 +154,14 @@ export const guruRoutes = new Elysia({ prefix: "/guru" })
       return { success: false, error: "ID materi tidak valid" };
     }
     
-    const materiItem = materi.find(m => m.id === materiId && m.guru_id === guruId);
-    if (!materiItem) {
-      return { success: false, error: "Materi tidak ditemukan atau Anda tidak memiliki akses" };
-    }
-    
-    return {
-      success: true,
-      data: {
-        id: materiItem.id,
-        judul: materiItem.judul || "Judul tidak tersedia",
-        deskripsi: materiItem.deskripsi || "Tidak ada deskripsi",
-        konten: materiItem.konten || "Tidak ada konten yang tersedia",
-        created_at: materiItem.created_at,
-        updated_at: materiItem.updated_at
-      }
-    };
-    
-  } catch (error) {
-    console.error("Error loading materi detail:", error);
-    return { success: false, error: "Terjadi kesalahan saat memuat detail materi" };
-  }
-})
-  .put("/materi/:id", async ({ user, params, body, set }) => {
-    const guruId = user.userId;
-    const materiId = parseInt(params.id);
-    
-    if (isNaN(materiId)) {
-      set.status = 400;
-      return { error: "ID materi tidak valid" };
-    }
-    
     const materiIndex = materi.findIndex(m => m.id === materiId && m.guru_id === guruId);
     if (materiIndex === -1) {
-      set.status = 404;
-      return { error: "Materi tidak ditemukan" };
+      return { success: false, error: "Materi tidak ditemukan" };
     }
     
     const { judul, konten } = body as any;
     if (!judul || !konten) {
-      set.status = 400;
-      return { error: "Judul dan konten materi harus diisi" };
+      return { success: false, error: "Judul dan konten materi harus diisi" };
     }
     
     materi[materiIndex].judul = judul.trim();
@@ -247,19 +178,17 @@ export const guruRoutes = new Elysia({ prefix: "/guru" })
     };
   })
 
-  .delete("/materi/:id", async ({ user, params, set }) => {
+  .delete("/materi/:id", async ({ user, params }) => {
     const guruId = user.userId;
     const materiId = parseInt(params.id);
     
     if (isNaN(materiId)) {
-      set.status = 400;
-      return { error: "ID materi tidak valid" };
+      return { success: false, error: "ID materi tidak valid" };
     }
     
     const materiIndex = materi.findIndex(m => m.id === materiId && m.guru_id === guruId);
     if (materiIndex === -1) {
-      set.status = 404;
-      return { error: "Materi tidak ditemukan" };
+      return { success: false, error: "Materi tidak ditemukan" };
     }
     
     materi.splice(materiIndex, 1);
@@ -272,11 +201,23 @@ export const guruRoutes = new Elysia({ prefix: "/guru" })
 
   .get("/tugas", async ({ user }) => {
     const guruId = user.userId;
-    const tugasGuru = tugasDetail.filter(t => t.guru_id === guruId);
+    
+    
+    const tugasGuru = tugas.filter(t => t.guru_id === guruId && !t.siswa_id);
     
     const tugasWithCounts = tugasGuru.map(t => {
-      const submissionCount = submissions.filter(s => s.tugas_id === t.id).length;
-      const gradedCount = submissions.filter(s => s.tugas_id === t.id && s.nilai !== undefined).length;
+      const submissionCount = tugas.filter(s => 
+        s.materi_id === t.materi_id && 
+        s.judul === t.judul && 
+        s.siswa_id
+      ).length;
+      
+      const gradedCount = tugas.filter(s => 
+        s.materi_id === t.materi_id && 
+        s.judul === t.judul && 
+        s.siswa_id && 
+        s.nilai !== undefined
+      ).length;
       
       return {
         ...t,
@@ -291,23 +232,21 @@ export const guruRoutes = new Elysia({ prefix: "/guru" })
     };
   })
 
-  .post("/tugas", async ({ user, body, set }) => {
+  .post("/tugas", async ({ user, body }) => {
     const guruId = user.userId;
     const { judul, deskripsi, materi_id, deadline } = body as any;
     
     if (!judul || !materi_id || !deadline) {
-      set.status = 400;
-      return { error: "Judul, materi, dan deadline harus diisi" };
+      return { success: false, error: "Judul, materi, dan deadline harus diisi" };
     }
     
     const materiItem = materi.find(m => m.id === parseInt(materi_id) && m.guru_id === guruId);
     if (!materiItem) {
-      set.status = 404;
-      return { error: "Materi tidak ditemukan" };
+      return { success: false, error: "Materi tidak ditemukan" };
     }
     
-    const newTugas: TugasDetail = {
-      id: tugasDetail.length + 1,
+    const newTugas = {
+      id: tugas.length + 1,
       judul: judul.trim(),
       deskripsi: deskripsi?.trim() || "",
       materi_id: parseInt(materi_id),
@@ -317,7 +256,7 @@ export const guruRoutes = new Elysia({ prefix: "/guru" })
       updated_at: new Date()
     };
     
-    tugasDetail.push(newTugas);
+    tugas.push(newTugas);
     
     return {
       success: true,
@@ -329,34 +268,34 @@ export const guruRoutes = new Elysia({ prefix: "/guru" })
     };
   })
 
-  .get("/tugas/:id/submissions", async ({ user, params, set }) => {
+  .get("/tugas/:id/submissions", async ({ user, params }) => {
     const guruId = user.userId;
     const tugasId = parseInt(params.id);
     
     if (isNaN(tugasId)) {
-      set.status = 400;
-      return { error: "ID tugas tidak valid" };
+      return { success: false, error: "ID tugas tidak valid" };
     }
     
-    const tugasItem = tugasDetail.find(t => t.id === tugasId && t.guru_id === guruId);
+    
+    const tugasItem = tugas.find(t => t.id === tugasId && t.guru_id === guruId && !t.siswa_id);
     if (!tugasItem) {
-      set.status = 404;
-      return { error: "Tugas tidak ditemukan" };
+      return { success: false, error: "Tugas tidak ditemukan" };
     }
     
-    const tugasSubmissions = submissions
-      .filter(s => s.tugas_id === tugasId)
-      .map(s => {
-        const siswa = users.find(u => u.id === s.siswa_id);
+    
+    const tugasSubmissions = tugas
+      .filter(t => t.materi_id === tugasItem.materi_id && t.judul === tugasItem.judul && t.siswa_id)
+      .map(t => {
+        const siswa = users.find(u => u.id === t.siswa_id);
         return {
-          id: s.id,
-          siswa_id: s.siswa_id,
+          id: t.id,
+          siswa_id: t.siswa_id,
           siswa_nama: siswa?.nama || "Tidak diketahui",
-          jawaban: s.jawaban,
-          nilai: s.nilai,
-          feedback: s.feedback,
-          submitted_at: s.submitted_at,
-          graded_at: s.graded_at
+          jawaban: t.jawaban,
+          nilai: t.nilai,
+          feedback: t.feedback,
+          submitted_at: t.submitted_at,
+          graded_at: t.graded_at
         };
       });
     
@@ -374,29 +313,22 @@ export const guruRoutes = new Elysia({ prefix: "/guru" })
     };
   })
 
-.get("/submissions/pending", async ({ user }) => {
-  try {
+  .get("/submissions/pending", async ({ user }) => {
     const guruId = user.userId;
     
-    const pendingSubmissions = submissions
-      .filter(s => {
-        const tugasItem = tugasDetail.find(t => t.id === s.tugas_id);
-        return tugasItem && 
-               tugasItem.guru_id === guruId && 
-               (s.nilai === undefined || s.nilai === null);
-      })
-      .map(s => {
-        const tugasItem = tugasDetail.find(t => t.id === s.tugas_id);
-        const siswa = users.find(u => u.id === s.siswa_id);
+    const pendingSubmissions = tugas
+      .filter(t => t.guru_id === guruId && t.siswa_id && t.nilai === undefined)
+      .map(t => {
+        const siswa = users.find(u => u.id === t.siswa_id);
         
         return {
-          id: s.id,
-          tugas_id: s.tugas_id,
-          tugas_judul: tugasItem?.judul || "Tugas tidak ditemukan",
-          siswa_id: s.siswa_id,
+          id: t.id,
+          tugas_id: t.id,
+          tugas_judul: t.judul || "Tugas tidak ditemukan",
+          siswa_id: t.siswa_id,
           siswa_nama: siswa?.nama || "Tidak diketahui",
-          jawaban: s.jawaban,
-          submitted_at: s.submitted_at
+          jawaban: t.jawaban,
+          submitted_at: t.submitted_at
         };
       });
     
@@ -404,79 +336,42 @@ export const guruRoutes = new Elysia({ prefix: "/guru" })
       success: true,
       data: pendingSubmissions
     };
-    
-  } catch (error) {
-    console.error("Error loading pending submissions:", error);
-    return { success: false, error: "Terjadi kesalahan saat memuat submission pending" };
-  }
-})
-.post("/submissions/:id/grade", async ({ user, params, body, set }) => {
-  try {
+  })
+
+  .post("/submissions/:id/grade", async ({ user, params, body }) => {
     const guruId = user.userId;
     const submissionId = parseInt(params.id);
     
     if (isNaN(submissionId)) {
-      set.status = 400;
       return { success: false, error: "ID submission tidak valid" };
     }
     
-    const submissionIndex = submissions.findIndex(s => s.id === submissionId);
+    const submissionIndex = tugas.findIndex(t => t.id === submissionId);
     if (submissionIndex === -1) {
-      set.status = 404;
       return { success: false, error: "Submission tidak ditemukan" };
     }
     
-    const submission = submissions[submissionIndex];
-    const tugasItem = tugasDetail.find(t => t.id === submission.tugas_id);
-    
-    if (!tugasItem) {
-      set.status = 404;
-      return { success: false, error: "Tugas tidak ditemukan" };
-    }
+    const submission = tugas[submissionIndex];
     
     
-    if (tugasItem.guru_id !== guruId) {
-      set.status = 403;
+    if (submission.guru_id !== guruId) {
       return { success: false, error: "Anda tidak memiliki akses untuk menilai submission ini" };
     }
     
     const { nilai, feedback } = body as any;
-    
-    
-    if (nilai === undefined || nilai === null) {
-      set.status = 400;
-      return { success: false, error: "Nilai harus diisi" };
+    if (nilai === undefined || nilai < 0 || nilai > 100) {
+      return { success: false, error: "Nilai harus antara 0-100" };
     }
     
-    const numericNilai = parseInt(nilai);
-    if (isNaN(numericNilai) || numericNilai < 0 || numericNilai > 100) {
-      set.status = 400;
-      return { success: false, error: "Nilai harus berupa angka antara 0-100" };
-    }
-    
-    
-    submissions[submissionIndex].nilai = numericNilai;
-    submissions[submissionIndex].feedback = feedback?.trim() || "";
-    submissions[submissionIndex].graded_at = new Date();
-    
-    console.log(`Nilai diberikan: Submission ${submissionId}, Nilai: ${numericNilai}`);
+    tugas[submissionIndex].nilai = parseInt(nilai);
+    tugas[submissionIndex].feedback = feedback?.trim() || "";
+    tugas[submissionIndex].graded_at = new Date();
     
     return {
       success: true,
-      message: "Nilai berhasil diberikan",
-      data: {
-        submission_id: submissionId,
-        nilai: numericNilai,
-        feedback: feedback?.trim() || ""
-      }
+      message: "Nilai berhasil diberikan"
     };
-    
-  } catch (error) {
-    console.error("Error grading submission:", error);
-    set.status = 500;
-    return { success: false, error: "Terjadi kesalahan server saat memberikan nilai" };
-  }
-})
+  })
 
   .get("/siswa/progress", async ({ user }) => {
     const guruId = user.userId;
@@ -484,20 +379,26 @@ export const guruRoutes = new Elysia({ prefix: "/guru" })
     const semuaSiswa = users.filter(u => u.role === "siswa" && u.status === "active");
     
     const siswaProgress = semuaSiswa.map(siswa => {
-      const tugasDikerjakan = submissions.filter(s => s.siswa_id === siswa.id).length;
       
-      const nilaiSiswa = submissions
-        .filter(s => s.siswa_id === siswa.id && s.nilai !== undefined)
-        .map(s => s.nilai as number);
+      const tugasDikerjakan = tugas.filter(t => 
+        t.siswa_id === siswa.id && 
+        t.guru_id === guruId
+      ).length;
+      
+      
+      const nilaiSiswa = tugas
+        .filter(t => t.siswa_id === siswa.id && t.nilai !== undefined)
+        .map(t => t.nilai as number);
       
       const rataNilai = nilaiSiswa.length > 0 
         ? Math.round(nilaiSiswa.reduce((a, b) => a + b, 0) / nilaiSiswa.length)
         : 0;
       
-      const totalTugas = tugasDetail.filter(t => {
-        const materiItem = materi.find(m => m.id === t.materi_id);
-        return materiItem && materiItem.guru_id === guruId;
-      }).length;
+      
+      const totalTugas = tugas.filter(t => 
+        t.guru_id === guruId && 
+        !t.siswa_id
+      ).length;
       
       const progress = totalTugas > 0 
         ? Math.round((tugasDikerjakan / totalTugas) * 100)
@@ -520,89 +421,86 @@ export const guruRoutes = new Elysia({ prefix: "/guru" })
     };
   })
 
-  .get("/siswa/:id/progress", async ({ user, params, set }) => {
-    try {
-        const guruId = user.userId;
-        const siswaId = parseInt(params.id);
-        
-        if (isNaN(siswaId)) {
-            return { success: false, error: "ID siswa tidak valid" };
-        }
-        
-        const siswa = users.find(u => u.id === siswaId && u.role === "siswa" && u.status === "active");
-        if (!siswa) {
-            return { success: false, error: "Siswa tidak ditemukan" };
-        }
-        
-        const tugasGuru = tugasDetail.filter(t => {
-            const materiItem = materi.find(m => m.id === t.materi_id);
-            return materiItem && materiItem.guru_id === guruId;
-        });
-        
-        const submissionsSiswa = submissions.filter(s => 
-            s.siswa_id === siswaId && 
-            tugasGuru.some(t => t.id === s.tugas_id)
-        );
-        
-        const totalTugas = tugasGuru.length;
-        const tugasDikerjakan = submissionsSiswa.length;
-        const tugasDinilai = submissionsSiswa.filter(s => s.nilai !== undefined).length;
-        
-        const nilaiSiswa = submissionsSiswa
-            .filter(s => s.nilai !== undefined)
-            .map(s => s.nilai as number);
-        
-        const rataNilai = nilaiSiswa.length > 0 
-            ? Math.round(nilaiSiswa.reduce((a, b) => a + b, 0) / nilaiSiswa.length)
-            : 0;
-        
-        const progress = totalTugas > 0 
-            ? Math.round((tugasDikerjakan / totalTugas) * 100)
-            : 0;
-        
-        const detailTugas = tugasGuru.map(tugas => {
-            const submission = submissionsSiswa.find(s => s.tugas_id === tugas.id);
-            const materiItem = materi.find(m => m.id === tugas.materi_id);
-            
-            return {
-                id: tugas.id,
-                judul: tugas.judul,
-                deskripsi: tugas.deskripsi,
-                materi: materiItem?.judul || "Tidak diketahui",
-                deadline: tugas.deadline,
-                status: submission ? "dikerjakan" : "belum_dikerjakan",
-                nilai: submission?.nilai || null,
-                feedback: submission?.feedback || "",
-                submitted_at: submission?.submitted_at || null,
-                graded_at: submission?.graded_at || null
-            };
-        });
-        
-        return {
-            success: true,
-            data: {
-                siswa: {
-                    id: siswa.id,
-                    nama: siswa.nama,
-                    email: siswa.email,
-                    last_login: siswa.last_login,
-                    last_activity: siswa.last_activity
-                },
-                statistik: {
-                    total_tugas: totalTugas,
-                    tugas_dikerjakan: tugasDikerjakan,
-                    tugas_dinilai: tugasDinilai,
-                    progress: progress,
-                    rata_rata_nilai: rataNilai
-                },
-                detail_tugas: detailTugas
-            }
-        };
-    } catch (error) {
-        console.error("Error loading siswa progress:", error);
-        return { success: false, error: "Terjadi kesalahan saat memuat progress siswa" };
+  .get("/siswa/:id/progress", async ({ user, params }) => {
+    const guruId = user.userId;
+    const siswaId = parseInt(params.id);
+    
+    if (isNaN(siswaId)) {
+      return { success: false, error: "ID siswa tidak valid" };
     }
-})
+    
+    const siswa = users.find(u => u.id === siswaId && u.role === "siswa" && u.status === "active");
+    if (!siswa) {
+      return { success: false, error: "Siswa tidak ditemukan" };
+    }
+    
+    
+    const tugasGuru = tugas.filter(t => t.guru_id === guruId && !t.siswa_id);
+    
+    
+    const submissionsSiswa = tugas.filter(t => 
+      t.siswa_id === siswaId && 
+      tugasGuru.some(tg => tg.materi_id === t.materi_id && tg.judul === t.judul)
+    );
+    
+    const totalTugas = tugasGuru.length;
+    const tugasDikerjakan = submissionsSiswa.length;
+    const tugasDinilai = submissionsSiswa.filter(t => t.nilai !== undefined).length;
+    
+    const nilaiSiswa = submissionsSiswa
+      .filter(t => t.nilai !== undefined)
+      .map(t => t.nilai as number);
+    
+    const rataNilai = nilaiSiswa.length > 0 
+      ? Math.round(nilaiSiswa.reduce((a, b) => a + b, 0) / nilaiSiswa.length)
+      : 0;
+    
+    const progress = totalTugas > 0 
+      ? Math.round((tugasDikerjakan / totalTugas) * 100)
+      : 0;
+    
+    const detailTugas = tugasGuru.map(tugasItem => {
+      const submission = submissionsSiswa.find(s => 
+        s.materi_id === tugasItem.materi_id && s.judul === tugasItem.judul
+      );
+      const materiItem = materi.find(m => m.id === tugasItem.materi_id);
+      
+      return {
+        id: tugasItem.id,
+        judul: tugasItem.judul,
+        deskripsi: tugasItem.deskripsi,
+        materi: materiItem?.judul || "Tidak diketahui",
+        deadline: tugasItem.deadline,
+        status: submission ? "dikerjakan" : "belum_dikerjakan",
+        nilai: submission?.nilai || null,
+        feedback: submission?.feedback || "",
+        submitted_at: submission?.submitted_at || null,
+        graded_at: submission?.graded_at || null,
+        jawaban: submission?.jawaban || ""
+      };
+    });
+    
+    return {
+      success: true,
+      data: {
+        siswa: {
+          id: siswa.id,
+          nama: siswa.nama,
+          email: siswa.email,
+          last_login: siswa.last_login,
+          last_activity: siswa.last_activity
+        },
+        statistik: {
+          total_tugas: totalTugas,
+          tugas_dikerjakan: tugasDikerjakan,
+          tugas_dinilai: tugasDinilai,
+          progress: progress,
+          rata_rata_nilai: rataNilai
+        },
+        detail_tugas: detailTugas
+      }
+    };
+  })
   
   .get("/diskusi", async ({ user }) => {
     const guruId = user.userId;
@@ -633,34 +531,30 @@ export const guruRoutes = new Elysia({ prefix: "/guru" })
     };
   })
 
-  .post("/diskusi/:id/reply", async ({ user, params, body, set }) => {
+  .post("/diskusi/:id/reply", async ({ user, params, body }) => {
     const guruId = user.userId;
     const diskusiId = parseInt(params.id);
     
     if (isNaN(diskusiId)) {
-      set.status = 400;
-      return { error: "ID diskusi tidak valid" };
+      return { success: false, error: "ID diskusi tidak valid" };
     }
     
     const diskusiAsli = diskusiMateri.find(d => d.id === diskusiId);
     if (!diskusiAsli) {
-      set.status = 404;
-      return { error: "Diskusi tidak ditemukan" };
+      return { success: false, error: "Diskusi tidak ditemukan" };
     }
     
     const materiItem = materi.find(m => m.id === diskusiAsli.materi_id);
     if (!materiItem || materiItem.guru_id !== guruId) {
-      set.status = 403;
-      return { error: "Anda tidak memiliki akses untuk membalas diskusi ini" };
+      return { success: false, error: "Anda tidak memiliki akses untuk membalas diskusi ini" };
     }
     
     const { reply } = body as any;
     if (!reply) {
-      set.status = 400;
-      return { error: "Balasan tidak boleh kosong" };
+      return { success: false, error: "Balasan tidak boleh kosong" };
     }
     
-    const balasan: DiskusiMateri = {
+    const balasan = {
       id: diskusiMateri.length + 1,
       materi_id: diskusiAsli.materi_id,
       user_id: guruId,
