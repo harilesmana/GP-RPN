@@ -46,18 +46,8 @@ export interface Diskusi {
   created_at: Date;
 }
 
+// PERBAIKAN: Gabungkan Tugas dan TugasDetail menjadi satu interface
 export interface Tugas {
-  id: number;
-  materi_id: number;
-  siswa_id: number;
-  status: 'belum_dikerjakan' | 'dikerjakan' | 'selesai';
-  nilai?: number;
-  hasil?: string;
-  created_at: Date;
-  updated_at: Date;
-}
-
-export interface TugasDetail {
   id: number;
   judul: string;
   deskripsi: string;
@@ -94,8 +84,8 @@ export const kelas: Kelas[] = [];
 export const materi: Materi[] = [];
 export const diskusi: Diskusi[] = [];
 export const tugas: Tugas[] = [];
-export const tugasDetail: TugasDetail[] = [];
 export const submissions: Submission[] = [];
+export const materiRead = new Set<string>();
 export const diskusiMateri: DiskusiMateri[] = [];
 export const loginAttempts = new Map<string, { count: number; unlockTime: number }>();
 
@@ -104,8 +94,8 @@ async function seed() {
     const now = new Date();
     const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const twoWeeksAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
-    
-    
+
+
     users.push({
       id: 1,
       nama: "Prabowo",
@@ -118,8 +108,8 @@ async function seed() {
       login_count: 15,
       last_activity: now
     });
-    
-    
+
+
     users.push({
       id: 2,
       nama: "Jokowi",
@@ -134,7 +124,7 @@ async function seed() {
       last_activity: new Date(Date.now() - 12 * 60 * 60 * 1000),
       bidang: "Matematika"
     });
-    
+
     users.push({
       id: 3,
       nama: "Megawati",
@@ -149,7 +139,7 @@ async function seed() {
       last_activity: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
       bidang: "Bahasa Indonesia"
     });
-    
+
     users.push({
       id: 4,
       nama: "SBY",
@@ -164,7 +154,7 @@ async function seed() {
       last_activity: now,
       bidang: "IPA"
     });
-    
+
     users.push({
       id: 5,
       nama: "Gus Dur",
@@ -179,7 +169,7 @@ async function seed() {
       last_activity: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
       bidang: "IPS"
     });
-    
+
     users.push({
       id: 6,
       nama: "Wiranto",
@@ -195,17 +185,17 @@ async function seed() {
       bidang: "Olahraga"
     });
 
-    
+
     for (let i = 7; i <= 19; i++) {
       const status = i === 19 ? "inactive" : "active";
-      const lastLogin = i % 3 === 0 ? now : 
-                       i % 3 === 1 ? new Date(Date.now() - 1 * 24 * 60 * 60 * 1000) : 
-                       new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
-      
+      const lastLogin = i % 3 === 0 ? now :
+        i % 3 === 1 ? new Date(Date.now() - 1 * 24 * 60 * 60 * 1000) :
+          new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+
       users.push({
         id: i,
-        nama: `Siswa ${i-6}`,
-        email: `siswa${i-6}@example.com`,
+        nama: `Siswa ${i - 6}`,
+        email: `siswa${i - 6}@example.com`,
         password_hash: await hashPassword("123456"),
         role: "siswa",
         status: status as "active" | "inactive",
@@ -213,11 +203,11 @@ async function seed() {
         last_login: lastLogin,
         login_count: Math.floor(Math.random() * 20) + 1,
         last_activity: lastLogin,
-        kelas_id: Math.floor((i-7) / 4) + 1
+        kelas_id: Math.floor((i - 7) / 4) + 1
       });
     }
 
-    
+
     kelas.push({
       id: 1,
       nama: "Kelas 1A",
@@ -242,27 +232,27 @@ async function seed() {
       created_at: now
     });
 
-    
+
     for (let i = 1; i <= 10; i++) {
       materi.push({
         id: i,
         judul: `Materi Pembelajaran ${i}`,
         deskripsi: `Deskripsi materi pembelajaran ${i}`,
         konten: `Konten lengkap materi pembelajaran ${i}. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.`,
-        guru_id: Math.floor(Math.random() * 5) + 2,
+        guru_id: Math.floor(Math.random() * 4) + 2,
         kelas_id: Math.floor(Math.random() * 3) + 1,
         created_at: new Date(Date.now() - i * 24 * 60 * 60 * 1000),
         updated_at: new Date(Date.now() - i * 24 * 60 * 60 * 1000)
       });
     }
 
-    
+
     for (let i = 1; i <= 15; i++) {
       const userRole = i % 3 === 0 ? "guru" : "siswa";
-      const userId = userRole === "guru" ? 
-                    Math.floor(Math.random() * 5) + 2 : 
-                    Math.floor(Math.random() * 12) + 7;
-      
+      const userId = userRole === "guru" ?
+        Math.floor(Math.random() * 5) + 2 :
+        Math.floor(Math.random() * 12) + 7;
+
       diskusi.push({
         id: i,
         kelas: `Kelas ${Math.floor(Math.random() * 3) + 1}${String.fromCharCode(65 + Math.floor(Math.random() * 3))}`,
@@ -273,63 +263,58 @@ async function seed() {
       });
     }
 
-    
+    // PERBAIKAN: Buat tugas dengan struktur yang konsisten
     for (let i = 1; i <= 5; i++) {
-      tugasDetail.push({
+      const materiItem = materi[Math.floor(Math.random() * 10)];
+      tugas.push({
         id: i,
         judul: `Tugas ${i}`,
         deskripsi: `Deskripsi tugas ${i}. Silakan kerjakan dengan baik dan benar.`,
-        materi_id: Math.floor(Math.random() * 10) + 1,
-        guru_id: Math.floor(Math.random() * 4) + 2,
+        materi_id: materiItem.id,
+        guru_id: materiItem.guru_id, // Pastikan guru_id konsisten dengan pemilik materi
         deadline: new Date(Date.now() + (i * 7 * 24 * 60 * 60 * 1000)),
         created_at: new Date(),
         updated_at: new Date()
       });
     }
 
-    
-    for (let i = 1; i <= 30; i++) {
-      const statuses: Array<'belum_dikerjakan' | 'dikerjakan' | 'selesai'> = 
-        ['belum_dikerjakan', 'dikerjakan', 'selesai'];
-      const status = statuses[Math.floor(Math.random() * 3)];
-      const siswaId = Math.floor(Math.random() * 12) + 7;
-      const tugasId = Math.floor(Math.random() * 5) + 1;
-      
-      const tugasItem = {
-        id: i,
-        materi_id: tugasId,
-        siswa_id: siswaId,
-        status: status,
-        nilai: status === 'selesai' ? Math.floor(Math.random() * 100) + 1 : undefined,
-        hasil: status === 'selesai' ? `Hasil pengerjaan tugas ${i}` : undefined,
-        created_at: new Date(Date.now() - i * 24 * 60 * 60 * 1000),
-        updated_at: new Date(Date.now() - i * 24 * 60 * 60 * 1000)
-      };
-      
-      tugas.push(tugasItem);
+    // PERBAIKAN: Buat submissions yang konsisten dengan tugas yang ada
+    let submissionId = 1;
+    for (let tugasItem of tugas) {
+      // Untuk setiap tugas, buat beberapa submission dari siswa berbeda
+      const jumlahSubmission = Math.floor(Math.random() * 8) + 2; // 2-9 submissions per tugas
 
-      
-      if (status !== 'belum_dikerjakan') {
+      for (let j = 0; j < jumlahSubmission; j++) {
+        const siswaId = Math.floor(Math.random() * 12) + 7; // Siswa ID 7-18
+
+        // Cek apakah siswa ini sudah submit untuk tugas ini
+        const sudahSubmit = submissions.some(s => s.tugas_id === tugasItem.id && s.siswa_id === siswaId);
+        if (sudahSubmit) continue;
+
+        const statuses = ['dikerjakan', 'selesai'];
+        const status = statuses[Math.floor(Math.random() * 2)];
+        const isGraded = status === 'selesai' && Math.random() > 0.3; // 70% chance dinilai jika selesai
+
         submissions.push({
-          id: i,
-          tugas_id: tugasId,
+          id: submissionId++,
+          tugas_id: tugasItem.id,
           siswa_id: siswaId,
-          jawaban: `Jawaban tugas ${i} dari siswa ${siswaId}`,
-          nilai: status === 'selesai' ? Math.floor(Math.random() * 100) + 1 : undefined,
-          feedback: status === 'selesai' ? 'Kerja bagus!' : undefined,
-          submitted_at: new Date(Date.now() - (i * 24 * 60 * 60 * 1000)),
-          graded_at: status === 'selesai' ? new Date(Date.now() - (i * 12 * 60 * 60 * 1000)) : undefined
+          jawaban: `Jawaban tugas ${tugasItem.judul} dari siswa ${siswaId}`,
+          nilai: isGraded ? Math.floor(Math.random() * 100) + 1 : undefined,
+          feedback: isGraded ? 'Kerja bagus!' : undefined,
+          submitted_at: new Date(Date.now() - (Math.random() * 5 * 24 * 60 * 60 * 1000)),
+          graded_at: isGraded ? new Date(Date.now() - (Math.random() * 2 * 24 * 60 * 60 * 1000)) : undefined
         });
       }
     }
-    
-    
+
+
     for (let i = 1; i <= 15; i++) {
       const userRole = i % 3 === 0 ? "guru" : "siswa";
-      const userId = userRole === "guru" ? 
-                    Math.floor(Math.random() * 4) + 2 : 
-                    Math.floor(Math.random() * 12) + 7;
-                    
+      const userId = userRole === "guru" ?
+        Math.floor(Math.random() * 4) + 2 :
+        Math.floor(Math.random() * 12) + 7;
+
       diskusiMateri.push({
         id: i,
         materi_id: Math.floor(Math.random() * 10) + 1,
