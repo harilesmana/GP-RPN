@@ -48,17 +48,6 @@ export interface Diskusi {
 
 export interface Tugas {
   id: number;
-  materi_id: number;
-  siswa_id: number;
-  status: 'belum_dikerjakan' | 'dikerjakan' | 'selesai';
-  nilai?: number;
-  hasil?: string;
-  created_at: Date;
-  updated_at: Date;
-}
-
-export interface TugasDetail {
-  id: number;
   judul: string;
   deskripsi: string;
   materi_id: number;
@@ -66,16 +55,14 @@ export interface TugasDetail {
   deadline: Date;
   created_at: Date;
   updated_at: Date;
-}
-
-export interface Submission {
-  id: number;
-  tugas_id: number;
-  siswa_id: number;
-  jawaban: string;
+  
+  siswa_id?: number;
+  status?: 'belum_dikerjakan' | 'dikerjakan' | 'selesai';
   nilai?: number;
+  hasil?: string;
+  jawaban?: string;
   feedback?: string;
-  submitted_at: Date;
+  submitted_at?: Date;
   graded_at?: Date;
 }
 
@@ -94,8 +81,6 @@ export const kelas: Kelas[] = [];
 export const materi: Materi[] = [];
 export const diskusi: Diskusi[] = [];
 export const tugas: Tugas[] = [];
-export const tugasDetail: TugasDetail[] = [];
-export const submissions: Submission[] = [];
 export const diskusiMateri: DiskusiMateri[] = [];
 export const loginAttempts = new Map<string, { count: number; unlockTime: number }>();
 
@@ -108,7 +93,7 @@ async function seed() {
     
     users.push({
       id: 1,
-      nama: "Prabowo",
+      nama: "Dr. Prabowo, M.Pd",
       email: "kepsek@example.com",
       password_hash: await hashPassword("123456"),
       role: "kepsek",
@@ -122,7 +107,7 @@ async function seed() {
     
     users.push({
       id: 2,
-      nama: "Jokowi",
+      nama: "Jokowi, S.Pd",
       email: "guru@example.com",
       password_hash: await hashPassword("123456"),
       role: "guru",
@@ -137,7 +122,7 @@ async function seed() {
     
     users.push({
       id: 3,
-      nama: "Megawati",
+      nama: "Megawati, S.Pd",
       email: "guru2@example.com",
       password_hash: await hashPassword("123456"),
       role: "guru",
@@ -152,7 +137,7 @@ async function seed() {
     
     users.push({
       id: 4,
-      nama: "SBY",
+      nama: "SBY, S.Pd",
       email: "guru3@example.com",
       password_hash: await hashPassword("123456"),
       role: "guru",
@@ -167,7 +152,7 @@ async function seed() {
     
     users.push({
       id: 5,
-      nama: "Gus Dur",
+      nama: "Gus Dur, S.Pd",
       email: "guru4@example.com",
       password_hash: await hashPassword("123456"),
       role: "guru",
@@ -182,7 +167,7 @@ async function seed() {
     
     users.push({
       id: 6,
-      nama: "Wiranto",
+      nama: "Wiranto, S.Pd",
       email: "guru5@example.com",
       password_hash: await hashPassword("123456"),
       role: "guru",
@@ -275,7 +260,8 @@ async function seed() {
 
     
     for (let i = 1; i <= 5; i++) {
-      tugasDetail.push({
+      
+      const baseTugas = {
         id: i,
         judul: `Tugas ${i}`,
         deskripsi: `Deskripsi tugas ${i}. Silakan kerjakan dengan baik dan benar.`,
@@ -284,42 +270,30 @@ async function seed() {
         deadline: new Date(Date.now() + (i * 7 * 24 * 60 * 60 * 1000)),
         created_at: new Date(),
         updated_at: new Date()
-      });
-    }
-
-    
-    for (let i = 1; i <= 30; i++) {
-      const statuses: Array<'belum_dikerjakan' | 'dikerjakan' | 'selesai'> = 
-        ['belum_dikerjakan', 'dikerjakan', 'selesai'];
-      const status = statuses[Math.floor(Math.random() * 3)];
-      const siswaId = Math.floor(Math.random() * 12) + 7;
-      const tugasId = Math.floor(Math.random() * 5) + 1;
-      
-      const tugasItem = {
-        id: i,
-        materi_id: tugasId,
-        siswa_id: siswaId,
-        status: status,
-        nilai: status === 'selesai' ? Math.floor(Math.random() * 100) + 1 : undefined,
-        hasil: status === 'selesai' ? `Hasil pengerjaan tugas ${i}` : undefined,
-        created_at: new Date(Date.now() - i * 24 * 60 * 60 * 1000),
-        updated_at: new Date(Date.now() - i * 24 * 60 * 60 * 1000)
       };
-      
-      tugas.push(tugasItem);
 
       
-      if (status !== 'belum_dikerjakan') {
-        submissions.push({
-          id: i,
-          tugas_id: tugasId,
-          siswa_id: siswaId,
-          jawaban: `Jawaban tugas ${i} dari siswa ${siswaId}`,
+      tugas.push(baseTugas);
+
+      
+      for (let j = 7; j <= 12; j++) { 
+        const statuses: Array<'belum_dikerjakan' | 'dikerjakan' | 'selesai'> = 
+          ['belum_dikerjakan', 'dikerjakan', 'selesai'];
+        const status = statuses[Math.floor(Math.random() * 3)];
+        
+        const tugasSiswa = {
+          ...baseTugas,
+          id: i * 10 + j, 
+          siswa_id: j,
+          status: status,
           nilai: status === 'selesai' ? Math.floor(Math.random() * 100) + 1 : undefined,
+          jawaban: status !== 'belum_dikerjakan' ? `Jawaban tugas ${i} dari siswa ${j}` : undefined,
           feedback: status === 'selesai' ? 'Kerja bagus!' : undefined,
-          submitted_at: new Date(Date.now() - (i * 24 * 60 * 60 * 1000)),
+          submitted_at: status !== 'belum_dikerjakan' ? new Date(Date.now() - (i * 24 * 60 * 60 * 1000)) : undefined,
           graded_at: status === 'selesai' ? new Date(Date.now() - (i * 12 * 60 * 60 * 1000)) : undefined
-        });
+        };
+        
+        tugas.push(tugasSiswa);
       }
     }
     
