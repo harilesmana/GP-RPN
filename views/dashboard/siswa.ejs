@@ -1349,8 +1349,32 @@ function displayMateriGrid() {
       
       function bacaMateri(materiId) {
   const materi = materiData.find(m => m.id === materiId);
+  
   if (materi) {
-    showMateriModal(materi);
+    
+    if (!materi.konten && materi.konten_preview) {
+      materi.konten = materi.konten_preview;
+    }
+    
+    
+    fetch(`/siswa/materi/${materiId}`, {
+      method: 'GET',
+      credentials: 'include'
+    })
+    .then(response => response.json())
+    .then(result => {
+      if (result.success) {
+        showMateriModal(result.data);
+        
+        loadDashboardData();
+      } else {
+        showMateriModal(materi); 
+      }
+    })
+    .catch(error => {
+      console.error('Error marking materi as read:', error);
+      showMateriModal(materi); 
+    });
   } else {
     
     fetch(`/siswa/materi/${materiId}`, {
@@ -1361,6 +1385,8 @@ function displayMateriGrid() {
     .then(result => {
       if (result.success) {
         showMateriModal(result.data);
+        
+        loadDashboardData();
       } else {
         showAlert('Materi tidak ditemukan', 'error');
       }
@@ -1371,7 +1397,21 @@ function displayMateriGrid() {
     });
   }
 }
-
+      function loadDashboardData() {
+  fetch('/siswa/dashboard-stats', {
+    method: 'GET',
+    credentials: 'include'
+  })
+  .then(response => response.json())
+  .then(result => {
+    if (result.success) {
+      updateDashboardStats(result.data);
+    }
+  })
+  .catch(error => {
+    console.error('Error refreshing dashboard:', error);
+  });
+}
       function showMateriModal(materi) {
   const modal = document.createElement('div');
   modal.className = 'modal-overlay';
