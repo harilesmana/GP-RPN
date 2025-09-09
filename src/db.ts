@@ -231,6 +231,18 @@ async function seed() {
   }
     
     for (let i = 7; i <= 19; i++) {
+    for (let j = 1; j <= 5; j++) {
+      siswaMateri.push({
+        id: siswaMateri.length + 1,
+        siswa_id: i,
+        materi_id: j,
+        last_accessed: new Date(Date.now() - j * 24 * 60 * 60 * 1000),
+        is_completed: Math.random() > 0.5
+      });
+    }
+  }
+  
+    for (let i = 7; i <= 19; i++) {
       const status = i === 19 ? "inactive" : "active";
       const lastLogin = i % 3 === 0 ? now : 
                        i % 3 === 1 ? new Date(Date.now() - 1 * 24 * 60 * 60 * 1000) : 
