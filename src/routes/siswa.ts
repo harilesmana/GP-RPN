@@ -254,70 +254,7 @@ export const siswaRoutes = new Elysia({ prefix: "/siswa" })
     console.error("Error submitting tugas:", error);
     return { success: false, error: "Terjadi kesalahan saat mengumpulkan tugas" };
   }
-}) user, params, body }) => {
-    try {
-      const siswaId = user.userId;
-      const tugasId = parseInt(params.id);
-      
-      if (isNaN(tugasId)) {
-        return { success: false, error: "ID tugas tidak valid" };
-      }
-      
-      
-      const tugasItem = tugas.find(t => t.id === tugasId && !t.siswa_id);
-      if (!tugasItem) {
-        return { success: false, error: "Tugas tidak ditemukan" };
-      }
-      
-      const { jawaban } = body as any;
-      if (!jawaban || jawaban.trim().length === 0) {
-        return { success: false, error: "Jawaban tidak boleh kosong" };
-      }
-      
-      
-      const existingSubmission = tugas.find(t => 
-        t.siswa_id === siswaId && 
-        t.materi_id === tugasItem.materi_id && 
-        t.judul === tugasItem.judul
-      );
-      
-      if (existingSubmission) {
-        
-        existingSubmission.jawaban = jawaban.trim();
-        existingSubmission.submitted_at = new Date();
-        existingSubmission.status = 'dikerjakan';
-        existingSubmission.nilai = undefined;
-        existingSubmission.feedback = undefined;
-        existingSubmission.graded_at = undefined;
-      } else {
-        
-        const newSubmission = {
-          ...tugasItem,
-          id: tugas.length + 1,
-          siswa_id: siswaId,
-          jawaban: jawaban.trim(),
-          submitted_at: new Date(),
-          status: 'dikerjakan'
-        };
-        tugas.push(newSubmission);
-      }
-      
-      
-      const siswa = users.find(u => u.id === siswaId);
-      if (siswa) {
-        siswa.last_activity = new Date();
-      }
-      
-      return {
-        success: true,
-        message: "Tugas berhasil dikumpulkan"
-      };
-      
-    } catch (error) {
-      console.error("Error submitting tugas:", error);
-      return { success: false, error: "Terjadi kesalahan saat mengumpulkan tugas" };
-    }
-  })
+})
 
   .get("/nilai", async ({ user }) => {
     try {
