@@ -46,26 +46,6 @@ export interface Diskusi {
   created_at: Date;
 }
 
-export interface Tugas {
-  id: number;
-  judul: string;
-  deskripsi: string;
-  materi_id: number;
-  guru_id: number;
-  deadline: Date;
-  created_at: Date;
-  updated_at: Date;
-  
-  siswa_id?: number;
-  status?: 'belum_dikerjakan' | 'dikerjakan' | 'selesai';
-  nilai?: number;
-  hasil?: string;
-  jawaban?: string;
-  feedback?: string;
-  submitted_at?: Date;
-  graded_at?: Date;
-}
-
 export interface DiskusiMateri {
   id: number;
   materi_id: number;
@@ -76,11 +56,41 @@ export interface DiskusiMateri {
   created_at: Date;
 }
 
+export interface SiswaTugas {
+  id: number;
+  siswa_id: number;
+  tugas_id: number;
+  jawaban?: string;
+  nilai?: number;
+  feedback?: string;
+  status: 'belum_dikerjakan' | 'dikerjakan' | 'selesai';
+  submitted_at?: Date;
+  graded_at?: Date;
+}
+
+export interface SiswaMateri {
+  id: number;
+  siswa_id: number;
+  materi_id: number;
+  last_accessed: Date;
+  is_completed: boolean;
+}
+
+export interface GuruKelas {
+  id: number;
+  guru_id: number;
+  kelas_id: number;
+  mata_pelajaran: string;
+}
+
+
+export const siswaTugas: SiswaTugas[] = [];
+export const siswaMateri: SiswaMateri[] = [];
+export const guruKelas: GuruKelas[] = [];
 export const users: User[] = [];
 export const kelas: Kelas[] = [];
 export const materi: Materi[] = [];
 export const diskusi: Diskusi[] = [];
-export const tugas: Tugas[] = [];
 export const diskusiMateri: DiskusiMateri[] = [];
 export const loginAttempts = new Map<string, { count: number; unlockTime: number }>();
 
