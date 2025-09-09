@@ -124,56 +124,50 @@ export const siswaRoutes = new Elysia({ prefix: "/siswa" })
   })
 
   .get("/tugas", async ({ user }) => {
-    try {
-      const siswaId = user.userId;
-      const siswa = users.find(u => u.id === siswaId);
+  try {
+    const siswaId = user.userId;
+    
+    
+    const semuaTugas = tugas.filter(t => {
       
-      if (!siswa) {
-        return { success: false, error: "Siswa tidak ditemukan" };
-      }
+      const materiItem = materi.find(m => m.id === t.materi_id);
+      return materiItem && materiItem.kelas_id === (user.kelas_id || 1);
+    });
+    
+    
+    const tugasDenganStatus = semuaTugas.map(tugasItem => {
+      const submission = siswaTugas.find(st => 
+        st.siswa_id === siswaId && st.tugas_id === tugasItem.id
+      );
       
-      const kelasSiswa = siswa.kelas_id || 1;
-      
-      
-      const tugasKelas = tugas.filter(t => {
-        const materiItem = materi.find(m => m.id === t.materi_id);
-        return materiItem && materiItem.kelas_id === kelasSiswa && !t.siswa_id;
-      });
-      
-      const tugasSiswa = tugasKelas.map(tugasItem => {
-        
-        const submission = tugas.find(t => 
-          t.siswa_id === siswaId && 
-          t.materi_id === tugasItem.materi_id && 
-          t.judul === tugasItem.judul
-        );
-        
-        const materiItem = materi.find(m => m.id === tugasItem.materi_id);
-        
-        return {
-          id: tugasItem.id,
-          judul: tugasItem.judul,
-          deskripsi: tugasItem.deskripsi,
-          materi_judul: materiItem?.judul || "Tidak diketahui",
-          deadline: tugasItem.deadline,
-          status: submission ? "dikerjakan" : "belum_dikerjakan",
-          nilai: submission?.nilai,
-          feedback: submission?.feedback,
-          jawaban: submission?.jawaban,
-          submitted_at: submission?.submitted_at
-        };
-      });
+      const materiItem = materi.find(m => m.id === tugasItem.materi_id);
       
       return {
-        success: true,
-        data: tugasSiswa
+        id: tugasItem.id,
+        judul: tugasItem.judul,
+        deskripsi: tugasItem.deskripsi,
+        materi_judul: materiItem?.judul || "Tidak diketahui",
+        deadline: tugasItem.deadline,
+        status: submission?.status || 'belum_dikerjakan',
+        nilai: submission?.nilai,
+        feedback: submission?.feedback,
+        jawaban: submission?.jawaban,
+        submitted_at: submission?.submitted_at
       };
-      
-    } catch (error) {
-      console.error("Error loading tugas:", error);
-      return { success: false, error: "Terjadi kesalahan saat memuat tugas" };
-    }
-  })
+    });
+    
+    return {
+      success: true,
+      data: tugasDenganStatus
+    };
+    
+  } catch (error) {
+    console.error("Error loading tugas:", error);
+    return { success: false, error: "Terjadi kesalahan saat memuat tugas" };
+  }
+})
+
+
 
   .get("/tugas-recent", async ({ user }) => {
     try {
