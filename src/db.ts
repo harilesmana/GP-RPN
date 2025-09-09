@@ -195,7 +195,40 @@ async function seed() {
     { id: 2, guru_id: 3, kelas_id: 2, mata_pelajaran: "Bahasa Indonesia" },
     { id: 3, guru_id: 4, kelas_id: 3, mata_pelajaran: "IPA" }
   );
-
+    
+    for (let i = 1; i <= 5; i++) {
+    const tugasItem = {
+      id: i,
+      judul: `Tugas ${i}`,
+      deskripsi: `Deskripsi tugas ${i}. Silakan kerjakan dengan baik dan benar.`,
+      materi_id: Math.floor(Math.random() * 10) + 1,
+      guru_id: Math.floor(Math.random() * 4) + 2,
+      deadline: new Date(Date.now() + (i * 7 * 24 * 60 * 60 * 1000)),
+      created_at: new Date(),
+      updated_at: new Date()
+    };
+    
+    tugas.push(tugasItem);
+    
+    // Buat submission di tabel junction
+    for (let j = 7; j <= 12; j++) {
+      const statuses: Array<'belum_dikerjakan' | 'dikerjakan' | 'selesai'> = 
+        ['belum_dikerjakan', 'dikerjakan', 'selesai'];
+      const status = statuses[Math.floor(Math.random() * 3)];
+      
+      siswaTugas.push({
+        id: siswaTugas.length + 1,
+        siswa_id: j,
+        tugas_id: i,
+        status: status,
+        nilai: status === 'selesai' ? Math.floor(Math.random() * 100) + 1 : undefined,
+        jawaban: status !== 'belum_dikerjakan' ? `Jawaban tugas ${i} dari siswa ${j}` : undefined,
+        feedback: status === 'selesai' ? 'Kerja bagus!' : undefined,
+        submitted_at: status !== 'belum_dikerjakan' ? new Date(Date.now() - (i * 24 * 60 * 60 * 1000)) : undefined,
+        graded_at: status === 'selesai' ? new Date(Date.now() - (i * 12 * 60 * 60 * 1000)) : undefined
+      });
+    }
+  }
     
     for (let i = 7; i <= 19; i++) {
       const status = i === 19 ? "inactive" : "active";
