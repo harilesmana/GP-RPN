@@ -1,6 +1,6 @@
 import { Elysia } from "elysia";
 import { authMiddleware } from "../middleware/auth";
-import { users, kelas, materi, diskusi, tugas, diskusiMateri } from "../db";
+import { users, kelas, materi, diskusi, tugas, diskusiMateri, siswaTugas, siswaMateri, getTugasForKelas, getSubmissionForSiswa, getMateriProgressForSiswa, getTugasWithStatus } from "../db";
 
 export const siswaRoutes = new Elysia({ prefix: "/siswa" })
   .derive(authMiddleware as any)
@@ -29,44 +29,59 @@ export const siswaRoutes = new Elysia({ prefix: "/siswa" })
       const kelasSiswa = siswa.kelas_id || 1;
       
       
-      const tugasKelasSiswa = tugas.filter(t => {
-        const materiItem = materi.find(m => m.id === t.materi_id);
-        return materiItem && materiItem.kelas_id === kelasSiswa && !t.siswa_id;
-      });
-      
-      const semuaTugas = tugasKelasSiswa.length;
+      const totalMateri = materi.filter(m => m.kelas_id === kelasSiswa).length;
       
       
-      const tugasDikerjakan = tugas.filter(t => 
-        t.siswa_id === siswaId && 
-        tugasKelasSiswa.some(tk => tk.materi_id === t.materi_id && tk.judul === t.judul)
+      const tugasUntukKelas = getTugasForKelas(kelasSiswa);
+      const semuaTugas = tugasUntukKelas.length;
+      
+      
+      const tugasDikerjakan = siswaTugas.filter(st => 
+        st.siswa_id === siswaId && 
+        st.status !== 'belum_dikerjakan' &&
+        tugasUntukKelas.some(t => t.id === st.tugas_id)
       ).length;
       
       
-      const tugasSelesai = tugas.filter(t => 
-        t.siswa_id === siswaId && 
-        t.nilai !== undefined &&
-        tugasKelasSiswa.some(tk => tk.materi_id === t.materi_id && tk.judul === t.judul)
+      const tugasSelesai = siswaTugas.filter(st => 
+        st.siswa_id === siswaId && 
+        st.nilai !== undefined &&
+        tugasUntukKelas.some(t => t.id === st.tugas_id)
       ).length;
       
       
-      const nilaiSiswa = tugas
-        .filter(t => t.siswa_id === siswaId && t.nilai !== undefined)
-        .map(t => t.nilai as number);
+      const nilaiSiswa = siswaTugas
+        .filter(st => st.siswa_id === siswaId && st.nilai !== undefined)
+        .map(st => st.nilai as number);
       
       const rataNilai = nilaiSiswa.length > 0 
         ? Math.round(nilaiSiswa.reduce((a, b) => a + b, 0) / nilaiSiswa.length)
         : 0;
       
+      
       const progress = semuaTugas > 0 
         ? Math.round((tugasDikerjakan / semuaTugas) * 100)
+        : 0;
+      
+      
+      const materiDipelajari = siswaMateri.filter(sm => 
+        sm.siswa_id === siswaId && 
+        sm.is_completed
+      ).length;
+      
+      
+      const progressMateri = totalMateri > 0 
+        ? Math.round((materiDipelajari / totalMateri) * 100)
         : 0;
       
       return {
         success: true,
         data: {
-          total_materi: materi.filter(m => m.kelas_id === kelasSiswa).length,
+          total_materi: totalMateri,
+          materi_dipelajari: materiDipelajari,
+          progress_materi: progressMateri,
           total_tugas: semuaTugas,
+          tugas_dikerjakan: tugasDikerjakan,
           tugas_selesai: tugasSelesai,
           tugas_pending: tugasDikerjakan - tugasSelesai,
           rata_nilai: rataNilai,
@@ -95,7 +110,7 @@ export const siswaRoutes = new Elysia({ prefix: "/siswa" })
         .filter(m => m.kelas_id === kelasSiswa)
         .map(m => {
           const guru = users.find(u => u.id === m.guru_id);
-          
+          const progress = getMateriProgressForSiswa(siswaId, m.id);
           
           const konten = m.konten || "Tidak ada konten yang tersedia";
           const preview = konten.length > 200 ? konten.substring(0, 200) + "..." : konten;
@@ -108,7 +123,10 @@ export const siswaRoutes = new Elysia({ prefix: "/siswa" })
             konten_preview: preview,
             guru_nama: guru?.nama || "Tidak diketahui",
             created_at: m.created_at,
-            updated_at: m.updated_at
+            updated_at: m.updated_at,
+            last_accessed: progress?.last_accessed,
+            is_completed: progress?.is_completed || false,
+            progress: progress ? (progress.is_completed ? 100 : 50) : 0
           };
         });
       
@@ -124,70 +142,48 @@ export const siswaRoutes = new Elysia({ prefix: "/siswa" })
   })
 
   .get("/tugas", async ({ user }) => {
-  try {
-    const siswaId = user.userId;
-    
-    
-    const semuaTugas = tugas.filter(t => {
+    try {
+      const siswaId = user.userId;
+      const siswa = users.find(u => u.id === siswaId);
       
-      const materiItem = materi.find(m => m.id === t.materi_id);
-      return materiItem && materiItem.kelas_id === (user.kelas_id || 1);
-    });
-    
-    
-    const tugasDenganStatus = semuaTugas.map(tugasItem => {
-      const submission = siswaTugas.find(st => 
-        st.siswa_id === siswaId && st.tugas_id === tugasItem.id
-      );
+      if (!siswa) {
+        return { success: false, error: "Siswa tidak ditemukan" };
+      }
       
-      const materiItem = materi.find(m => m.id === tugasItem.materi_id);
+      const kelasSiswa = siswa.kelas_id || 1;
+      const tugasSiswa = getTugasWithStatus(siswaId, kelasSiswa);
       
       return {
-        id: tugasItem.id,
-        judul: tugasItem.judul,
-        deskripsi: tugasItem.deskripsi,
-        materi_judul: materiItem?.judul || "Tidak diketahui",
-        deadline: tugasItem.deadline,
-        status: submission?.status || 'belum_dikerjakan',
-        nilai: submission?.nilai,
-        feedback: submission?.feedback,
-        jawaban: submission?.jawaban,
-        submitted_at: submission?.submitted_at
+        success: true,
+        data: tugasSiswa
       };
-    });
-    
-    return {
-      success: true,
-      data: tugasDenganStatus
-    };
-    
-  } catch (error) {
-    console.error("Error loading tugas:", error);
-    return { success: false, error: "Terjadi kesalahan saat memuat tugas" };
-  }
-})
-
-
+      
+    } catch (error) {
+      console.error("Error loading tugas:", error);
+      return { success: false, error: "Terjadi kesalahan saat memuat tugas" };
+    }
+  })
 
   .get("/tugas-recent", async ({ user }) => {
     try {
       const siswaId = user.userId;
+      const siswa = users.find(u => u.id === siswaId);
       
-      
-      const response = await fetch('/siswa/tugas', {
-        method: 'GET',
-        credentials: 'include'
-      });
-      
-      let recentTugas = [];
-      if (response.ok) {
-        const result = await response.json();
-        recentTugas = result.data || [];
+      if (!siswa) {
+        return { success: false, error: "Siswa tidak ditemukan" };
       }
+      
+      const kelasSiswa = siswa.kelas_id || 1;
+      const tugasSiswa = getTugasWithStatus(siswaId, kelasSiswa);
+      
+      
+      const recentTugas = tugasSiswa
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 3);
       
       return {
         success: true,
-        data: recentTugas.slice(0, 3)
+        data: recentTugas
       };
       
     } catch (error) {
@@ -197,43 +193,57 @@ export const siswaRoutes = new Elysia({ prefix: "/siswa" })
   })
 
   .post("/tugas/:id/submit", async ({ user, params, body }) => {
-  try {
-    const siswaId = user.userId;
-    const tugasId = parseInt(params.id);
-    
-    
-    const submissionIndex = siswaTugas.findIndex(st => 
-      st.siswa_id === siswaId && st.tugas_id === tugasId
-    );
-    
-    const { jawaban } = body as any;
-    
-    if (submissionIndex !== -1) {
+    try {
+      const siswaId = user.userId;
+      const tugasId = parseInt(params.id);
       
-      siswaTugas[submissionIndex].jawaban = jawaban;
-      siswaTugas[submissionIndex].status = 'dikerjakan';
-      siswaTugas[submissionIndex].submitted_at = new Date();
-    } else {
+      if (isNaN(tugasId)) {
+        return { success: false, error: "ID tugas tidak valid" };
+      }
       
-      siswaTugas.push({
-        id: siswaTugas.length + 1,
-        siswa_id: siswaId,
-        tugas_id: tugasId,
-        jawaban: jawaban,
-        status: 'dikerjakan',
-        submitted_at: new Date()
-      });
-    }
-    
-    
-    const tugasItem = tugas.find(t => t.id === tugasId);
-    if (tugasItem) {
-      const materiProgress = siswaMateri.find(sm => 
+      
+      const tugasItem = tugas.find(t => t.id === tugasId);
+      if (!tugasItem) {
+        return { success: false, error: "Tugas tidak ditemukan" };
+      }
+      
+      const { jawaban } = body as any;
+      if (!jawaban || jawaban.trim().length === 0) {
+        return { success: false, error: "Jawaban tidak boleh kosong" };
+      }
+      
+      
+      const submissionIndex = siswaTugas.findIndex(st => 
+        st.siswa_id === siswaId && st.tugas_id === tugasId
+      );
+      
+      if (submissionIndex !== -1) {
+        
+        siswaTugas[submissionIndex].jawaban = jawaban.trim();
+        siswaTugas[submissionIndex].status = 'dikerjakan';
+        siswaTugas[submissionIndex].submitted_at = new Date();
+        siswaTugas[submissionIndex].nilai = undefined;
+        siswaTugas[submissionIndex].feedback = undefined;
+        siswaTugas[submissionIndex].graded_at = undefined;
+      } else {
+        
+        siswaTugas.push({
+          id: siswaTugas.length + 1,
+          siswa_id: siswaId,
+          tugas_id: tugasId,
+          jawaban: jawaban.trim(),
+          status: 'dikerjakan',
+          submitted_at: new Date()
+        });
+      }
+      
+      
+      const materiProgressIndex = siswaMateri.findIndex(sm => 
         sm.siswa_id === siswaId && sm.materi_id === tugasItem.materi_id
       );
       
-      if (materiProgress) {
-        materiProgress.last_accessed = new Date();
+      if (materiProgressIndex !== -1) {
+        siswaMateri[materiProgressIndex].last_accessed = new Date();
       } else {
         siswaMateri.push({
           id: siswaMateri.length + 1,
@@ -243,37 +253,43 @@ export const siswaRoutes = new Elysia({ prefix: "/siswa" })
           is_completed: false
         });
       }
+      
+      
+      const siswa = users.find(u => u.id === siswaId);
+      if (siswa) {
+        siswa.last_activity = new Date();
+      }
+      
+      return {
+        success: true,
+        message: "Tugas berhasil dikumpulkan"
+      };
+      
+    } catch (error) {
+      console.error("Error submitting tugas:", error);
+      return { success: false, error: "Terjadi kesalahan saat mengumpulkan tugas" };
     }
-    
-    return {
-      success: true,
-      message: "Tugas berhasil dikumpulkan"
-    };
-    
-  } catch (error) {
-    console.error("Error submitting tugas:", error);
-    return { success: false, error: "Terjadi kesalahan saat mengumpulkan tugas" };
-  }
-})
+  })
 
   .get("/nilai", async ({ user }) => {
     try {
       const siswaId = user.userId;
       
-      const nilaiSiswa = tugas
-        .filter(t => t.siswa_id === siswaId)
-        .map(t => {
-          const materiItem = materi.find(m => m.id === t.materi_id);
+      const nilaiSiswa = siswaTugas
+        .filter(st => st.siswa_id === siswaId && st.nilai !== undefined)
+        .map(st => {
+          const tugasItem = tugas.find(t => t.id === st.tugas_id);
+          const materiItem = materi.find(m => m.id === tugasItem?.materi_id);
           
           return {
-            id: t.id,
-            tugas_id: t.id,
-            tugas_judul: t.judul || "Tugas tidak ditemukan",
+            id: st.id,
+            tugas_id: st.tugas_id,
+            tugas_judul: tugasItem?.judul || "Tugas tidak ditemukan",
             materi_judul: materiItem?.judul || "Materi tidak ditemukan",
-            nilai: t.nilai,
-            feedback: t.feedback,
-            submitted_at: t.submitted_at,
-            graded_at: t.graded_at
+            nilai: st.nilai,
+            feedback: st.feedback,
+            submitted_at: st.submitted_at,
+            graded_at: st.graded_at
           };
         });
       
@@ -411,48 +427,62 @@ export const siswaRoutes = new Elysia({ prefix: "/siswa" })
       
       const kelasSiswa = siswa.kelas_id || 1;
       
+      
       const materiSiswa = materi.filter(m => m.kelas_id === kelasSiswa);
       
       
-      const tugasKelas = tugas.filter(t => {
-        const materiItem = materi.find(m => m.id === t.materi_id);
-        return materiItem && materiItem.kelas_id === kelasSiswa && !t.siswa_id;
-      });
+      const tugasUntukKelas = getTugasForKelas(kelasSiswa);
       
       
-      const submissionsSiswa = tugas.filter(t => 
-        t.siswa_id === siswaId && 
-        tugasKelas.some(tk => tk.materi_id === t.materi_id && tk.judul === t.judul)
-      );
+      const submissionsSiswa = getSubmissionForSiswa(siswaId);
       
       
-      const materiDipelajari = new Set(
-        submissionsSiswa.map(s => {
-          return s.materi_id;
-        })
-      ).size;
+      const materiProgress = getMateriProgressForSiswa(siswaId);
       
+      
+      const materiDipelajari = materiProgress.filter(mp => mp.is_completed).length;
+      const tugasDikerjakan = submissionsSiswa.filter(s => s.status !== 'belum_dikerjakan').length;
       
       const nilaiSiswa = submissionsSiswa
         .filter(s => s.nilai !== undefined)
         .map(s => s.nilai as number);
+      
+      const rataNilai = nilaiSiswa.length > 0 
+        ? Math.round(nilaiSiswa.reduce((a, b) => a + b, 0) / nilaiSiswa.length)
+        : 0;
       
       return {
         success: true,
         data: {
           total_materi: materiSiswa.length,
           materi_dipelajari: materiDipelajari,
-          total_tugas: tugasKelas.length,
-          tugas_selesai: submissionsSiswa.length,
-          rata_nilai: nilaiSiswa.length > 0 
-            ? Math.round(nilaiSiswa.reduce((a, b) => a + b, 0) / nilaiSiswa.length)
-            : 0,
+          total_tugas: tugasUntukKelas.length,
+          tugas_dikerjakan: tugasDikerjakan,
+          rata_nilai: rataNilai,
           progress_materi: materiSiswa.length > 0 
             ? Math.round((materiDipelajari / materiSiswa.length) * 100)
             : 0,
-          progress_tugas: tugasKelas.length > 0 
-            ? Math.round((submissionsSiswa.length / tugasKelas.length) * 100)
-            : 0
+          progress_tugas: tugasUntukKelas.length > 0 
+            ? Math.round((tugasDikerjakan / tugasUntukKelas.length) * 100)
+            : 0,
+          
+          
+          detail_materi: materiSiswa.map(m => {
+            const progress = materiProgress.find(mp => mp.materi_id === m.id);
+            const tugasMateri = tugasUntukKelas.filter(t => t.materi_id === m.id);
+            const tugasDikerjakan = submissionsSiswa.filter(s => 
+              tugasMateri.some(t => t.id === s.tugas_id) && s.status !== 'belum_dikerjakan'
+            ).length;
+            
+            return {
+              id: m.id,
+              judul: m.judul,
+              progress: progress?.is_completed ? 100 : Math.round((tugasDikerjakan / tugasMateri.length) * 100),
+              last_accessed: progress?.last_accessed,
+              total_tugas: tugasMateri.length,
+              tugas_dikerjakan: tugasDikerjakan
+            };
+          })
         }
       };
       
@@ -485,6 +515,23 @@ export const siswaRoutes = new Elysia({ prefix: "/siswa" })
       const guru = users.find(u => u.id === materiItem.guru_id);
       
       
+      const materiProgressIndex = siswaMateri.findIndex(sm => 
+        sm.siswa_id === siswaId && sm.materi_id === materiId
+      );
+      
+      if (materiProgressIndex !== -1) {
+        siswaMateri[materiProgressIndex].last_accessed = new Date();
+      } else {
+        siswaMateri.push({
+          id: siswaMateri.length + 1,
+          siswa_id: siswaId,
+          materi_id: materiId,
+          last_accessed: new Date(),
+          is_completed: false
+        });
+      }
+      
+      
       if (siswa) {
         siswa.last_activity = new Date();
       }
@@ -505,5 +552,49 @@ export const siswaRoutes = new Elysia({ prefix: "/siswa" })
     } catch (error) {
       console.error("Error loading materi detail:", error);
       return { success: false, error: "Terjadi kesalahan saat memuat detail materi" };
+    }
+  })
+
+  
+  .post("/materi/:id/complete", async ({ user, params }) => {
+    try {
+      const siswaId = user.userId;
+      const materiId = parseInt(params.id);
+      
+      if (isNaN(materiId)) {
+        return { success: false, error: "ID materi tidak valid" };
+      }
+      
+      const materiProgressIndex = siswaMateri.findIndex(sm => 
+        sm.siswa_id === siswaId && sm.materi_id === materiId
+      );
+      
+      if (materiProgressIndex !== -1) {
+        siswaMateri[materiProgressIndex].is_completed = true;
+        siswaMateri[materiProgressIndex].last_accessed = new Date();
+      } else {
+        siswaMateri.push({
+          id: siswaMateri.length + 1,
+          siswa_id: siswaId,
+          materi_id: materiId,
+          last_accessed: new Date(),
+          is_completed: true
+        });
+      }
+      
+      
+      const siswa = users.find(u => u.id === siswaId);
+      if (siswa) {
+        siswa.last_activity = new Date();
+      }
+      
+      return {
+        success: true,
+        message: "Materi berhasil ditandai sebagai selesai"
+      };
+      
+    } catch (error) {
+      console.error("Error completing materi:", error);
+      return { success: false, error: "Terjadi kesalahan saat menandai materi sebagai selesai" };
     }
   });
