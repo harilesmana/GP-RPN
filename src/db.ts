@@ -46,6 +46,17 @@ export interface Diskusi {
   created_at: Date;
 }
 
+export interface Tugas {
+  id: number;
+  judul: string;
+  deskripsi: string;
+  materi_id: number;
+  guru_id: number;
+  deadline: Date;
+  created_at: Date;
+  updated_at: Date;
+}
+
 export interface DiskusiMateri {
   id: number;
   materi_id: number;
@@ -55,6 +66,7 @@ export interface DiskusiMateri {
   parent_id?: number;
   created_at: Date;
 }
+
 
 export interface SiswaTugas {
   id: number;
@@ -83,22 +95,62 @@ export interface GuruKelas {
   mata_pelajaran: string;
 }
 
-
-export const siswaTugas: SiswaTugas[] = [];
-export const siswaMateri: SiswaMateri[] = [];
-export const guruKelas: GuruKelas[] = [];
 export const users: User[] = [];
 export const kelas: Kelas[] = [];
 export const materi: Materi[] = [];
 export const diskusi: Diskusi[] = [];
+export const tugas: Tugas[] = [];
 export const diskusiMateri: DiskusiMateri[] = [];
+export const siswaTugas: SiswaTugas[] = [];
+export const siswaMateri: SiswaMateri[] = [];
+export const guruKelas: GuruKelas[] = [];
 export const loginAttempts = new Map<string, { count: number; unlockTime: number }>();
+
+
+export function getTugasForKelas(kelasId: number) {
+  return tugas.filter(t => {
+    const materiItem = materi.find(m => m.id === t.materi_id);
+    return materiItem && materiItem.kelas_id === kelasId;
+  });
+}
+
+export function getSubmissionForSiswa(siswaId: number, tugasId?: number) {
+  if (tugasId) {
+    return siswaTugas.find(st => st.siswa_id === siswaId && st.tugas_id === tugasId);
+  }
+  return siswaTugas.filter(st => st.siswa_id === siswaId);
+}
+
+export function getMateriProgressForSiswa(siswaId: number, materiId?: number) {
+  if (materiId) {
+    return siswaMateri.find(sm => sm.siswa_id === siswaId && sm.materi_id === materiId);
+  }
+  return siswaMateri.filter(sm => sm.siswa_id === siswaId);
+}
+
+export function getTugasWithStatus(siswaId: number, kelasId: number) {
+  const tugasUntukKelas = getTugasForKelas(kelasId);
+  
+  return tugasUntukKelas.map(tugasItem => {
+    const submission = getSubmissionForSiswa(siswaId, tugasItem.id);
+    const materiItem = materi.find(m => m.id === tugasItem.materi_id);
+    
+    return {
+      ...tugasItem,
+      status: submission?.status || 'belum_dikerjakan',
+      nilai: submission?.nilai,
+      feedback: submission?.feedback,
+      jawaban: submission?.jawaban,
+      submitted_at: submission?.submitted_at,
+      graded_at: submission?.graded_at,
+      materi_judul: materiItem?.judul || "Tidak diketahui"
+    };
+  });
+}
 
 async function seed() {
   if (users.length === 0) {
     const now = new Date();
-    const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const twoWeeksAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
     
     
     users.push({
@@ -115,138 +167,32 @@ async function seed() {
     });
     
     
-    users.push({
-      id: 2,
-      nama: "Jokowi, S.Pd",
-      email: "guru@example.com",
-      password_hash: await hashPassword("123456"),
-      role: "guru",
-      status: "active",
-      created_by: 1,
-      created_at: now,
-      last_login: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-      login_count: 12,
-      last_activity: new Date(Date.now() - 12 * 60 * 60 * 1000),
-      bidang: "Matematika"
-    });
+    const guruData = [
+      { id: 2, nama: "Jokowi, S.Pd", email: "guru@example.com", bidang: "Matematika" },
+      { id: 3, nama: "Megawati, S.Pd", email: "guru2@example.com", bidang: "Bahasa Indonesia" },
+      { id: 4, nama: "SBY, S.Pd", email: "guru3@example.com", bidang: "IPA" },
+      { id: 5, nama: "Gus Dur, S.Pd", email: "guru4@example.com", bidang: "IPS" },
+      { id: 6, nama: "Wiranto, S.Pd", email: "guru5@example.com", bidang: "Olahraga" }
+    ];
     
-    users.push({
-      id: 3,
-      nama: "Megawati, S.Pd",
-      email: "guru2@example.com",
-      password_hash: await hashPassword("123456"),
-      role: "guru",
-      status: "active",
-      created_by: 1,
-      created_at: now,
-      last_login: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-      login_count: 8,
-      last_activity: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-      bidang: "Bahasa Indonesia"
-    });
-    
-    users.push({
-      id: 4,
-      nama: "SBY, S.Pd",
-      email: "guru3@example.com",
-      password_hash: await hashPassword("123456"),
-      role: "guru",
-      status: "active",
-      created_by: 1,
-      created_at: now,
-      last_login: now,
-      login_count: 20,
-      last_activity: now,
-      bidang: "IPA"
-    });
-    
-    users.push({
-      id: 5,
-      nama: "Gus Dur, S.Pd",
-      email: "guru4@example.com",
-      password_hash: await hashPassword("123456"),
-      role: "guru",
-      status: "active",
-      created_by: 1,
-      created_at: now,
-      last_login: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
-      login_count: 5,
-      last_activity: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
-      bidang: "IPS"
-    });
-    
-    users.push({
-      id: 6,
-      nama: "Wiranto, S.Pd",
-      email: "guru5@example.com",
-      password_hash: await hashPassword("123456"),
-      role: "guru",
-      status: "inactive",
-      created_by: 1,
-      created_at: now,
-      last_login: twoWeeksAgo,
-      login_count: 3,
-      last_activity: twoWeeksAgo,
-      bidang: "Olahraga"
-    });
-    
-    guruKelas.push(
-    { id: 1, guru_id: 2, kelas_id: 1, mata_pelajaran: "Matematika" },
-    { id: 2, guru_id: 3, kelas_id: 2, mata_pelajaran: "Bahasa Indonesia" },
-    { id: 3, guru_id: 4, kelas_id: 3, mata_pelajaran: "IPA" }
-  );
-    
-    for (let i = 1; i <= 5; i++) {
-    const tugasItem = {
-      id: i,
-      judul: `Tugas ${i}`,
-      deskripsi: `Deskripsi tugas ${i}. Silakan kerjakan dengan baik dan benar.`,
-      materi_id: Math.floor(Math.random() * 10) + 1,
-      guru_id: Math.floor(Math.random() * 4) + 2,
-      deadline: new Date(Date.now() + (i * 7 * 24 * 60 * 60 * 1000)),
-      created_at: new Date(),
-      updated_at: new Date()
-    };
-    
-    tugas.push(tugasItem);
-    
-    // Buat submission di tabel junction
-    for (let j = 7; j <= 12; j++) {
-      const statuses: Array<'belum_dikerjakan' | 'dikerjakan' | 'selesai'> = 
-        ['belum_dikerjakan', 'dikerjakan', 'selesai'];
-      const status = statuses[Math.floor(Math.random() * 3)];
-      
-      siswaTugas.push({
-        id: siswaTugas.length + 1,
-        siswa_id: j,
-        tugas_id: i,
-        status: status,
-        nilai: status === 'selesai' ? Math.floor(Math.random() * 100) + 1 : undefined,
-        jawaban: status !== 'belum_dikerjakan' ? `Jawaban tugas ${i} dari siswa ${j}` : undefined,
-        feedback: status === 'selesai' ? 'Kerja bagus!' : undefined,
-        submitted_at: status !== 'belum_dikerjakan' ? new Date(Date.now() - (i * 24 * 60 * 60 * 1000)) : undefined,
-        graded_at: status === 'selesai' ? new Date(Date.now() - (i * 12 * 60 * 60 * 1000)) : undefined
+    guruData.forEach((guru, index) => {
+      users.push({
+        ...guru,
+        password_hash: await hashPassword("123456"),
+        role: "guru",
+        status: index === 4 ? "inactive" : "active",
+        created_by: 1,
+        created_at: now,
+        last_login: new Date(Date.now() - (index + 1) * 24 * 60 * 60 * 1000),
+        login_count: Math.floor(Math.random() * 20) + 1,
+        last_activity: new Date(Date.now() - (index + 1) * 24 * 60 * 60 * 1000)
       });
-    }
-  }
+    });
     
-    for (let i = 7; i <= 19; i++) {
-    for (let j = 1; j <= 5; j++) {
-      siswaMateri.push({
-        id: siswaMateri.length + 1,
-        siswa_id: i,
-        materi_id: j,
-        last_accessed: new Date(Date.now() - j * 24 * 60 * 60 * 1000),
-        is_completed: Math.random() > 0.5
-      });
-    }
-  }
-  
+    
     for (let i = 7; i <= 19; i++) {
       const status = i === 19 ? "inactive" : "active";
-      const lastLogin = i % 3 === 0 ? now : 
-                       i % 3 === 1 ? new Date(Date.now() - 1 * 24 * 60 * 60 * 1000) : 
-                       new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+      const lastLogin = new Date(Date.now() - (i % 3) * 24 * 60 * 60 * 1000);
       
       users.push({
         id: i,
@@ -254,7 +200,7 @@ async function seed() {
         email: `siswa${i-6}@example.com`,
         password_hash: await hashPassword("123456"),
         role: "siswa",
-        status: status as "active" | "inactive",
+        status: status,
         created_at: now,
         last_login: lastLogin,
         login_count: Math.floor(Math.random() * 20) + 1,
@@ -262,32 +208,14 @@ async function seed() {
         kelas_id: Math.floor((i-7) / 4) + 1
       });
     }
-
     
-    kelas.push({
-      id: 1,
-      nama: "Kelas 1A",
-      tingkat: "1",
-      wali_kelas_id: 2,
-      created_at: now
-    });
-
-    kelas.push({
-      id: 2,
-      nama: "Kelas 2B",
-      tingkat: "2",
-      wali_kelas_id: 3,
-      created_at: now
-    });
-
-    kelas.push({
-      id: 3,
-      nama: "Kelas 3C",
-      tingkat: "3",
-      wali_kelas_id: 4,
-      created_at: now
-    });
-
+    
+    kelas.push(
+      { id: 1, nama: "Kelas 1A", tingkat: "1", wali_kelas_id: 2, created_at: now },
+      { id: 2, nama: "Kelas 2B", tingkat: "2", wali_kelas_id: 3, created_at: now },
+      { id: 3, nama: "Kelas 3C", tingkat: "3", wali_kelas_id: 4, created_at: now }
+    );
+    
     
     for (let i = 1; i <= 10; i++) {
       materi.push({
@@ -301,7 +229,64 @@ async function seed() {
         updated_at: new Date(Date.now() - i * 24 * 60 * 60 * 1000)
       });
     }
-
+    
+    
+    guruKelas.push(
+      { id: 1, guru_id: 2, kelas_id: 1, mata_pelajaran: "Matematika" },
+      { id: 2, guru_id: 3, kelas_id: 2, mata_pelajaran: "Bahasa Indonesia" },
+      { id: 3, guru_id: 4, kelas_id: 3, mata_pelajaran: "IPA" },
+      { id: 4, guru_id: 5, kelas_id: 1, mata_pelajaran: "IPS" },
+      { id: 5, guru_id: 6, kelas_id: 2, mata_pelajaran: "Olahraga" }
+    );
+    
+    
+    for (let i = 1; i <= 5; i++) {
+      tugas.push({
+        id: i,
+        judul: `Tugas ${i}`,
+        deskripsi: `Deskripsi tugas ${i}. Silakan kerjakan dengan baik dan benar.`,
+        materi_id: Math.floor(Math.random() * 10) + 1,
+        guru_id: Math.floor(Math.random() * 5) + 2,
+        deadline: new Date(Date.now() + (i * 7 * 24 * 60 * 60 * 1000)),
+        created_at: new Date(),
+        updated_at: new Date()
+      });
+    }
+    
+    
+    for (let i = 1; i <= 5; i++) {
+      for (let j = 7; j <= 12; j++) {
+        const statuses: Array<'belum_dikerjakan' | 'dikerjakan' | 'selesai'> = 
+          ['belum_dikerjakan', 'dikerjakan', 'selesai'];
+        const status = statuses[Math.floor(Math.random() * 3)];
+        
+        siswaTugas.push({
+          id: siswaTugas.length + 1,
+          siswa_id: j,
+          tugas_id: i,
+          status: status,
+          nilai: status === 'selesai' ? Math.floor(Math.random() * 100) + 1 : undefined,
+          jawaban: status !== 'belum_dikerjakan' ? `Jawaban tugas ${i} dari siswa ${j}` : undefined,
+          feedback: status === 'selesai' ? 'Kerja bagus!' : undefined,
+          submitted_at: status !== 'belum_dikerjakan' ? new Date(Date.now() - (i * 24 * 60 * 60 * 1000)) : undefined,
+          graded_at: status === 'selesai' ? new Date(Date.now() - (i * 12 * 60 * 60 * 1000)) : undefined
+        });
+      }
+    }
+    
+    
+    for (let i = 7; i <= 19; i++) {
+      for (let j = 1; j <= 5; j++) {
+        siswaMateri.push({
+          id: siswaMateri.length + 1,
+          siswa_id: i,
+          materi_id: j,
+          last_accessed: new Date(Date.now() - j * 24 * 60 * 60 * 1000),
+          is_completed: Math.random() > 0.5
+        });
+      }
+    }
+    
     
     for (let i = 1; i <= 15; i++) {
       const userRole = i % 3 === 0 ? "guru" : "siswa";
@@ -317,45 +302,6 @@ async function seed() {
         user_role: userRole as Role,
         created_at: new Date(Date.now() - i * 2 * 60 * 60 * 1000)
       });
-    }
-
-    
-    for (let i = 1; i <= 5; i++) {
-      
-      const baseTugas = {
-        id: i,
-        judul: `Tugas ${i}`,
-        deskripsi: `Deskripsi tugas ${i}. Silakan kerjakan dengan baik dan benar.`,
-        materi_id: Math.floor(Math.random() * 10) + 1,
-        guru_id: Math.floor(Math.random() * 4) + 2,
-        deadline: new Date(Date.now() + (i * 7 * 24 * 60 * 60 * 1000)),
-        created_at: new Date(),
-        updated_at: new Date()
-      };
-
-      
-      tugas.push(baseTugas);
-
-      
-      for (let j = 7; j <= 12; j++) { 
-        const statuses: Array<'belum_dikerjakan' | 'dikerjakan' | 'selesai'> = 
-          ['belum_dikerjakan', 'dikerjakan', 'selesai'];
-        const status = statuses[Math.floor(Math.random() * 3)];
-        
-        const tugasSiswa = {
-          ...baseTugas,
-          id: i * 10 + j, 
-          siswa_id: j,
-          status: status,
-          nilai: status === 'selesai' ? Math.floor(Math.random() * 100) + 1 : undefined,
-          jawaban: status !== 'belum_dikerjakan' ? `Jawaban tugas ${i} dari siswa ${j}` : undefined,
-          feedback: status === 'selesai' ? 'Kerja bagus!' : undefined,
-          submitted_at: status !== 'belum_dikerjakan' ? new Date(Date.now() - (i * 24 * 60 * 60 * 1000)) : undefined,
-          graded_at: status === 'selesai' ? new Date(Date.now() - (i * 12 * 60 * 60 * 1000)) : undefined
-        };
-        
-        tugas.push(tugasSiswa);
-      }
     }
     
     
@@ -375,6 +321,10 @@ async function seed() {
         created_at: new Date(Date.now() - (i * 2 * 60 * 60 * 1000))
       });
     }
+    
+    console.log("Database seeded successfully!");
+    console.log(`Users: ${users.length}, Materi: ${materi.length}, Tugas: ${tugas.length}`);
+    console.log(`SiswaTugas: ${siswaTugas.length}, SiswaMateri: ${siswaMateri.length}`);
   }
 }
 
