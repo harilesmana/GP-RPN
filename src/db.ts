@@ -189,6 +189,12 @@ async function seed() {
       last_activity: twoWeeksAgo,
       bidang: "Olahraga"
     });
+    
+    guruKelas.push(
+    { id: 1, guru_id: 2, kelas_id: 1, mata_pelajaran: "Matematika" },
+    { id: 2, guru_id: 3, kelas_id: 2, mata_pelajaran: "Bahasa Indonesia" },
+    { id: 3, guru_id: 4, kelas_id: 3, mata_pelajaran: "IPA" }
+  );
 
     
     for (let i = 7; i <= 19; i++) {
