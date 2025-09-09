@@ -197,6 +197,64 @@ export const siswaRoutes = new Elysia({ prefix: "/siswa" })
   })
 
   .post("/tugas/:id/submit", async ({ user, params, body }) => {
+  try {
+    const siswaId = user.userId;
+    const tugasId = parseInt(params.id);
+    
+    
+    const submissionIndex = siswaTugas.findIndex(st => 
+      st.siswa_id === siswaId && st.tugas_id === tugasId
+    );
+    
+    const { jawaban } = body as any;
+    
+    if (submissionIndex !== -1) {
+      
+      siswaTugas[submissionIndex].jawaban = jawaban;
+      siswaTugas[submissionIndex].status = 'dikerjakan';
+      siswaTugas[submissionIndex].submitted_at = new Date();
+    } else {
+      
+      siswaTugas.push({
+        id: siswaTugas.length + 1,
+        siswa_id: siswaId,
+        tugas_id: tugasId,
+        jawaban: jawaban,
+        status: 'dikerjakan',
+        submitted_at: new Date()
+      });
+    }
+    
+    
+    const tugasItem = tugas.find(t => t.id === tugasId);
+    if (tugasItem) {
+      const materiProgress = siswaMateri.find(sm => 
+        sm.siswa_id === siswaId && sm.materi_id === tugasItem.materi_id
+      );
+      
+      if (materiProgress) {
+        materiProgress.last_accessed = new Date();
+      } else {
+        siswaMateri.push({
+          id: siswaMateri.length + 1,
+          siswa_id: siswaId,
+          materi_id: tugasItem.materi_id,
+          last_accessed: new Date(),
+          is_completed: false
+        });
+      }
+    }
+    
+    return {
+      success: true,
+      message: "Tugas berhasil dikumpulkan"
+    };
+    
+  } catch (error) {
+    console.error("Error submitting tugas:", error);
+    return { success: false, error: "Terjadi kesalahan saat mengumpulkan tugas" };
+  }
+}) user, params, body }) => {
     try {
       const siswaId = user.userId;
       const tugasId = parseInt(params.id);
