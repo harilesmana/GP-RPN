@@ -234,11 +234,28 @@
          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
          padding: 1.5rem;
          transition: transform 0.2s, box-shadow 0.2s;
+         position: relative;
       }
 
       .materi-card:hover {
          transform: translateY(-2px);
          box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+      }
+
+      .materi-card.read {
+         border-left: 4px solid #27ae60;
+      }
+
+      .read-indicator {
+         position: absolute;
+         top: 10px;
+         right: 10px;
+         background: #27ae60;
+         color: white;
+         padding: 0.25rem 0.5rem;
+         border-radius: 12px;
+         font-size: 0.8rem;
+         font-weight: 600;
       }
 
       .materi-title {
@@ -368,6 +385,45 @@
          color: white;
          font-weight: 600;
          font-size: 0.8rem;
+      }
+
+      /* Progress Detail Grid */
+      .progress-grid {
+         display: grid;
+         grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+         gap: 1.5rem;
+         margin: 2rem 0;
+      }
+
+      .progress-card {
+         background: white;
+         padding: 1.5rem;
+         border-radius: 10px;
+         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      }
+
+      .progress-card h4 {
+         color: #3498db;
+         margin-bottom: 1rem;
+         text-align: center;
+      }
+
+      .progress-stats {
+         display: flex;
+         justify-content: space-between;
+         align-items: center;
+         margin-bottom: 1rem;
+      }
+
+      .progress-number {
+         font-size: 2rem;
+         font-weight: bold;
+         color: #3498db;
+      }
+
+      .progress-total {
+         color: #666;
+         font-size: 0.9rem;
       }
 
       /* Modal Styles */
@@ -600,11 +656,8 @@
          <div id="progress" class="page-section">
             <h2>Progress Belajar Detail</h2>
 
-            <div class="card">
-               <div class="card-title">Statistik Pembelajaran</div>
-               <div id="progressDetail">
-                  <div class="loading">Loading progress detail...</div>
-               </div>
+            <div class="progress-grid" id="progressGrid">
+               <div class="loading">Loading progress detail...</div>
             </div>
          </div>
       </div>
@@ -777,7 +830,8 @@
          }
 
          container.innerHTML = materiData.map(materi => `
-            <div class="materi-card">
+            <div class="materi-card ${materi.is_read ? 'read' : ''}" id="materi-card-${materi.id}">
+               ${materi.is_read ? '<div class="read-indicator">✓ Sudah dibaca</div>' : ''}
                <div class="materi-title">${materi.judul}</div>
                <div class="materi-guru">Guru: ${materi.guru_nama}</div>
                ${materi.deskripsi ? `
@@ -795,6 +849,95 @@
                </div>
             </div>
          `).join('');
+      }
+
+      // FIXED: Function untuk baca materi
+      async function bacaMateri(materiId) {
+         try {
+            const result = await apiCall(`/siswa/materi/${materiId}`);
+
+            if (result.success) {
+               showMateriModal(result.data);
+               // Mark materi sebagai sudah dibaca
+               await markMateriAsRead(materiId);
+               // Update UI untuk menunjukkan materi sudah dibaca
+               updateMateriReadStatus(materiId);
+            } else {
+               showAlert(result.error || 'Gagal memuat materi', 'error');
+            }
+         } catch (error) {
+            console.error('Error loading materi detail:', error);
+            showAlert('Terjadi kesalahan saat memuat materi', 'error');
+         }
+      }
+
+      // FIXED: Function untuk menampilkan modal materi
+      function showMateriModal(materi) {
+         const modal = document.createElement('div');
+         modal.className = 'modal-overlay';
+         modal.innerHTML = `
+            <div class="modal-content">
+               <div class="modal-header">
+                  <h3>${materi.judul}</h3>
+                  <button class="modal-close" onclick="closeModal()">&times;</button>
+               </div>
+               <div class="modal-body">
+                  <div style="margin-bottom: 1rem; color: #666;">
+                     <strong>Guru:</strong> ${materi.guru_nama}<br>
+                     <strong>Dibuat:</strong> ${new Date(materi.created_at).toLocaleDateString('id-ID')}
+                  </div>
+                  
+                  ${materi.deskripsi ? `
+                     <div style="background: #f8f9ff; padding: 1rem; border-radius: 5px; margin-bottom: 1.5rem;">
+                        <strong>Deskripsi:</strong><br>
+                        ${materi.deskripsi}
+                     </div>
+                  ` : ''}
+                  
+                  <div style="border-top: 1px solid #e1e5e9; padding-top: 1.5rem;">
+                     <h4 style="color: #3498db; margin-bottom: 1rem;">Konten Materi:</h4>
+                     <div style="line-height: 1.6; color: #333;">
+                        ${materi.konten}
+                     </div>
+                  </div>
+               </div>
+            </div>
+         `;
+         document.body.appendChild(modal);
+      }
+
+      async function markMateriAsRead(materiId) {
+         try {
+            await apiCall(`/siswa/materi/${materiId}/read`, {
+               method: 'POST',
+               headers: { 'Content-Type': 'application/json' },
+               body: JSON.stringify({
+                  duration_seconds: 60,
+                  scroll_percentage: 100
+               })
+            });
+         } catch (error) {
+            console.error('Error marking materi as read:', error);
+         }
+      }
+
+      function updateMateriReadStatus(materiId) {
+         const materiCard = document.getElementById(`materi-card-${materiId}`);
+         if (materiCard && !materiCard.classList.contains('read')) {
+            materiCard.classList.add('read');
+            if (!materiCard.querySelector('.read-indicator')) {
+               const indicator = document.createElement('div');
+               indicator.className = 'read-indicator';
+               indicator.innerHTML = '✓ Sudah dibaca';
+               materiCard.appendChild(indicator);
+            }
+         }
+
+         // Update materi data
+         const materiIndex = materiData.findIndex(m => m.id === materiId);
+         if (materiIndex !== -1) {
+            materiData[materiIndex].is_read = true;
+         }
       }
 
       // Tugas Functions
@@ -902,7 +1045,6 @@
             return;
          }
 
-         // Calculate summary
          const totalTugas = nilaiData.length;
          const tugasDinilai = nilaiData.filter(n => n.nilai !== undefined && n.nilai !== null).length;
          const rataRata = tugasDinilai > 0 ?
@@ -926,7 +1068,6 @@
             </div>
          `;
 
-         // Display detail
          detailContainer.innerHTML = nilaiData.map(nilai => `
             <div class="diskusi-item">
                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
@@ -947,6 +1088,215 @@
                ` : ''}
             </div>
          `).join('');
+      }
+
+      // FIXED: Progress Functions dengan 3 progress bar
+      async function loadProgressDetail() {
+         const container = document.getElementById('progressGrid');
+         container.innerHTML = '<div class="loading">Loading progress detail...</div>';
+
+         try {
+            const result = await apiCall('/siswa/progress-detail');
+
+            if (result.success) {
+               displayProgressDetail(result.data);
+            } else {
+               container.innerHTML = `<div class="no-data">${result.error || 'Gagal memuat progress detail'}</div>`;
+               showAlert(result.error || 'Gagal memuat progress', 'error');
+            }
+         } catch (error) {
+            console.error('Error loading progress detail:', error);
+            container.innerHTML = '<div class="no-data">Terjadi kesalahan jaringan</div>';
+            showAlert('Terjadi kesalahan saat memuat progress detail', 'error');
+         }
+      }
+
+      function displayProgressDetail(progressData) {
+         const container = document.getElementById('progressGrid');
+
+         container.innerHTML = `
+            <!-- Progress Materi Dipelajari -->
+            <div class="progress-card">
+               <h4>Materi Dipelajari</h4>
+               <div class="progress-stats">
+                  <div class="progress-number">${progressData.materi_dipelajari || 0}</div>
+                  <div class="progress-total">dari ${progressData.total_materi || 0} materi</div>
+               </div>
+               <div class="progress-bar">
+                  <div class="progress-fill" style="width: ${progressData.progress_materi || 0}%">
+                     ${Math.round(progressData.progress_materi || 0)}%
+                  </div>
+               </div>
+            </div>
+            
+            <!-- Progress Tugas Selesai -->
+            <div class="progress-card">
+               <h4>Tugas Diselesaikan</h4>
+               <div class="progress-stats">
+                  <div class="progress-number">${progressData.tugas_selesai || 0}</div>
+                  <div class="progress-total">dari ${progressData.total_tugas || 0} tugas</div>
+               </div>
+               <div class="progress-bar">
+                  <div class="progress-fill" style="width: ${progressData.progress_tugas || 0}%">
+                     ${Math.round(progressData.progress_tugas || 0)}%
+                  </div>
+               </div>
+            </div>
+            
+            <!-- Nilai Rata-rata -->
+            <div class="progress-card">
+               <h4>Nilai Rata-rata</h4>
+               <div class="progress-stats">
+                  <div class="progress-number">${Math.round(progressData.rata_nilai || 0)}</div>
+                  <div class="progress-total">dari ${progressData.jumlah_tugas_dinilai || 0} tugas dinilai</div>
+               </div>
+               <div style="text-align: center; margin-top: 1rem;">
+                  <span class="nilai-badge">Nilai: ${Math.round(progressData.rata_nilai || 0)}/100</span>
+               </div>
+            </div>
+         `;
+      }
+
+      // Modal Functions for Tugas
+      function kerjakanTugas(tugasId) {
+         const tugas = tugasData.find(t => t.id === tugasId);
+         if (tugas) {
+            showTugasModal(tugas, 'kerjakan');
+         }
+      }
+
+      function editJawaban(tugasId) {
+         const tugas = tugasData.find(t => t.id === tugasId);
+         if (tugas) {
+            showTugasModal(tugas, 'edit');
+         }
+      }
+
+      function showTugasModal(tugas, mode) {
+         const modal = document.createElement('div');
+         modal.className = 'modal-overlay';
+         modal.innerHTML = `
+            <div class="modal-content">
+               <div class="modal-header">
+                  <h3>${mode === 'kerjakan' ? 'Kerjakan' : 'Edit'} Tugas: ${tugas.judul}</h3>
+                  <button class="modal-close" onclick="closeModal()">&times;</button>
+               </div>
+               <div class="modal-body">
+                  <p style="color: #666; margin-bottom: 1rem;"><strong>Materi:</strong> ${tugas.materi_judul}</p>
+                  <p style="color: #e74c3c; margin-bottom: 1rem;"><strong>Deadline:</strong> ${tugas.deadline ? new Date(tugas.deadline).toLocaleDateString('id-ID') : '-'}</p>
+                  <div style="background: #f8f9ff; padding: 1rem; border-radius: 5px; margin-bottom: 1rem;">
+                     <strong>Deskripsi Tugas:</strong><br>
+                     ${tugas.deskripsi}
+                  </div>
+                  
+                  <form id="tugasForm">
+                     <div class="form-group">
+                        <label for="tugasJawaban">Jawaban Anda:</label>
+                        <textarea id="tugasJawaban" name="jawaban" placeholder="Masukkan jawaban Anda di sini..." required>${tugas.jawaban || ''}</textarea>
+                     </div>
+                     <div style="text-align: right; margin-top: 1rem;">
+                        <button type="button" onclick="closeModal()" style="margin-right: 10px; background: #95a5a6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 5px; cursor: pointer;">Batal</button>
+                        <button type="submit" class="btn">Simpan Jawaban</button>
+                     </div>
+                  </form>
+               </div>
+            </div>
+         `;
+         document.body.appendChild(modal);
+
+         document.getElementById('tugasForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+            const jawaban = document.getElementById('tugasJawaban').value;
+
+            try {
+               const result = await apiCall(`/siswa/tugas/${tugas.id}/submit`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ jawaban })
+               });
+
+               if (result.success) {
+                  showAlert('Jawaban berhasil disimpan!');
+                  closeModal();
+                  loadTugasSaya();
+                  loadDashboardData();
+               } else {
+                  showAlert(result.error || 'Gagal menyimpan jawaban', 'error');
+               }
+            } catch (error) {
+               console.error('Error submitting tugas:', error);
+               showAlert('Terjadi kesalahan saat menyimpan jawaban', 'error');
+            }
+         });
+      }
+
+      function lihatJawaban(tugasId) {
+         const tugas = tugasData.find(t => t.id === tugasId);
+         if (tugas) {
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay';
+            modal.innerHTML = `
+               <div class="modal-content">
+                  <div class="modal-header">
+                     <h3>Jawaban Tugas: ${tugas.judul}</h3>
+                     <button class="modal-close" onclick="closeModal()">&times;</button>
+                  </div>
+                  <div class="modal-body">
+                     <p style="color: #666; margin-bottom: 1rem;"><strong>Status:</strong> ${tugas.status.replace('_', ' ')}</p>
+                     ${tugas.nilai !== undefined && tugas.nilai !== null ? `<p style="margin-bottom: 1rem;"><span class="nilai-badge">Nilai: ${tugas.nilai}/100</span></p>` : ''}
+                     
+                     <div style="background: #f8f9ff; padding: 1rem; border-radius: 5px; margin-bottom: 1rem;">
+                        <strong>Jawaban Anda:</strong><br>
+                        <div style="margin-top: 0.5rem; line-height: 1.5;">${tugas.jawaban || 'Tidak ada jawaban'}</div>
+                     </div>
+                     
+                     ${tugas.feedback ? `
+                        <div style="background: #fff8e1; padding: 1rem; border-radius: 5px; border-left: 3px solid #ffc107;">
+                           <strong>Feedback Guru:</strong><br>
+                           <div style="margin-top: 0.5rem; line-height: 1.5;">${tugas.feedback}</div>
+                        </div>
+                     ` : ''}
+                  </div>
+               </div>
+            `;
+            document.body.appendChild(modal);
+         }
+      }
+
+      function lihatDetailTugas(tugasId) {
+         const tugas = tugasData.find(t => t.id === tugasId);
+         if (tugas) {
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay';
+            modal.innerHTML = `
+               <div class="modal-content">
+                  <div class="modal-header">
+                     <h3>Detail Tugas: ${tugas.judul}</h3>
+                     <button class="modal-close" onclick="closeModal()">&times;</button>
+                  </div>
+                  <div class="modal-body">
+                     <div style="margin-bottom: 1rem;">
+                        <strong>Materi:</strong> ${tugas.materi_judul}<br>
+                        <strong>Deadline:</strong> ${tugas.deadline ? new Date(tugas.deadline).toLocaleDateString('id-ID') : '-'}<br>
+                        <strong>Status:</strong> <span class="tugas-status status-${tugas.status}">${tugas.status.replace('_', ' ')}</span>
+                     </div>
+                     
+                     <div style="background: #f8f9ff; padding: 1rem; border-radius: 5px; margin-bottom: 1rem;">
+                        <strong>Deskripsi:</strong><br>
+                        <div style="margin-top: 0.5rem; line-height: 1.5;">${tugas.deskripsi}</div>
+                     </div>
+                     
+                     <div style="text-align: right;">
+                        ${tugas.status === 'belum_dikerjakan' ?
+                  `<button class="btn btn-success" onclick="closeModal(); kerjakanTugas(${tugas.id})">Kerjakan Sekarang</button>` :
+                  `<button class="btn" onclick="closeModal(); lihatJawaban(${tugas.id})">Lihat Jawaban</button>`
+               }
+                     </div>
+                  </div>
+               </div>
+            `;
+            document.body.appendChild(modal);
+         }
       }
 
       // Diskusi Functions
@@ -1049,7 +1399,6 @@
             return;
          }
 
-         // Group by materi
          const groupedDiskusi = diskusiMateri.reduce((acc, diskusi) => {
             if (!acc[diskusi.materi_judul]) {
                acc[diskusi.materi_judul] = [];
@@ -1068,11 +1417,6 @@
                         <span class="diskusi-date">${new Date(diskusi.created_at).toLocaleString('id-ID')}</span>
                      </div>
                      <div class="diskusi-content">${diskusi.isi}</div>
-                     ${diskusi.parent_id ? `
-                        <div style="font-size: 0.8rem; color: #666; margin-top: 0.5rem;">
-                           ↪ Balasan untuk diskusi #${diskusi.parent_id}
-                        </div>
-                     ` : ''}
                   </div>
                `).join('')}
                <button class="btn" onclick="tambahDiskusiMateri('${diskusiList[0].materi_id}', '${materiJudul}')" style="margin-top: 1rem;">
@@ -1082,345 +1426,7 @@
          `).join('');
       }
 
-      // Progress Functions
-      async function loadProgressDetail() {
-         const container = document.getElementById('progressDetail');
-         container.innerHTML = '<div class="loading">Loading progress detail...</div>';
-
-         try {
-            const result = await apiCall('/siswa/progress-detail');
-
-            if (result.success) {
-               displayProgressDetail(result.data);
-            } else {
-               container.innerHTML = `<div class="no-data">${result.error || 'Gagal memuat progress detail'}</div>`;
-               showAlert(result.error || 'Gagal memuat progress', 'error');
-            }
-         } catch (error) {
-            console.error('Error loading progress detail:', error);
-            container.innerHTML = '<div class="no-data">Terjadi kesalahan jaringan</div>';
-            showAlert('Terjadi kesalahan saat memuat progress detail', 'error');
-         }
-      }
-
-      function displayProgressDetail(progressData) {
-         const container = document.getElementById('progressDetail');
-
-         container.innerHTML = `
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem;">
-               <div style="background: #f8f9ff; padding: 1.5rem; border-radius: 10px; text-align: center;">
-                  <h4 style="color: #3498db; margin-bottom: 1rem;">Materi Dipelajari</h4>
-                  <div style="font-size: 2.5rem; font-weight: bold; color: #3498db; margin-bottom: 0.5rem;">
-                     ${progressData.materi_dipelajari || 0}
-                  </div>
-                  <div style="color: #666;">dari ${progressData.total_materi || 0} materi</div>
-                  <div class="progress-bar" style="margin-top: 1rem;">
-                     <div class="progress-fill" style="width: ${progressData.progress_materi || 0}%">
-                        ${Math.round(progressData.progress_materi || 0)}%
-                     </div>
-                  </div>
-               </div>
-               
-               <div style="background: #f8f9ff; padding: 1.5rem; border-radius: 10px; text-align: center;">
-                  <h4 style="color: #3498db; margin-bottom: 1rem;">Tugas Selesai</h4>
-                  <div style="font-size: 2.5rem; font-weight: bold; color: #3498db; margin-bottom: 0.5rem;">
-                     ${progressData.tugas_selesai || 0}
-                  </div>
-                  <div style="color: #666;">dari ${progressData.total_tugas || 0} tugas</div>
-                  <div class="progress-bar" style="margin-top: 1rem;">
-                     <div class="progress-fill" style="width: ${progressData.progress_tugas || 0}%">
-                        ${Math.round(progressData.progress_tugas || 0)}%
-                     </div>
-                  </div>
-               </div>
-               
-               <div style="background: #f8f9ff; padding: 1.5rem; border-radius: 10px; text-align: center;">
-                  <h4 style="color: #3498db; margin-bottom: 1rem;">Nilai Rata-rata</h4>
-                  <div style="font-size: 2.5rem; font-weight: bold; color: #3498db; margin-bottom: 0.5rem;">
-                     ${Math.round(progressData.rata_nilai || 0)}
-                  </div>
-                  <div style="color: #666;">dari 100</div>
-                  <div class="progress-bar" style="margin-top: 1rem;">
-                     <div class="progress-fill" style="width: ${progressData.rata_nilai || 0}%">
-                        ${Math.round(progressData.rata_nilai || 0)}%
-                     </div>
-                  </div>
-               </div>
-            </div>
-         `;
-      }
-
-      // Modal Functions
-      async function bacaMateri(materiId) {
-         try {
-            const result = await apiCall(`/siswa/materi/${materiId}`);
-
-            if (result.success) {
-               showMateriModal(result.data, materiId);
-            } else {
-               showAlert(result.error || 'Materi tidak ditemukan', 'error');
-            }
-         } catch (error) {
-            console.error('Error loading materi detail:', error);
-            showAlert('Terjadi kesalahan saat memuat materi', 'error');
-         }
-      }
-
-      function showMateriModal(materi, materiId) {
-         const modal = document.createElement('div');
-         modal.className = 'modal-overlay';
-         modal.innerHTML = `
-      <div class="modal-content">
-         <div class="modal-header">
-            <h3>${materi.judul}</h3>
-            <button class="modal-close" onclick="closeModal()">&times;</button>
-         </div>
-         <div class="modal-body">
-            <p style="color: #666; margin-bottom: 1rem;">
-               <strong>Guru:</strong> ${materi.guru_nama}
-            </p>
-            ${materi.deskripsi ? `
-               <div style="background: #f8f9ff; padding: 1rem; border-radius: 5px; margin-bottom: 1rem;">
-                  <strong>Deskripsi:</strong><br>
-                  ${materi.deskripsi}
-               </div>
-            ` : ''}
-            <div style="line-height: 1.6; color: #333; max-height: 60vh; overflow-y: auto;" id="materiContent">
-               ${materi.konten.replace(/\n/g, '<br>')}
-            </div>
-            <div style="margin-top: 1rem; font-size: 0.8rem; color: #888;">
-               Diperbarui: ${new Date(materi.updated_at || materi.created_at).toLocaleDateString('id-ID')}
-            </div>
-            <div id="readStatus" style="background: #fff3cd; padding: 1rem; border-radius: 5px; margin-top: 1rem; text-align: center; border: 1px solid #ffeaa7;">
-               <small style="color: #856404;">📖 Scroll sampai bawah untuk menandai materi sebagai sudah dibaca</small>
-            </div>
-         </div>
-      </div>
-   `;
-         document.body.appendChild(modal);
-
-         // Track scroll untuk memastikan user benar-benar membaca
-         const materiContent = modal.querySelector('#materiContent');
-         const readStatus = modal.querySelector('#readStatus');
-         let hasScrolledToBottom = false;
-         let isMarkedAsRead = false;
-
-         materiContent.addEventListener('scroll', async function () {
-            const scrollTop = this.scrollTop;
-            const scrollHeight = this.scrollHeight;
-            const clientHeight = this.clientHeight;
-
-            // Jika user scroll mendekati akhir konten (90%) dan belum ditandai sebagai dibaca
-            if (scrollTop + clientHeight >= scrollHeight * 0.9 && !isMarkedAsRead) {
-               hasScrolledToBottom = true;
-               isMarkedAsRead = true;
-
-               // Mark as read via API
-               try {
-                  const readResult = await apiCall(`/siswa/materi/${materiId}/read`, {
-                     method: 'POST'
-                  });
-
-                  if (readResult.success) {
-                     readStatus.innerHTML = '<small style="color: #2d5016;">✅ Materi telah ditandai sebagai sudah dibaca! Progress Anda akan diperbarui.</small>';
-                     readStatus.style.background = '#d4edda';
-                     readStatus.style.borderColor = '#c3e6cb';
-
-                     // Refresh progress immediately
-                     setTimeout(() => {
-                        loadDashboardData();
-                        if (document.getElementById('progress').classList.contains('active')) {
-                           loadProgressDetail();
-                        }
-                     }, 1000);
-                  }
-               } catch (error) {
-                  console.error('Error marking material as read:', error);
-                  readStatus.innerHTML = '<small style="color: #721c24;">❌ Gagal menandai sebagai sudah dibaca</small>';
-                  readStatus.style.background = '#f8d7da';
-                  readStatus.style.borderColor = '#f5c6cb';
-               }
-            }
-         });
-
-         // Also mark as read when modal is closed (if scrolled to bottom)
-         modal.addEventListener('click', function (e) {
-            if (e.target.classList.contains('modal-overlay') || e.target.classList.contains('modal-close')) {
-               if (hasScrolledToBottom && !isMarkedAsRead) {
-                  // Mark as read before closing
-                  markMaterialAsRead(materiId);
-               }
-            }
-         });
-      }
-
-      // Helper function to mark material as read
-      async function markMaterialAsRead(materiId) {
-         try {
-            const result = await apiCall(`/siswa/materi/${materiId}/read`, {
-               method: 'POST'
-            });
-
-            if (result.success) {
-               // Refresh progress
-               setTimeout(() => {
-                  loadDashboardData();
-                  if (document.getElementById('progress').classList.contains('active')) {
-                     loadProgressDetail();
-                  }
-               }, 1000);
-            }
-         } catch (error) {
-            console.error('Error marking material as read:', error);
-         }
-      }
-
-      // Tugas Modal Functions
-      function kerjakanTugas(tugasId) {
-         const tugas = tugasData.find(t => t.id === tugasId);
-         if (tugas) {
-            showTugasModal(tugas, 'kerjakan');
-         }
-      }
-
-      function editJawaban(tugasId) {
-         const tugas = tugasData.find(t => t.id === tugasId);
-         if (tugas) {
-            showTugasModal(tugas, 'edit');
-         }
-      }
-
-      function showTugasModal(tugas, mode) {
-         const modal = document.createElement('div');
-         modal.className = 'modal-overlay';
-         modal.innerHTML = `
-            <div class="modal-content">
-               <div class="modal-header">
-                  <h3>${mode === 'kerjakan' ? 'Kerjakan' : 'Edit'} Tugas: ${tugas.judul}</h3>
-                  <button class="modal-close" onclick="closeModal()">&times;</button>
-               </div>
-               <div class="modal-body">
-                  <p style="color: #666; margin-bottom: 1rem;"><strong>Materi:</strong> ${tugas.materi_judul}</p>
-                  <p style="color: #e74c3c; margin-bottom: 1rem;"><strong>Deadline:</strong> ${tugas.deadline ? new Date(tugas.deadline).toLocaleDateString('id-ID') : '-'}</p>
-                  <div style="background: #f8f9ff; padding: 1rem; border-radius: 5px; margin-bottom: 1rem;">
-                     <strong>Deskripsi Tugas:</strong><br>
-                     ${tugas.deskripsi}
-                  </div>
-                  
-                  <form id="tugasForm">
-                     <div class="form-group">
-                        <label for="tugasJawaban">Jawaban Anda:</label>
-                        <textarea id="tugasJawaban" name="jawaban" placeholder="Masukkan jawaban Anda di sini..." required>${tugas.jawaban || ''}</textarea>
-                     </div>
-                     <div style="text-align: right; margin-top: 1rem;">
-                        <button type="button" onclick="closeModal()" style="margin-right: 10px; background: #95a5a6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 5px; cursor: pointer;">Batal</button>
-                        <button type="submit" class="btn">Simpan Jawaban</button>
-                     </div>
-                  </form>
-               </div>
-            </div>
-         `;
-         document.body.appendChild(modal);
-
-         // Handle form submission
-         document.getElementById('tugasForm').addEventListener('submit', async function (e) {
-            e.preventDefault();
-            const jawaban = document.getElementById('tugasJawaban').value;
-
-            try {
-               const result = await apiCall(`/siswa/tugas/${tugas.id}/submit`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ jawaban })
-               });
-
-               if (result.success) {
-                  showAlert('Jawaban berhasil disimpan!');
-                  closeModal();
-                  loadTugasSaya();
-                  loadDashboardData();
-               } else {
-                  showAlert(result.error || 'Gagal menyimpan jawaban', 'error');
-               }
-            } catch (error) {
-               console.error('Error submitting tugas:', error);
-               showAlert('Terjadi kesalahan saat menyimpan jawaban', 'error');
-            }
-         });
-      }
-
-      function lihatJawaban(tugasId) {
-         const tugas = tugasData.find(t => t.id === tugasId);
-         if (tugas) {
-            const modal = document.createElement('div');
-            modal.className = 'modal-overlay';
-            modal.innerHTML = `
-               <div class="modal-content">
-                  <div class="modal-header">
-                     <h3>Jawaban Tugas: ${tugas.judul}</h3>
-                     <button class="modal-close" onclick="closeModal()">&times;</button>
-                  </div>
-                  <div class="modal-body">
-                     <p style="color: #666; margin-bottom: 1rem;"><strong>Status:</strong> ${tugas.status.replace('_', ' ')}</p>
-                     ${tugas.nilai !== undefined && tugas.nilai !== null ? `<p style="margin-bottom: 1rem;"><span class="nilai-badge">Nilai: ${tugas.nilai}/100</span></p>` : ''}
-                     
-                     <div style="background: #f8f9ff; padding: 1rem; border-radius: 5px; margin-bottom: 1rem;">
-                        <strong>Jawaban Anda:</strong><br>
-                        <div style="margin-top: 0.5rem; line-height: 1.5;">${tugas.jawaban || 'Tidak ada jawaban'}</div>
-                     </div>
-                     
-                     ${tugas.feedback ? `
-                        <div style="background: #fff8e1; padding: 1rem; border-radius: 5px; border-left: 3px solid #ffc107;">
-                           <strong>Feedback Guru:</strong><br>
-                           <div style="margin-top: 0.5rem; line-height: 1.5;">${tugas.feedback}</div>
-                        </div>
-                     ` : ''}
-                  </div>
-               </div>
-            `;
-            document.body.appendChild(modal);
-         }
-      }
-
-      function lihatDetailTugas(tugasId) {
-         const tugas = tugasData.find(t => t.id === tugasId);
-         if (tugas) {
-            const modal = document.createElement('div');
-            modal.className = 'modal-overlay';
-            modal.innerHTML = `
-               <div class="modal-content">
-                  <div class="modal-header">
-                     <h3>Detail Tugas: ${tugas.judul}</h3>
-                     <button class="modal-close" onclick="closeModal()">&times;</button>
-                  </div>
-                  <div class="modal-body">
-                     <div style="margin-bottom: 1rem;">
-                        <strong>Materi:</strong> ${tugas.materi_judul}<br>
-                        <strong>Deadline:</strong> ${tugas.deadline ? new Date(tugas.deadline).toLocaleDateString('id-ID') : '-'}<br>
-                        <strong>Status:</strong> <span class="tugas-status status-${tugas.status}">${tugas.status.replace('_', ' ')}</span>
-                     </div>
-                     
-                     <div style="background: #f8f9ff; padding: 1rem; border-radius: 5px; margin-bottom: 1rem;">
-                        <strong>Deskripsi:</strong><br>
-                        <div style="margin-top: 0.5rem; line-height: 1.5;">${tugas.deskripsi}</div>
-                     </div>
-                     
-                     <div style="text-align: right;">
-                        ${tugas.status === 'belum_dikerjakan' ?
-                  `<button class="btn btn-success" onclick="closeModal(); kerjakanTugas(${tugas.id})">Kerjakan Sekarang</button>` :
-                  `<button class="btn" onclick="closeModal(); lihatJawaban(${tugas.id})">Lihat Jawaban</button>`
-               }
-                     </div>
-                  </div>
-               </div>
-            `;
-            document.body.appendChild(modal);
-         }
-      }
-
-      // Diskusi Functions
       function lihatDiskusiMateri(materiId, materiJudul) {
-         // This will be handled by switching to diskusi section
          showSection('diskusi');
       }
 
@@ -1453,7 +1459,6 @@
       }
 
       async function tambahDiskusiMateri(materiId, materiJudul) {
-         // If no materiId provided, show modal to select materi
          if (!materiId) {
             try {
                const result = await apiCall('/siswa/materi');
@@ -1535,7 +1540,6 @@
          `;
          document.body.appendChild(modal);
 
-         // Handle form submission
          document.getElementById('materiSelectionForm').addEventListener('submit', async function (e) {
             e.preventDefault();
             const materiId = document.getElementById('materiSelect').value;
@@ -1598,18 +1602,15 @@
 
       // Event Listeners
       document.addEventListener('DOMContentLoaded', function () {
-         // Load initial data
          loadDashboardData();
       });
 
-      // Close modal when clicking overlay
       document.addEventListener('click', function (e) {
          if (e.target.classList.contains('modal-overlay')) {
             closeModal();
          }
       });
 
-      // Handle escape key to close modal
       document.addEventListener('keydown', function (e) {
          if (e.key === 'Escape') {
             closeModal();

@@ -79,13 +79,22 @@ export interface DiskusiMateri {
   created_at: Date;
 }
 
+export interface MateriRead {
+  id: number;
+  siswa_id: number;
+  materi_id: number;
+  read_at: Date;
+  duration_seconds?: number;
+  scroll_percentage?: number;
+}
+
 export const users: User[] = [];
 export const kelas: Kelas[] = [];
 export const materi: Materi[] = [];
 export const diskusi: Diskusi[] = [];
 export const tugas: Tugas[] = [];
+export const materiRead: MateriRead[] = [];
 export const submissions: Submission[] = [];
-export const materiRead = new Set<string>();
 export const diskusiMateri: DiskusiMateri[] = [];
 export const loginAttempts = new Map<string, { count: number; unlockTime: number }>();
 
@@ -323,6 +332,29 @@ async function seed() {
         isi: `Pertanyaan atau komentar tentang materi ${i}`,
         parent_id: i > 5 ? Math.floor(Math.random() * 5) + 1 : undefined,
         created_at: new Date(Date.now() - (i * 2 * 60 * 60 * 1000))
+      });
+    }
+
+    let readId = 1;
+    for (let siswaId = 7; siswaId <= 15; siswaId++) {
+      const siswa = users.find(u => u.id === siswaId);
+      if (!siswa) continue;
+
+      const materiForClass = materi.filter(m => m.kelas_id === siswa.kelas_id);
+
+      // Setiap siswa sudah baca 30-70% materi di kelasnya
+      const readCount = Math.floor(materiForClass.length * (0.3 + Math.random() * 0.4));
+      const materiToRead = materiForClass.slice(0, readCount);
+
+      materiToRead.forEach(m => {
+        materiRead.push({
+          id: readId++,
+          siswa_id: siswaId,
+          materi_id: m.id,
+          read_at: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000),
+          duration_seconds: Math.floor(Math.random() * 600) + 60, // 1-10 menit
+          scroll_percentage: Math.floor(Math.random() * 40) + 60 // 60-100%
+        });
       });
     }
   }
