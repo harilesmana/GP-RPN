@@ -15,7 +15,6 @@ export interface User {
   login_count?: number;
   last_activity?: Date;
   bidang?: string;
-  kelas_id?: number;
 }
 
 export interface Kelas {
@@ -32,7 +31,6 @@ export interface Materi {
   deskripsi: string;
   konten: string;
   guru_id: number;
-  kelas_id: number;
   created_at: Date;
   updated_at: Date;
 }
@@ -67,7 +65,6 @@ export interface DiskusiMateri {
   created_at: Date;
 }
 
-
 export interface SiswaTugas {
   id: number;
   siswa_id: number;
@@ -95,6 +92,20 @@ export interface GuruKelas {
   mata_pelajaran: string;
 }
 
+export interface MateriKelas {
+  id: number;
+  materi_id: number;
+  kelas_id: number;
+  created_at: Date;
+}
+
+export interface SiswaKelas {
+  id: number;
+  siswa_id: number;
+  kelas_id: number;
+  created_at: Date;
+}
+
 export const users: User[] = [];
 export const kelas: Kelas[] = [];
 export const materi: Materi[] = [];
@@ -104,14 +115,47 @@ export const diskusiMateri: DiskusiMateri[] = [];
 export const siswaTugas: SiswaTugas[] = [];
 export const siswaMateri: SiswaMateri[] = [];
 export const guruKelas: GuruKelas[] = [];
+export const materiKelas: MateriKelas[] = [];
+export const siswaKelas: SiswaKelas[] = [];
 export const loginAttempts = new Map<string, { count: number; unlockTime: number }>();
 
+export function getKelasForMateri(materiId: number): Kelas[] {
+  return materiKelas
+    .filter(mk => mk.materi_id === materiId)
+    .map(mk => kelas.find(k => k.id === mk.kelas_id))
+    .filter(k => k !== undefined) as Kelas[];
+}
 
-export function getTugasForKelas(kelasId: number) {
-  return tugas.filter(t => {
-    const materiItem = materi.find(m => m.id === t.materi_id);
-    return materiItem && materiItem.kelas_id === kelasId;
-  });
+export function getMateriForKelas(kelasId: number): Materi[] {
+  return materiKelas
+    .filter(mk => mk.kelas_id === kelasId)
+    .map(mk => materi.find(m => m.id === mk.materi_id))
+    .filter(m => m !== undefined) as Materi[];
+}
+
+export function getKelasForSiswa(siswaId: number): Kelas[] {
+  return siswaKelas
+    .filter(sk => sk.siswa_id === siswaId)
+    .map(sk => kelas.find(k => k.id === sk.kelas_id))
+    .filter(k => k !== undefined) as Kelas[];
+}
+
+export function getSiswaForKelas(kelasId: number): User[] {
+  return siswaKelas
+    .filter(sk => sk.kelas_id === kelasId)
+    .map(sk => users.find(u => u.id === sk.siswa_id && u.role === "siswa"))
+    .filter(u => u !== undefined) as User[];
+}
+
+export function getTugasForKelas(kelasId: number): Tugas[] {
+  const materiIds = getMateriForKelas(kelasId).map(m => m.id);
+  return tugas.filter(t => materiIds.includes(t.materi_id));
+}
+
+export function getTugasForSiswa(siswaId: number): Tugas[] {
+  const kelasSiswa = getKelasForSiswa(siswaId);
+  const semuaTugas = kelasSiswa.flatMap(k => getTugasForKelas(k.id));
+  return [...new Map(semuaTugas.map(item => [item.id, item])).values()]; 
 }
 
 export function getSubmissionForSiswa(siswaId: number, tugasId?: number) {
@@ -128,12 +172,13 @@ export function getMateriProgressForSiswa(siswaId: number, materiId?: number) {
   return siswaMateri.filter(sm => sm.siswa_id === siswaId);
 }
 
-export function getTugasWithStatus(siswaId: number, kelasId: number) {
-  const tugasUntukKelas = getTugasForKelas(kelasId);
+export function getTugasWithStatus(siswaId: number): any[] {
+  const semuaTugas = getTugasForSiswa(siswaId);
   
-  return tugasUntukKelas.map(tugasItem => {
+  return semuaTugas.map(tugasItem => {
     const submission = getSubmissionForSiswa(siswaId, tugasItem.id);
     const materiItem = materi.find(m => m.id === tugasItem.materi_id);
+    const kelasMateri = getKelasForMateri(tugasItem.materi_id);
     
     return {
       ...tugasItem,
@@ -143,9 +188,32 @@ export function getTugasWithStatus(siswaId: number, kelasId: number) {
       jawaban: submission?.jawaban,
       submitted_at: submission?.submitted_at,
       graded_at: submission?.graded_at,
-      materi_judul: materiItem?.judul || "Tidak diketahui"
+      materi_judul: materiItem?.judul || "Tidak diketahui",
+      kelas: kelasMateri.map(k => k.nama).join(", ")
     };
   });
+}
+
+export function isSiswaInKelas(siswaId: number, kelasId: number): boolean {
+  return siswaKelas.some(sk => sk.siswa_id === siswaId && sk.kelas_id === kelasId);
+}
+
+export function isMateriInKelas(materiId: number, kelasId: number): boolean {
+  return materiKelas.some(mk => mk.materi_id === materiId && mk.kelas_id === kelasId);
+}
+
+export function getGuruForKelas(kelasId: number): User[] {
+  return guruKelas
+    .filter(gk => gk.kelas_id === kelasId)
+    .map(gk => users.find(u => u.id === gk.guru_id))
+    .filter(u => u !== undefined) as User[];
+}
+
+export function getKelasForGuru(guruId: number): Kelas[] {
+  return guruKelas
+    .filter(gk => gk.guru_id === guruId)
+    .map(gk => kelas.find(k => k.id === gk.kelas_id))
+    .filter(k => k !== undefined) as Kelas[];
 }
 
 async function seed() {
@@ -175,7 +243,8 @@ async function seed() {
       { id: 6, nama: "Wiranto, S.Pd", email: "guru5@example.com", bidang: "Olahraga" }
     ];
     
-    guruData.forEach((guru, index) => {
+    for (const guru of guruData) {
+      const index = guruData.indexOf(guru);
       users.push({
         ...guru,
         password_hash: await hashPassword("123456"),
@@ -187,7 +256,7 @@ async function seed() {
         login_count: Math.floor(Math.random() * 20) + 1,
         last_activity: new Date(Date.now() - (index + 1) * 24 * 60 * 60 * 1000)
       });
-    });
+    }
     
     
     for (let i = 7; i <= 19; i++) {
@@ -204,8 +273,7 @@ async function seed() {
         created_at: now,
         last_login: lastLogin,
         login_count: Math.floor(Math.random() * 20) + 1,
-        last_activity: lastLogin,
-        kelas_id: Math.floor((i-7) / 4) + 1
+        last_activity: lastLogin
       });
     }
     
@@ -224,7 +292,6 @@ async function seed() {
         deskripsi: `Deskripsi materi pembelajaran ${i}`,
         konten: `Konten lengkap materi pembelajaran ${i}. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.`,
         guru_id: Math.floor(Math.random() * 5) + 2,
-        kelas_id: Math.floor(Math.random() * 3) + 1,
         created_at: new Date(Date.now() - i * 24 * 60 * 60 * 1000),
         updated_at: new Date(Date.now() - i * 24 * 60 * 60 * 1000)
       });
@@ -236,8 +303,41 @@ async function seed() {
       { id: 2, guru_id: 3, kelas_id: 2, mata_pelajaran: "Bahasa Indonesia" },
       { id: 3, guru_id: 4, kelas_id: 3, mata_pelajaran: "IPA" },
       { id: 4, guru_id: 5, kelas_id: 1, mata_pelajaran: "IPS" },
-      { id: 5, guru_id: 6, kelas_id: 2, mata_pelajaran: "Olahraga" }
+      { id: 5, guru_id: 6, kelas_id: 2, mata_pelajaran: "Olahraga" },
+      { id: 6, guru_id: 2, kelas_id: 3, mata_pelajaran: "Matematika Lanjutan" }
     );
+    
+    
+    for (let i = 1; i <= 10; i++) {
+      const jumlahKelas = Math.floor(Math.random() * 3) + 1;
+      const kelasIds = Array.from({ length: jumlahKelas }, () => Math.floor(Math.random() * 3) + 1);
+      const uniqueKelasIds = [...new Set(kelasIds)];
+      
+      uniqueKelasIds.forEach(kelasId => {
+        materiKelas.push({
+          id: materiKelas.length + 1,
+          materi_id: i,
+          kelas_id: kelasId,
+          created_at: new Date()
+        });
+      });
+    }
+    
+    
+    for (let i = 7; i <= 19; i++) {
+      const jumlahKelas = Math.floor(Math.random() * 2) + 1;
+      const kelasIds = Array.from({ length: jumlahKelas }, () => Math.floor(Math.random() * 3) + 1);
+      const uniqueKelasIds = [...new Set(kelasIds)];
+      
+      uniqueKelasIds.forEach(kelasId => {
+        siswaKelas.push({
+          id: siswaKelas.length + 1,
+          siswa_id: i,
+          kelas_id: kelasId,
+          created_at: new Date()
+        });
+      });
+    }
     
     
     for (let i = 1; i <= 5; i++) {
@@ -325,6 +425,7 @@ async function seed() {
     console.log("Database seeded successfully!");
     console.log(`Users: ${users.length}, Materi: ${materi.length}, Tugas: ${tugas.length}`);
     console.log(`SiswaTugas: ${siswaTugas.length}, SiswaMateri: ${siswaMateri.length}`);
+    console.log(`MateriKelas: ${materiKelas.length}, SiswaKelas: ${siswaKelas.length}`);
   }
 }
 
