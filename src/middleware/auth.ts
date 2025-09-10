@@ -15,7 +15,6 @@ export async function authMiddleware({ cookie, set, request }: Context) {
     return { user: null };
   }
   
-  
   const userData = users.find(u => u.id === data.userId);
   
   if (!userData) {
@@ -29,8 +28,7 @@ export async function authMiddleware({ cookie, set, request }: Context) {
       nama: userData.nama,
       email: userData.email,
       role: data.role,
-      bidang: userData.bidang,
-      kelas_id: userData.kelas_id
+      bidang: userData.bidang
     } 
   };
 }
