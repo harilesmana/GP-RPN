@@ -9,6 +9,10 @@ import { dashboardRoutes } from "./routes/dashboard";
 import { kepsekRoutes } from "./routes/kepsek";
 import { guruRoutes } from "./routes/guru";
 import { siswaRoutes } from "./routes/siswa";
+import { initializeDatabase } from "./db";
+
+
+initializeDatabase();
 
 const app = new Elysia()
   .use(cors())
