@@ -1,6 +1,6 @@
 import { Elysia } from "elysia";
 import ejs from "ejs";
-import { users, loginAttempts } from "../db";
+import { getUsers, loginAttempts } from "../db";
 import { verifyPassword, hashPassword } from "../utils/hash";
 import { signSession } from "../utils/session";
 import { loginSchema, registerSchema, inputValidation } from "../middleware/inputValidation";
@@ -35,69 +35,72 @@ export const authRoutes = new Elysia()
   })
 
   .post("/register", async ({ request, set }) => {
-  const formData = await request.formData();
-  const body: Record<string, string> = {};
+    const formData = await request.formData();
+    const body: Record<string, string> = {};
 
-  for (const [key, value] of formData.entries()) {
-    body[key] = String(value);
-  }
+    for (const [key, value] of formData.entries()) {
+      body[key] = String(value);
+    }
 
-  const parsed = registerSchema.safeParse(body);
-  if (!parsed.success) {
-    set.status = 400;
-    const errorMessage = parsed.error.issues.map((i) => i.message).join(", ");
-    
-    set.status = 302;
-    set.headers.Location = `/register?error=${encodeURIComponent(errorMessage)}&formData=${encodeURIComponent(JSON.stringify(body))}`;
-    return;
-  }
+    const parsed = registerSchema.safeParse(body);
+    if (!parsed.success) {
+      set.status = 400;
+      const errorMessage = parsed.error.issues.map((i) => i.message).join(", ");
+      
+      set.status = 302;
+      set.headers.Location = `/register?error=${encodeURIComponent(errorMessage)}&formData=${encodeURIComponent(JSON.stringify(body))}`;
+      return;
+    }
 
-  const { email, password, nama, confirmPassword, kelas_id } = parsed.data;
+    const { email, password, nama, confirmPassword, kelas_id } = parsed.data;
 
-  if (password !== confirmPassword) {
-    set.status = 302;
-    set.headers.Location = `/register?error=${encodeURIComponent("Password dan konfirmasi password tidak cocok")}&formData=${encodeURIComponent(JSON.stringify(body))}`;
-    return;
-  }
+    if (password !== confirmPassword) {
+      set.status = 302;
+      set.headers.Location = `/register?error=${encodeURIComponent("Password dan konfirmasi password tidak cocok")}&formData=${encodeURIComponent(JSON.stringify(body))}`;
+      return;
+    }
 
-  const existingUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
-  if (existingUser) {
-    set.status = 302;
-    set.headers.Location = `/register?error=${encodeURIComponent("Email sudah terdaftar")}&formData=${encodeURIComponent(JSON.stringify(body))}`;
-    return;
-  }
+    const users = await getUsers();
+    const existingUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+    if (existingUser) {
+      set.status = 302;
+      set.headers.Location = `/register?error=${encodeURIComponent("Email sudah terdaftar")}&formData=${encodeURIComponent(JSON.stringify(body))}`;
+      return;
+    }
 
-  try {
-    const passwordHash = await hashPassword(password);
-    const now = new Date();
+    try {
+      const passwordHash = await hashPassword(password);
+      const now = new Date();
 
-    const newUser = {
-      id: users.length + 1,
-      nama: nama.trim(),
-      email: email.toLowerCase().trim(),
-      password_hash: passwordHash,
-      role: "siswa" as Role,
-      status: "active" as const,
-      kelas_id: kelas_id || 1, // Default ke kelas 1 jika tidak dipilih
-      created_at: now,
-      last_login: now,
-      login_count: 0,
-      last_activity: now
-    };
+      
+      const { query } = await import("../db");
+      await query(
+        `INSERT INTO users (nama, email, password_hash, role, status, created_at, last_login, login_count, last_activity) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          nama.trim(),
+          email.toLowerCase().trim(),
+          passwordHash,
+          "siswa",
+          "active",
+          now,
+          now,
+          0,
+          now
+        ]
+      );
 
-    users.push(newUser);
+      set.status = 302;
+      set.headers.Location = "/login?message=Registrasi berhasil. Silakan login.";
+      return;
 
-    set.status = 302;
-    set.headers.Location = "/login?message=Registrasi berhasil. Silakan login.";
-    return;
-
-  } catch (error) {
-    console.error("Registration error:", error);
-    set.status = 500;
-    set.headers.Location = `/register?error=${encodeURIComponent("Terjadi kesalahan server")}&formData=${encodeURIComponent(JSON.stringify(body))}`;
-    return;
-  }
-})
+    } catch (error) {
+      console.error("Registration error:", error);
+      set.status = 500;
+      set.headers.Location = `/register?error=${encodeURIComponent("Terjadi kesalahan server")}&formData=${encodeURIComponent(JSON.stringify(body))}`;
+      return;
+    }
+  })
 
   .post("/login", async ({ request, set, cookie }) => {
     const formData = await request.formData();
@@ -125,6 +128,7 @@ export const authRoutes = new Elysia()
       return `Akun dikunci sementara. Coba lagi dalam ${sisa} detik.`;
     }
 
+    const users = await getUsers();
     const user = users.find(
       (u) => u.email.toLowerCase() === email && u.status === "active"
     );
@@ -142,6 +146,13 @@ export const authRoutes = new Elysia()
     }
 
     loginAttempts.delete(key);
+
+    
+    const { query } = await import("../db");
+    await query(
+      "UPDATE users SET last_login = ?, login_count = login_count + 1 WHERE id = ?",
+      [new Date(), user.id]
+    );
 
     user.last_login = new Date();
 
